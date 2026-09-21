@@ -1,0 +1,17 @@
+{
+  "name": "@platform/spike-e-images",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "SPIKE E (disposable): image variant measurements and image-delivery cost model. Not product code.",
+  "scripts": {
+    "spike:measure": "node --experimental-strip-types scripts/measure-variants.ts",
+    "spike:cost": "node --experimental-strip-types scripts/cost-model.ts"
+  },
+  "dependencies": {
+    "sharp": "0.35.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0"
+  }
+}

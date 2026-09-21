@@ -1,0 +1,33 @@
+# Privacy Inventory (draft for counsel review)
+
+**Status:** engineering draft. **Not legal advice.** India's DPDP Act 2023 and GDPR-style rights are the assumed baseline (SEC-15); the Owner's counsel must confirm applicability, roles and notices before beta.
+
+## Roles (documented chain)
+
+`Client business (controller of its visitors' data) -> Freelancer/agency (processor) -> Platform (sub-processor)`. For **account and billing data of freelancers and creators** the Platform is the controller. A DPA is needed at each link (D12).
+
+## Personal data processed
+
+| Data subject              | Data                                                                       | Purpose                                | Stored in                  | Retention (proposed)                               | Rights tooling                 |
+| ------------------------- | -------------------------------------------------------------------------- | -------------------------------------- | -------------------------- | -------------------------------------------------- | ------------------------------ |
+| Freelancer/creator (user) | name, email, auth data, IP/UA in audit log, billing/KYC refs               | account, security, billing             | Postgres, payment provider | account life + legal minimum for financial records | export, delete (FR-WS-05)      |
+| Client business owner     | name, phone, email, business details, uploaded logo/photos                 | onboarding, portal, lead notifications | Postgres, R2               | project life                                       | export (FR-EXP-06), delete     |
+| Site visitor              | lead form fields (name, phone, email, message), IP hash, UTM, click events | deliver enquiries to the business      | Postgres                   | per-project setting, default TBD by counsel        | delete per lead, retention job |
+| Chatbot visitor (Phase 5) | chat messages                                                              | answer questions                       | Postgres (short retention) | short                                              | delete                         |
+
+## Cross-border processors (record before use; none engaged in Phase 0)
+
+| Processor                              | Data                                                     | Region                     | Note                                                                                   |
+| -------------------------------------- | -------------------------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------- |
+| Supabase (Postgres)                    | all tenant data                                          | Mumbai ap-south-1          | primary                                                                                |
+| Vercel                                 | request logs, rendered content                           | `bom1` compute; CDN global | edge caches published content worldwide                                                |
+| Cloudflare (R2/CDN)                    | images, asset requests                                   | global CDN                 |                                                                                        |
+| Upstash (Redis)                        | cache keys, rate-limit counters (no PII values intended) | ap-south-1 to confirm      |                                                                                        |
+| Anthropic                              | prompts with business content; lead text for triage      | outside India              | disclose; redact PII where possible; no training on API data per vendor terms (verify) |
+| Inngest, Sentry                        | event/error payloads                                     | vendor                     | scrub PII in payloads                                                                  |
+| Resend/Postmark, WhatsApp/SMS provider | recipient contact + message                              | vendor                     |                                                                                        |
+| Razorpay                               | payer/payee details                                      | India                      | KYC by provider                                                                        |
+
+## Open items for counsel
+
+DPDP notice and consent wording for visitor forms; whether freelancers need a data-processing addendum accepted at signup; retention defaults for leads; cookie/consent for sites where a freelancer adds trackers (FR-INT-05); cross-border transfer position for Anthropic; grievance officer requirements.

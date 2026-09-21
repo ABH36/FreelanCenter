@@ -1,0 +1,18 @@
+{
+  "name": "@platform/ai",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Prompts, model router, patch pipeline, credit ledger and evals",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0"
+  }
+}

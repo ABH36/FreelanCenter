@@ -1,0 +1,129 @@
+{
+  "generatedAt": "2026-09-21T05:12:22.127Z",
+  "basis": "MODEL: workload figures are assumptions; prices from vendor pages read 2026-09-21; Vercel bom1 exact rate not read (range shown)",
+  "assumptions": {
+    "sites": 25000,
+    "imagesPerSite": 15,
+    "originalBytes": 3000000,
+    "widthsUsed": 3,
+    "variantsPreGenerated": 8,
+    "imageRequestsPerVisit": 8,
+    "cdnMissRate": 0.05,
+    "monthlyUploadShare": 0.08,
+    "refreshesPerMonth": 1,
+    "avgDeliveredBytes": 37677,
+    "variantSetBytes": 261372,
+    "encodeSecondsPerImage": 6.001,
+    "usedMeasuredVariants": true
+  },
+  "prices": {
+    "vercel": {
+      "fastDataTransferPerGB": [
+        0.15,
+        0.35
+      ],
+      "edgeRequestsPerM": [
+        2,
+        3.2
+      ],
+      "imgTransformPer1K": [
+        0.05,
+        0.0812
+      ],
+      "imgCacheReadPerM": [
+        0.4,
+        0.64
+      ],
+      "imgCacheWritePerM": [
+        4,
+        6.4
+      ]
+    },
+    "r2": {
+      "storagePerGBMonth": 0.015,
+      "classAPerM": 4.5,
+      "classBPerM": 0.36,
+      "freeClassBPerMonth": 10000000,
+      "freeClassAPerMonth": 1000000,
+      "freeGB": 10
+    },
+    "cfImages": {
+      "transformPer1K": 0.5,
+      "freeTransforms": 5000
+    }
+  },
+  "scenarios": {
+    "low": {
+      "visitsPerSiteMonth": 500,
+      "imageRequestsPerMonth": 100000000,
+      "gbDeliveredPerMonth": 3768,
+      "uniqueTransformsPerMonth": 1125000,
+      "A_vercelOptimizer_usdPerMonth": {
+        "low": 853.9,
+        "high": 1782.04
+      },
+      "B_r2PreGenerated_usdPerMonth": 18.2,
+      "C_cloudflareTransformations_usdPerMonth": 576.73,
+      "B_oneTimeInitialGenerationUsd": 15.19,
+      "B_encodeCpuHoursPerMonthSteadyState": 50,
+      "perSitePerMonthUsd": {
+        "A": {
+          "low": 0.03,
+          "high": 0.07
+        },
+        "B": 0,
+        "C": 0.02
+      }
+    },
+    "base": {
+      "visitsPerSiteMonth": 1500,
+      "imageRequestsPerMonth": 300000000,
+      "gbDeliveredPerMonth": 11303,
+      "uniqueTransformsPerMonth": 1125000,
+      "A_vercelOptimizer_usdPerMonth": {
+        "low": 2404.22,
+        "high": 5091.44
+      },
+      "B_r2PreGenerated_usdPerMonth": 20,
+      "C_cloudflareTransformations_usdPerMonth": 578.52,
+      "B_oneTimeInitialGenerationUsd": 15.19,
+      "B_encodeCpuHoursPerMonthSteadyState": 50,
+      "perSitePerMonthUsd": {
+        "A": {
+          "low": 0.1,
+          "high": 0.2
+        },
+        "B": 0,
+        "C": 0.02
+      }
+    },
+    "high": {
+      "visitsPerSiteMonth": 5000,
+      "imageRequestsPerMonth": 1000000000,
+      "gbDeliveredPerMonth": 37677,
+      "uniqueTransformsPerMonth": 1125000,
+      "A_vercelOptimizer_usdPerMonth": {
+        "low": 7830.3,
+        "high": 16674.3
+      },
+      "B_r2PreGenerated_usdPerMonth": 32.6,
+      "C_cloudflareTransformations_usdPerMonth": 591.13,
+      "B_oneTimeInitialGenerationUsd": 15.19,
+      "B_encodeCpuHoursPerMonthSteadyState": 50,
+      "perSitePerMonthUsd": {
+        "A": {
+          "low": 0.31,
+          "high": 0.67
+        },
+        "B": 0,
+        "C": 0.02
+      }
+    }
+  },
+  "notEstimated": [
+    "HTML/JS/CSS delivery (identical in all options)",
+    "Vercel Pro seat/base fee",
+    "Cloudflare plan fee for the asset zone",
+    "encode compute price (hours reported instead)"
+  ]
+}

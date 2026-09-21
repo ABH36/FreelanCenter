@@ -1,0 +1,33 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+.next/
+dist/
+coverage/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+
+# env and secrets (SEC-05: never commit)
+.env
+.env.*
+!.env.example
+
+# generated
+**/generated/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# spike artefacts that must not be committed
+spikes/**/.data/
+spikes/**/*.local.json
+
+# third-party sample photo for Spike E (download command is in docs/spikes/SPIKE_E_IMAGES.md)
+spikes/spike-e-images/assets/

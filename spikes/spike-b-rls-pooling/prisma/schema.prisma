@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Workspace {
+  id       String    @id @db.Uuid
+  name     String
+  projects Project[]
+
+  @@map("workspace")
+}
+
+model Project {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  name        String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  leads       Lead[]
+  domains     Domain[]
+
+  @@unique([workspaceId, id])
+  @@map("project")
+}
+
+model Lead {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String  @map("workspace_id") @db.Uuid
+  projectId   String  @map("project_id") @db.Uuid
+  name        String
+  project     Project @relation(fields: [workspaceId, projectId], references: [workspaceId, id])
+
+  @@map("lead")
+}
+
+model Domain {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String  @map("workspace_id") @db.Uuid
+  projectId   String  @map("project_id") @db.Uuid
+  hostname    String  @unique
+  project     Project @relation(fields: [workspaceId, projectId], references: [workspaceId, id])
+
+  @@map("domain")
+}

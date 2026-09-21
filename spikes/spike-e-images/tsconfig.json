@@ -1,0 +1,5 @@
+{
+  "extends": "../../packages/config/tsconfig/library.json",
+  "compilerOptions": { "allowImportingTsExtensions": true },
+  "include": ["scripts"]
+}

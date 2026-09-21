@@ -1,0 +1,18 @@
+{
+  "name": "@platform/jobs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Durable background job functions (Inngest)",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0"
+  }
+}

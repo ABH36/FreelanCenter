@@ -1,0 +1,23 @@
+# Data Classification
+
+| Class            | Definition                                      | Handling                                                                                                           |
+| ---------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **Restricted**   | Compromise causes direct harm or legal exposure | Envelope-encrypted at rest, never logged, access audited, least privilege, redacted from prompts and error reports |
+| **Confidential** | Tenant business data or personal data           | Protected by RLS, TLS everywhere, retention policy, export/delete tooling                                          |
+| **Internal**     | Operational data                                | Access limited to staff/admin roles                                                                                |
+| **Public**       | Intended for visitors                           | Published SiteVersion content only                                                                                 |
+
+| Data                                                                              | Class                                          | Where                                     | Notes                                                                  |
+| --------------------------------------------------------------------------------- | ---------------------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------- |
+| Passwords (hashes), MFA secrets, session tokens, reset/magic-link tokens (hashed) | Restricted                                     | Postgres (auth tables)                    | Slow salted hashes; tokens stored only as hashes; MFA secret encrypted |
+| SMTP/WhatsApp/GitHub/Vercel/payment credentials                                   | Restricted                                     | `Integration.encrypted_credentials`       | AES-256-GCM envelope, key version, write-only in UI                    |
+| Platform API keys (Anthropic, Razorpay, R2, etc.)                                 | Restricted                                     | Environment/secret manager only           | Never in code, logs, client bundles; secret scanning in CI             |
+| Leads (name, phone, email, message)                                               | Confidential (personal data)                   | `Lead` (RLS)                              | Retention per project; AI triage sees content: see privacy inventory   |
+| Client contact details, onboarding uploads                                        | Confidential                                   | `ClientContact`, `Asset`                  | EXIF stripped; signed URLs                                             |
+| Drafts, ChangeSets, review comments                                               | Confidential                                   | RLS tables                                |                                                                        |
+| Billing records, orders, payouts                                                  | Confidential (financial)                       | `Subscription`, `Order`, `CreatorAccount` | Financial retention rules override erasure (anonymise)                 |
+| Audit log                                                                         | Internal/Confidential                          | `AuditLog` append-only                    | Never contains secrets or full PII                                     |
+| AI job metadata, ledger                                                           | Internal                                       | `AiJob`, `AiCreditLedger`                 | Prompts/responses retained only briefly, redacted                      |
+| Published SiteVersion                                                             | Public                                         | Postgres + CDN                            | Contains business name/phone/address the client chose to publish       |
+| Marketplace template definitions                                                  | Confidential until listed; licensed afterwards | `TemplateVersion`                         | Export gated by licence (FR-MKT-11)                                    |
+| Analytics events                                                                  | Internal (aggregated)                          |                                           | Cookieless, IP hashed                                                  |

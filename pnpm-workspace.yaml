@@ -1,0 +1,18 @@
+packages:
+  - apps/*
+  - packages/*
+  - spikes/*
+
+# SEC-13: dependency install scripts are denied by default (pnpm 11). Anything listed here has been
+# reviewed and is allowed to run its build/postinstall step. Add entries only with a note in the PR.
+allowBuilds:
+  # Prisma CLI + engines: verify/fetch the schema-engine binary used by `prisma migrate`.
+  '@prisma/engines': true
+  prisma: true
+
+# Security overrides for transitive dependencies of the Prisma CLI (found by `pnpm audit` in Phase 0).
+# Neither package is used by our runtime code (we use PostgreSQL; mysql2 is MySQL tooling inside the CLI), but
+# the audit gate is strict, so pin patched versions. Remove when Prisma ships patched dependencies itself.
+overrides:
+  mysql2: '>=3.23.1' # GHSA-3f6p-5ww8-9rcr (high), GHSA-rgwj-5xj2-c3m3 (moderate)
+  deepmerge-ts: '>=8.0.0' # stack exhaustion on recursive graphs (high)

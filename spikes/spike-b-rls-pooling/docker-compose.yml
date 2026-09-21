@@ -1,0 +1,33 @@
+# Spike B: Postgres 17 + PgBouncer in TRANSACTION mode (the mode Neon and Supabase poolers use).
+# Ports are deliberately unusual so they do not clash with a developer Postgres.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: spike
+    ports:
+      - '55432:5432'
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d spike']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - '56432:5432'
+    volumes:
+      - ./db/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./db/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -p 5432']
+      interval: 2s
+      timeout: 3s
+      retries: 30

@@ -1,0 +1,19 @@
+{
+  "name": "@platform/spike-c-ai-patch",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "SPIKE C (disposable): prompt-to-patch pipeline harness with Zod validation and a repair loop. Not product code.",
+  "scripts": {
+    "spike:test": "vitest run",
+    "spike:live": "node --experimental-strip-types scripts/run-live.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "4.0.58",
+    "ai": "7.0.107",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0"
+  }
+}

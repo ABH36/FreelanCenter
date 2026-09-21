@@ -1,0 +1,16 @@
+/*
+ * Design-token skeleton (SRS 5.2 / FR-TPL-04).
+ * Tenant themes override these CSS variables at runtime from the SiteConfig `theme` block;
+ * nothing here is compiled per tenant. Values are neutral platform defaults.
+ */
+:root {
+  --color-primary: #2563eb;
+  --color-secondary: #111827;
+  --color-accent: #f59e0b;
+  --color-background: #ffffff;
+  --color-surface: #f8fafc;
+  --color-text: #0f172a;
+  --radius-base: 0.5rem;
+  --font-heading: system-ui, sans-serif;
+  --font-body: system-ui, sans-serif;
+}

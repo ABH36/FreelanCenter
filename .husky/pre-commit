@@ -1,0 +1,2 @@
+pnpm sync-plan && git add DEVELOPMENT_PLAN.md
+pnpm lint-staged

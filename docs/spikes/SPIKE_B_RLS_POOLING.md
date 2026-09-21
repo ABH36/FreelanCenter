@@ -1,0 +1,59 @@
+# Spike B - Prisma 7 + Postgres RLS + transaction-mode pooler
+
+**Status: EXECUTED (locally). Not yet verified against Supabase.**
+Code: [spikes/spike-b-rls-pooling](../../spikes/spike-b-rls-pooling) · Raw results: `spikes/spike-b-rls-pooling/results/spike-b-results.json`
+Reproduce: `cd spikes/spike-b-rls-pooling && pnpm spike:up && pnpm spike:generate && pnpm spike:test` (needs Docker).
+
+## Question
+
+SRS 5.3 says tenant isolation can be enforced with PostgreSQL RLS driven by a transaction-local setting, behind a transaction-mode pooler, with Prisma. The Architect review (F-02) disputed that Prisma can pin a connection and asked for Session-mode pooling or an HTTP driver. Which is true?
+
+## Setup (what was actually run)
+
+| Item     | Value                                                                                                            |
+| -------- | ---------------------------------------------------------------------------------------------------------------- |
+| Postgres | 17.11 (docker `postgres:17-alpine`)                                                                              |
+| Pooler   | PgBouncer **1.25.2**, `pool_mode = transaction`, `pool_size = 2` (and a `pool_size = 1` alias for the leak demo) |
+| ORM      | Prisma **7.10.0** with `@prisma/adapter-pg` (driver adapter; no query-engine binary)                             |
+| Roles    | `migrator` (owns tables), `app_user`, `app_public`, `svc_definer` - **none** is superuser or BYPASSRLS           |
+| Tables   | `workspace`, `project`, `lead`, `domain`; RLS enabled **and forced**; composite FKs `(workspace_id, project_id)` |
+| Tests    | 16 (vitest). Suite run **3 times on a fresh volume: 16/16 each time**                                            |
+
+## Results
+
+| #   | Claim                                                                                                           | Result                       | Evidence                                                                                                                                                                                       |
+| --- | --------------------------------------------------------------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Tenant A/B see only their own rows, including nested relation loads                                             | **Confirmed**                | counts 3/2 projects, 5/4 leads; nested `include` returns no foreign rows                                                                                                                       |
+| 2   | No tenant context => zero rows (fail-closed), also on re-used pooled connections                                | **Confirmed**                | 20/20 no-context counts = 0; raw SQL on the extended client also 0                                                                                                                             |
+| 3   | WITH CHECK blocks writes into another workspace and moving rows across workspaces                               | **Confirmed**                | Postgres `42501 new row violates row-level security policy` for both                                                                                                                           |
+| 4   | Cross-tenant UPDATE/DELETE by id affects nothing                                                                | **Confirmed**                | 0 updated, 0 deleted, victim row unchanged                                                                                                                                                     |
+| 5   | Composite FK stops a lead pointing at another workspace's project                                               | **Confirmed**                | `Foreign key constraint violated: lead_workspace_id_project_id_fkey`                                                                                                                           |
+| 6   | FORCE RLS also constrains the table owner                                                                       | **Confirmed**                | `migrator` with no context sees 0 rows                                                                                                                                                         |
+| 7   | **F-02: an interactive `$transaction` does NOT keep one connection**                                            | **Refuted**                  | inside one interactive tx the backend PID was identical (102 = 102) and `app.workspace_id` was still set for the second statement, through transaction-mode PgBouncer                          |
+| 8   | 400 concurrent operations (300 extension reads with relation loads + 100 interactive transactions) leak nothing | **Confirmed (with tuning)**  | 0 leaks, 0 errors with `transactionOptions {maxWait 20s, timeout 20s}`                                                                                                                         |
+| 9   | Anti-pattern: session-level `SET` leaks across clients                                                          | **Confirmed - and detected** | a different client with no context saw 3 rows of workspace A; the "no context => zero rows" check flipped to FAIL, i.e. the isolation suite catches this bug                                   |
+| 10  | Visitor path via SECURITY DEFINER functions only                                                                | **Confirmed**                | `app_public` gets `permission denied` on all four tables; `resolve_host` and `insert_lead` work; `insert_lead` derives `workspace_id` from the project and returns NULL for an unknown project |
+
+## Findings that change the SRS / plan
+
+| ID                     | Finding                                                                                                                                                                                                                                                                                               | Impact                                                                                                                                                                        |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| B-1 (**SRS bug**)      | The policy form in SRS 5.3, `current_setting('app.workspace_id', true)::uuid`, **errors on re-used pooled connections**: after any transaction-local `set_config` the pooled connection reports `''`, and `''::uuid` raises `22P02 invalid input syntax for type uuid: ""`. 20 of 20 attempts failed. | Policies MUST use `NULLIF(current_setting('app.workspace_id', true), '')::uuid`. SRS 5.3 corrected in v1.2.                                                                   |
+| B-2                    | Interactive `$transaction` and the `$allModels.$allOperations` extension (batch transaction) both work behind a transaction-mode pooler. PgBouncer >= 1.21 needs no `pgbouncer=true`.                                                                                                                 | Architect finding F-02 not supported by evidence; Session-mode pooling is unnecessary.                                                                                        |
+| B-3 (**backpressure**) | With Prisma defaults, a 300-wide burst made **156 of 300 requests fail** with `Transaction API error: Unable to start a transaction in the given time` (client-side pool of 10 + `maxWait` 2 s).                                                                                                      | Phase 1 must set `transactionOptions`, size the pool, and bound concurrency (queue) in the data-access layer. Not a leak, but an availability risk.                           |
+| B-4 (**overhead**)     | The set_config wrapper adds round trips: p50 **8.05 ms vs 2.48 ms**, p95 **42.9 ms vs 5.1 ms** (local Docker, 300 sequential `findMany take 5`).                                                                                                                                                      | Use ONE request-scoped `withWorkspace(...)` transaction per request for multi-query work; use the per-query extension only for convenience. Re-measure with real network RTT. |
+| B-5                    | Raw SQL (`$queryRaw`) on the extended client is **not** intercepted and runs with no context (returns 0 rows).                                                                                                                                                                                        | Fail-closed, but developers must use `withWorkspace` for raw SQL. Document and lint.                                                                                          |
+| B-6 (**design**)       | `SECURITY DEFINER` owner role needs **no** BYPASSRLS/superuser: `svc_definer` (NOBYPASSRLS) plus explicit narrow policies (`definer_read`, `definer_insert`, `definer_returning`) works, and is portable to managed Postgres where superuser is unavailable.                                          | Adopt as the Phase 1 pattern.                                                                                                                                                 |
+| B-7 (**design**)       | `GRANT svc_definer TO migrator` (default INHERIT) let `migrator` inherit the definer policies and read every tenant's rows (found by test 6: saw 5 project rows). `WITH INHERIT FALSE, SET TRUE` fixes it.                                                                                            | Migration role setup MUST use `INHERIT FALSE`.                                                                                                                                |
+| B-8                    | `ALTER FUNCTION ... OWNER TO svc_definer` needs the new owner to hold `CREATE` on the schema during the transfer; `INSERT ... RETURNING id` needs `SELECT (id)` on the table.                                                                                                                         | Encode in the Phase 1 migration template; grant/revoke around the ownership change.                                                                                           |
+
+## Limits of this evidence (read before approving)
+
+1. **PgBouncer, not Supavisor.** Local PgBouncer 1.25.2 is not Supabase's pooler. Supabase's shared pooler (Supavisor, port 6543) has had prepared-statement caveats; Supabase also restricts roles (no superuser). **Phase 1, task 1: re-run this exact suite against a real Supabase project (ap-south-1) through both poolers** before any product schema is written.
+2. Latency numbers are localhost Docker; they show relative overhead, not production latency.
+3. Single Postgres node, 2-connection pool; no failover behaviour tested.
+4. `pg_backend_pid` pinning proves one connection inside one transaction, not behaviour under pooler restarts.
+
+## Verdict
+
+SRS 5.3's architecture is **sound**, with one **incorrect policy expression** (B-1), two **design hazards** now fixed (B-7, B-8) and one **operational requirement** (B-3). The isolation-test idea works and catches the anti-pattern (finding 9).

@@ -1,0 +1,144 @@
+{
+  "startedAt": "2026-09-21T05:27:51.373Z",
+  "roles": [
+    {
+      "rolname": "app_public",
+      "rolsuper": false,
+      "rolbypassrls": false
+    },
+    {
+      "rolname": "app_user",
+      "rolsuper": false,
+      "rolbypassrls": false
+    },
+    {
+      "rolname": "migrator",
+      "rolsuper": false,
+      "rolbypassrls": false
+    },
+    {
+      "rolname": "svc_definer",
+      "rolsuper": false,
+      "rolbypassrls": false
+    }
+  ],
+  "tables": [
+    {
+      "relname": "domain",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "lead",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "project",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    },
+    {
+      "relname": "workspace",
+      "relrowsecurity": true,
+      "relforcerowsecurity": true
+    }
+  ],
+  "noContextCounts": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "rawQueryOnExtendedClientCount": 0,
+  "naiveCastErrors": {
+    "errorsOutOf20": 20,
+    "firstMessage": "\nInvalid `prisma.$queryRawUnsafe()` invocation:\n\n\nRaw query failed. Code: `22P02`. Message: `invalid input syntax for type uuid: \"\"`"
+  },
+  "writeAcrossTenants": {
+    "insertOther": "\nInvalid `wsA.project.create()` invocation in\nC:/Users/Lenevo/future/spikes/spike-b-rls-pooling/test/spike-b.test.ts:189:43\n\n  186 });\n  187 \n  188 it('WITH CHECK: cannot write into another workspace, cannot move a row across workspaces', async () => {\n→ 189   const insertOther = await wsA.project.create(\nDatabase error. Code: `42501`. Message: `new row violates row-level security policy for table \"project\"`",
+    "moveAcross": "\nInvalid `wsA.project.update()` invocation in\nC:/Users/Lenevo/future/spikes/spike-b-rls-pooling/test/spike-b.test.ts:193:42\n\n  190   () => 'ALLOWED',\n  191   (e: Error) => e.message,\n  192 );\n→ 193 const moveAcross = await wsA.project.update(\nDatabase error. Code: `42501`. Message: `new row violates row-level security policy for table \"project\"`"
+  },
+  "crossTenantMutation": {
+    "updated": 0,
+    "deleted": 0,
+    "bStillNamed": "B-project-1"
+  },
+  "compositeFk": "\nInvalid `wsA.lead.create()` invocation in\nC:/Users/Lenevo/future/spikes/spike-b-rls-pooling/test/spike-b.test.ts:215:32\n\n  212 });\n  213 \n  214 it('composite FK: a lead cannot reference another workspace project even with a valid own workspace_id', async () => {\n→ 215   const msg = await wsA.lead.create(\nForeign key constraint violated on the constraint: `lead_workspace_id_project_id_fkey`",
+  "ownerNoContextCount": 0,
+  "txPinning": {
+    "p1": 5087,
+    "p2": 5087,
+    "s1": "11111111-1111-4111-8111-111111111111",
+    "s2": "11111111-1111-4111-8111-111111111111",
+    "distinctServerPidsOutsideTx": 1
+  },
+  "burstDefaultSettings": {
+    "operations": 300,
+    "failed": 0,
+    "firstError": null
+  },
+  "concurrencyTuned": {
+    "operations": 400,
+    "leaks": 0,
+    "errors": 0
+  },
+  "latency": {
+    "withTenantWrapper": {
+      "n": 300,
+      "meanMs": 7.61,
+      "p50Ms": 6.6,
+      "p95Ms": 13.17
+    },
+    "withoutWrapperNoContext": {
+      "n": 300,
+      "meanMs": 1.95,
+      "p50Ms": 1.85,
+      "p95Ms": 2.53
+    }
+  },
+  "sessionSetLeak": {
+    "guardBefore": true,
+    "leakedRowsSeenByOtherClient": 3,
+    "guardDuringLeak": false,
+    "guardAfterCleanup": true
+  },
+  "resolveHost": {
+    "hit": [
+      {
+        "workspace_id": "11111111-1111-4111-8111-111111111111",
+        "project_id": "a0000000-0000-4000-8000-000000000001"
+      }
+    ],
+    "missCount": 0
+  },
+  "publicDirectAccess": {
+    "domain": "permission denied for table domain",
+    "project": "permission denied for table project",
+    "lead": "permission denied for table lead",
+    "workspace": "permission denied for table workspace"
+  },
+  "publicInsertLead": {
+    "createdId": "22da98c1-b509-4650-8d6e-18eb70c38fcb",
+    "unknownProjectResult": null,
+    "workspaceALeads": 6,
+    "workspaceBLeads": 4
+  },
+  "finishedAt": "2026-09-21T05:28:02.076Z"
+}

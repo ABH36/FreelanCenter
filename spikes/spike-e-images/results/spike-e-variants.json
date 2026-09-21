@@ -1,0 +1,108 @@
+{
+  "measuredAt": "2026-09-21T05:12:07.632Z",
+  "sharpVersion": "0.35.4",
+  "sample": {
+    "file": "assets/sample-photo-2400.jpg",
+    "width": 2400,
+    "height": 1600,
+    "bytes": 234580,
+    "note": "single public photo (picsum id 1011); NOT representative of all customer photos"
+  },
+  "widths": [
+    400,
+    800,
+    1200,
+    1600
+  ],
+  "variants": [
+    {
+      "width": 400,
+      "format": "webp",
+      "bytes": 9842,
+      "encodeMs": 48
+    },
+    {
+      "width": 400,
+      "format": "avif",
+      "bytes": 7148,
+      "encodeMs": 339
+    },
+    {
+      "width": 400,
+      "format": "jpeg",
+      "bytes": 12435,
+      "encodeMs": 72
+    },
+    {
+      "width": 800,
+      "format": "webp",
+      "bytes": 25850,
+      "encodeMs": 154
+    },
+    {
+      "width": 800,
+      "format": "avif",
+      "bytes": 18797,
+      "encodeMs": 923
+    },
+    {
+      "width": 800,
+      "format": "jpeg",
+      "bytes": 35882,
+      "encodeMs": 108
+    },
+    {
+      "width": 1200,
+      "format": "webp",
+      "bytes": 46572,
+      "encodeMs": 160
+    },
+    {
+      "width": 1200,
+      "format": "avif",
+      "bytes": 33819,
+      "encodeMs": 1479
+    },
+    {
+      "width": 1200,
+      "format": "jpeg",
+      "bytes": 67301,
+      "encodeMs": 138
+    },
+    {
+      "width": 1600,
+      "format": "webp",
+      "bytes": 68444,
+      "encodeMs": 241
+    },
+    {
+      "width": 1600,
+      "format": "avif",
+      "bytes": 50900,
+      "encodeMs": 2657
+    },
+    {
+      "width": 1600,
+      "format": "jpeg",
+      "bytes": 105521,
+      "encodeMs": 211
+    }
+  ],
+  "perFormat": {
+    "webp": {
+      "bytesForAllWidths": 150708,
+      "avgBytesPerVariant": 37677,
+      "encodeMsAllWidths": 603
+    },
+    "avif": {
+      "bytesForAllWidths": 110664,
+      "avgBytesPerVariant": 27666,
+      "encodeMsAllWidths": 5398
+    },
+    "jpeg": {
+      "bytesForAllWidths": 221139,
+      "avgBytesPerVariant": 55285,
+      "encodeMsAllWidths": 529
+    }
+  }
+}

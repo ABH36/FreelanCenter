@@ -1,0 +1,38 @@
+{
+  "name": "platform",
+  "private": true,
+  "description": "Multi-tenant AI-assisted website delivery platform for freelancers and agencies (monorepo root)",
+  "packageManager": "pnpm@11.20.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "pnpm format:check && pnpm sync-plan:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "traceability": "node scripts/generate-traceability.mjs",
+    "sync-plan": "node scripts/sync-plan.mjs",
+    "sync-plan:check": "node scripts/sync-plan.mjs --check",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@next/eslint-plugin-next": "16.3.5",
+    "eslint": "10.11.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.0.0",
+    "prettier": "3.9.8",
+    "turbo": "2.11.2",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.70.0",
+    "vitest": "5.0.1"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,mjs,js,json,md,yml,yaml,css}": "prettier --write"
+  }
+}
