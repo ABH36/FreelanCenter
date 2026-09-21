@@ -73,6 +73,22 @@ The auditors differ slightly on timing: the Architect authorises starting Phase 
 | 4   | Anthropic API key (Phase 4)                               | `ANTHROPIC_API_KEY` in `.env.local` when convenient                                                                                                                                                                                                                               |
 | -   | Needed soon, not blockers for Task 0                      | Upstash Redis (Mumbai), the two domains (D1), an email provider or Mailpit                                                                                                                                                                                                        |
 
-## 8. Dry run of the initial commit (nothing was committed)
+## 9. Progress on the conditions (updated 2026-09-21, after the push)
+
+| Item                                                      | Status                                                                                                                                                                                                                 |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Initial commit (Architect condition 1, closes **G8**)     | **Done.** `b6e2de2`, author `ABH36 <aabhishekjain53@gmail.com>`, 128 files. `index.html` (empty, Owner's file) removed at the Owner's request and not committed                                                        |
+| Repository                                                | `https://github.com/ABH36/FreelanCenter`. It was created **public**; I asked before pushing and, on the Owner's answer, set it to **private** first, then pushed `main`                                                |
+| GitHub Actions (auditor blocker 2, closes half of **G6**) | **Green.** Run `35583615163` on `b6e2de2`: 3 jobs, every step success on Ubuntu runners (format, `sync-plan:check`, lint, typecheck, test, traceability drift check, build; gitleaks; `pnpm audit --audit-level high`) |
+| Preview deployments (auditor blocker 3, other half of G6) | **Open.** Needs the Vercel team                                                                                                                                                                                        |
+| Spike B on Supabase (blocker 1 / Task 0(a))               | **Open.** Needs the Supabase project. **No Prisma models until it passes**                                                                                                                                             |
+| Structured redacting logger (Architect condition 3)       | Open (early Phase 1)                                                                                                                                                                                                   |
+| Pin GitHub Actions to commit SHAs (SEC-13)                | Open (the repository exists now; do it early in Phase 1, task 10)                                                                                                                                                      |
+
+**Found while pushing:** the generated `docs/traceability.md` embedded today's date, so CI's drift check (`git diff --exit-code`) would have failed on any other day. The generator now derives its label from the SRS version and two consecutive runs are byte-identical. The first real CI run passed with this fix.
+
+A Dependabot run also started automatically because `.github/dependabot.yml` exists; it may open dependency-update pull requests in the private repository.
+
+## 8. Dry run of the initial commit (before it was made)
 
 `git add -n .` lists **128 files** (packages 34, spikes 27, docs 26, apps 16, `.github` 3, scripts 2, plus root config). No `.env*`, keys, `node_modules`, `.next`, generated Prisma client, temp files or the third-party sample photo would be included; the largest files are `pnpm-lock.yaml` (138 KB), `SRS.md` and its mirror (100 KB each). No remote is configured yet.
