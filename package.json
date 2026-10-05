@@ -22,15 +22,15 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "@next/eslint-plugin-next": "16.3.5",
+    "@next/eslint-plugin-next": "16.3.8",
     "eslint": "10.11.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.0.0",
-    "prettier": "3.9.8",
-    "turbo": "2.11.2",
+    "prettier": "3.9.9",
+    "turbo": "2.11.6",
     "typescript": "5.9.3",
-    "typescript-eslint": "8.70.0",
-    "vitest": "5.0.1"
+    "typescript-eslint": "8.71.0",
+    "vitest": "5.0.3"
   },
   "lint-staged": {
     "*.{ts,tsx,mjs,js,json,md,yml,yaml,css}": "prettier --write"
