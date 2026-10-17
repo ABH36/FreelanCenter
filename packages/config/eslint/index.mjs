@@ -1,7 +1,6 @@
 // Shared ESLint flat config for the whole monorepo.
 // Rules here encode architecture guardrails from the SRS (Section 4.4 layering, SEC-04).
 import js from '@eslint/js';
-import nextPlugin from '@next/eslint-plugin-next';
 import tseslint from 'typescript-eslint';
 
 /**
@@ -48,12 +47,6 @@ export const platformConfig = tseslint.config(
         },
       ],
     },
-  },
-  {
-    // Next.js apps
-    files: ['apps/**/*.{ts,tsx}'],
-    plugins: { '@next/next': nextPlugin },
-    rules: { ...nextPlugin.configs['core-web-vitals'].rules },
   },
   {
     // Layering: packages never depend on apps.

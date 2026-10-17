@@ -8,7 +8,8 @@
     "spike:up": "docker compose up -d --wait",
     "spike:down": "docker compose down -v",
     "spike:generate": "prisma generate",
-    "spike:test": "vitest run"
+    "spike:test": "vitest run",
+    "spike:test:supabase": "node scripts/run-supabase-live.mjs"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",

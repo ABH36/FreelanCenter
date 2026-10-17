@@ -1,6 +1,6 @@
 # Spike B - Prisma 7 + Postgres RLS + transaction-mode pooler
 
-**Status: EXECUTED (locally). Not yet verified against Supabase.**
+**Status: VERIFIED locally and against live Supabase `ap-south-1` (2026-10-16).**
 Code: [spikes/spike-b-rls-pooling](../../spikes/spike-b-rls-pooling) · Raw results: `spikes/spike-b-rls-pooling/results/spike-b-results.json`
 Reproduce: `cd spikes/spike-b-rls-pooling && pnpm spike:up && pnpm spike:generate && pnpm spike:test` (needs Docker).
 
@@ -53,6 +53,31 @@ SRS 5.3 says tenant isolation can be enforced with PostgreSQL RLS driven by a tr
 2. Latency numbers are localhost Docker; they show relative overhead, not production latency.
 3. Single Postgres node, 2-connection pool; no failover behaviour tested.
 4. `pg_backend_pid` pinning proves one connection inside one transaction, not behaviour under pooler restarts.
+
+## Live Supabase execution — 2026-10-15
+
+The disposable runner `scripts/run-supabase-live.mjs` was executed against the Owner-provided scratch project in `ap-south-1` on PostgreSQL 17.11. It creates a random `spike_b_live_*` schema and temporary non-superuser/non-BYPASSRLS roles, runs the checks below, then drops all schema objects and roles in `finally`. No product table, product schema or long-lived role was created.
+
+| Endpoint                                                       | Runs | Result                                                                                                                                                                                          |
+| -------------------------------------------------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Supabase shared transaction pooler (`DATABASE_URL`, port 6543) | 3    | PASS: forced RLS; 30 reused-connection no-context checks all returned 0; scoped reads; cross-tenant write denial; one-backend transaction pinning; 400 concurrent operations, 0 leaks, 0 errors |
+| Configured direct endpoint (`DIRECT_URL`, port 5432)           | 1    | PASS: 10 reused-connection no-context checks all returned 0; 100 concurrent operations, 0 leaks, 0 errors                                                                                       |
+| Cleanup verification                                           | 1    | PASS: 0 remaining `spike_b_live_*` schemas and 0 remaining temporary roles                                                                                                                      |
+
+Supabase shared-pooler routing requires a database login in the form `role.<project-ref>`; the live runner derives that suffix from the configured URL without logging it. This is now a documented deployment requirement for any non-default application role.
+
+### Live Prisma 7 adapter execution — 2026-10-16
+
+The same runner now executes `test/supabase-live-prisma.test.ts` before cleanup, using the real Prisma 7.10.0 generated client and `@prisma/adapter-pg` through the Supabase shared transaction pooler. Prisma maps the disposable models to `public`, so the harness uses only temporary `public.workspace`, `public.project` and `public.current_workspace()` objects after first refusing to run if any of those names already exist. It then drops those exact objects and revokes the temporary schema grant before dropping its generated roles.
+
+| Prisma check                                                                       | Result                                                |
+| ---------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `$allModels.$allOperations` scoped extension reads plus no-context reuse behavior  | PASS                                                  |
+| Interactive transaction connection pinning and transaction-local workspace setting | PASS                                                  |
+| 300 extension operations + 100 interactive transactions                            | PASS: 0 leaks, 0 errors                               |
+| Final cleanup audit                                                                | PASS: no temporary tables, function or roles remained |
+
+**Verdict:** DG-01 is closed. The SRS §5.3 / ADR-003 transaction-local RLS pattern is verified against the configured Supabase shared pooler, direct endpoint and Prisma 7 adapter. Product Prisma schema work may begin, subject to the remaining Phase-1 gates.
 
 ## Verdict
 

@@ -26,10 +26,12 @@ D14 locks the primary region to Mumbai (ap-south-1). Desk research found that **
 * Per-query wrapper costs extra round trips (p50 8.05 ms vs 2.48 ms locally) -> batch work in one transaction per request.
 * Supabase's shared pooler (Supavisor) is **not** the PgBouncer used in Spike B. Its prepared-statement behaviour and role restrictions are unverified.
 
-## Verification still owed (blocking Phase 1 schema work)
+## Verification
 
-Re-run the full Spike B suite against a real Supabase project in `ap-south-1`, through the shared pooler (6543) and, if available, the dedicated pooler. If any test fails, this ADR is revised before product tables exist.
+The isolated `pg` harness passed 3× through the shared pooler (6543) and once through the configured direct endpoint (5432) on 2026-10-15. On 2026-10-16, the same live scratch-project proof passed through the real Prisma 7 `@prisma/adapter-pg` extension and interactive transaction: scoped extension reads, no-context fail-closed behavior, transaction pinning, and 400 concurrent Prisma operations had 0 leaks and 0 errors. A final cleanup audit found no temporary tables, function or roles. This closes the Phase-1 Task-0 database gate.
 
 ## Evidence
 
 [docs/spikes/SPIKE_B_RLS_POOLING.md](../spikes/SPIKE_B_RLS_POOLING.md): 16/16 tests x3 runs on Postgres 17.11 + PgBouncer 1.25.2 + Prisma 7.10.
+
+Live evidence is recorded in the same Spike B report. Re-run it after relevant Prisma, Supabase pooler or RLS-pattern changes.
