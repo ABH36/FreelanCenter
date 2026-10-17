@@ -2,7 +2,7 @@
 
 Multi-tenant, AI-assisted website delivery platform for freelancers and agencies serving local businesses.
 
-**Current phase:** Phase 0 is **APPROVED WITH CONDITIONS** (Architect and auditor, 2026-09-21; see [docs/reports/PHASE_0_AUDIT.md](docs/reports/PHASE_0_AUDIT.md)). SRS v1.2.1 is frozen. The GitHub repository and CI exist; the live Supabase `ap-south-1` RLS/pooler proof is verified, while the Vercel preview-deployment gate is in progress (see [DG-02 evidence](docs/reports/PHASE_1_DG02_VERCEL_PREVIEW.md)). No product features exist yet.
+**Current phase:** Phase 0 is **APPROVED WITH CONDITIONS** (Architect and auditor, 2026-09-21; see [docs/reports/PHASE_0_AUDIT.md](docs/reports/PHASE_0_AUDIT.md)). SRS v1.2.1 is frozen. The GitHub repository and CI exist; the live Supabase `ap-south-1` RLS/pooler proof and Vercel preview-deployment gate are verified (see [DG-02 evidence](docs/reports/PHASE_1_DG02_VERCEL_PREVIEW.md)). No product features exist yet.
 
 | Read this                                                                                      | For                                                      |
 | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------- |

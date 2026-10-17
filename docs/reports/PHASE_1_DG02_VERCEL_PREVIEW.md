@@ -1,6 +1,6 @@
 # Phase 1 — DG-02 Vercel Preview Evidence
 
-**Status:** In progress. Separate protected GitHub pull-request previews and scoped preview-environment separation are verified. Preview rollback evidence remains open.
+**Status:** Verified on 2026-10-17. Separate protected GitHub pull-request previews, scoped preview-environment separation and controlled rollback/redeploy evidence are complete.
 
 **Recorded:** 2026-10-16 · **Scope:** DG-02 only. This is not production-domain evidence and does not close DG-11.
 
@@ -34,8 +34,17 @@ The two Preview-scoped environment values are intentionally distinct and are exp
 
 No custom domain, wildcard routing, real customer data, payment provider, production OAuth callback or public access policy was configured. The sites project's first-ever deployment received Vercel's generic project-production alias automatically; it remained Vercel-Authentication protected and is not evidence of a production launch. The subsequent verified `sites` deployment above is a normal preview (`target: null`).
 
-## Remaining closure actions
+## Controlled rollback/redeploy evidence — 2026-10-17
 
-1. Demonstrate a safe rollback/redeploy using preview-only deployments (no production alias change), then append deployment IDs and result here. The Vercel `rollback` command must not be run until its target/alias effect is confirmed because it can modify a project's production routing.
+The Vercel CLI rollback mechanism changes a project's generic production alias rather than a preview URL. With explicit Owner authorization, it was exercised only against the empty, Vercel-Authentication-protected `sites` project alias; no custom domain, customer, credential or sensitive data was involved.
 
-Until those items are evidenced, DG-02 remains open. The approved no-cost preview policy remains authoritative in [DEVELOPMENT_ENVIRONMENT_POLICY.md](../governance/DEVELOPMENT_ENVIRONMENT_POLICY.md).
+| Step                       | Evidence                                                                                                                                        |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Controlled redeploy        | `dpl_5d8M78Pm66LEayr1qcwTccg9PTjv` — READY; protected generic alias health returned `{"status":"ok","app":"sites","deploymentSurface":"local"}` |
+| Rollback target            | `dpl_EWMi8oyhjDJLVEKd3WGAtKu8Zh5k` / `https://sites-qn43xfflo-abhishek-jains-projects-2974d5c7.vercel.app`                                      |
+| Vercel result              | `Success! sites was rolled back` to the exact target deployment                                                                                 |
+| Post-rollback verification | Generic protected alias health returned `{"status":"ok","app":"sites"}`; inspect showed aliases restored to the target deployment               |
+
+This proves the project-level redeploy and rollback operation only. It does not replace the Phase 7A custom-domain rollback, cookie-isolation or DNS/SSL evidence.
+
+**Verdict:** DG-02 is closed. The approved no-cost preview policy remains authoritative in [DEVELOPMENT_ENVIRONMENT_POLICY.md](../governance/DEVELOPMENT_ENVIRONMENT_POLICY.md); production domain proof is still deferred to DG-11 / Phase 7A.
