@@ -13,6 +13,11 @@ allowBuilds:
 # Security overrides for transitive dependencies of the Prisma CLI (found by `pnpm audit` in Phase 0).
 # Neither package is used by our runtime code (we use PostgreSQL; mysql2 is MySQL tooling inside the CLI), but
 # the audit gate is strict, so pin patched versions. Remove when Prisma ships patched dependencies itself.
+# Next's ESLint plugin is deliberately absent: its only available dependency chain resolves `braces@3.0.3`,
+# while the security advisory's claimed patched release (3.0.4) is not published. Core ESLint/TypeScript
+# architecture rules remain enforced; restore Next-specific lint rules once an audited compatible release exists.
 overrides:
   mysql2: '>=3.23.1' # GHSA-3f6p-5ww8-9rcr (high), GHSA-rgwj-5xj2-c3m3 (moderate)
   deepmerge-ts: '>=8.0.0' # stack exhaustion on recursive graphs (high)
+  source-map-js: '>=1.2.2' # GHSA-68fv-2mgg-jv7q (high)
+  sharp: '>=0.35.5' # GHSA-wq5f-xc86-pv6w (high)
