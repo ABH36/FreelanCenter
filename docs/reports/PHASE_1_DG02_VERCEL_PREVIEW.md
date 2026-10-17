@@ -38,12 +38,13 @@ No custom domain, wildcard routing, real customer data, payment provider, produc
 
 The Vercel CLI rollback mechanism changes a project's generic production alias rather than a preview URL. With explicit Owner authorization, it was exercised only against the empty, Vercel-Authentication-protected `sites` project alias; no custom domain, customer, credential or sensitive data was involved.
 
-| Step                       | Evidence                                                                                                                                        |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Controlled redeploy        | `dpl_5d8M78Pm66LEayr1qcwTccg9PTjv` — READY; protected generic alias health returned `{"status":"ok","app":"sites","deploymentSurface":"local"}` |
-| Rollback target            | `dpl_EWMi8oyhjDJLVEKd3WGAtKu8Zh5k` / `https://sites-qn43xfflo-abhishek-jains-projects-2974d5c7.vercel.app`                                      |
-| Vercel result              | `Success! sites was rolled back` to the exact target deployment                                                                                 |
-| Post-rollback verification | Generic protected alias health returned `{"status":"ok","app":"sites"}`; inspect showed aliases restored to the target deployment               |
+| Step                       | Evidence                                                                                                                                                                  |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Controlled redeploy        | `dpl_5d8M78Pm66LEayr1qcwTccg9PTjv` — READY; protected generic alias health returned `{"status":"ok","app":"sites","deploymentSurface":"local"}`                           |
+| Rollback target            | `dpl_EWMi8oyhjDJLVEKd3WGAtKu8Zh5k` / `https://sites-qn43xfflo-abhishek-jains-projects-2974d5c7.vercel.app`                                                                |
+| Vercel result              | `Success! sites was rolled back` to the exact target deployment                                                                                                           |
+| Post-rollback verification | Generic protected alias health returned `{"status":"ok","app":"sites"}`; inspect showed aliases restored to the target deployment                                         |
+| Final safe state           | Current patched Next.js 16.3.8 scaffold redeployed as `dpl_5MrFQX5bi63xMqSsgwgjgcZEoqUt` — READY; protected generic alias health returned `{"status":"ok","app":"sites"}` |
 
 This proves the project-level redeploy and rollback operation only. It does not replace the Phase 7A custom-domain rollback, cookie-isolation or DNS/SSL evidence.
 
