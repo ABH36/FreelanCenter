@@ -12,6 +12,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@platform/logger": "workspace:*",
     "@platform/ui": "workspace:*",
     "next": "16.3.8",
     "react": "19.3.0",
