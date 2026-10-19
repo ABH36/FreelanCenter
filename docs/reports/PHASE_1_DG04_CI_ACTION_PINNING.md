@@ -1,6 +1,6 @@
 # Phase 1 — DG-04 CI Action SHA Pinning
 
-**Status:** Implemented 2026-10-19; pending CI verification on the pinned workflow before DG-04 closure.
+**Status:** Verified and closed 2026-10-19.
 
 ## Scope and requirements
 
@@ -37,4 +37,6 @@ The release labels are comments for human review only. The SHA is the executable
 
 ## Verification
 
-Before merge, GitHub Actions must run this exact pinned workflow and pass its existing jobs: format/lint/typecheck/test/build, gitleaks, and dependency audit. `git diff --check` and a static full-SHA check are also required locally.
+Static validation confirmed all seven `uses:` references carry full 40-character SHAs. Scoped Prettier, SRS/`DEVELOPMENT_PLAN.md` mirror, and `git diff --check` validations passed locally.
+
+GitHub Actions run [`39228427320`](https://github.com/ABH36/FreelanCenter/actions/runs/39228427320) ran the pinned workflow and passed format/lint/typecheck/test/build, gitleaks, dependency audit and GitGuardian. Both Vercel previews also completed successfully. This establishes DG-04 closure; every future workflow/action update remains subject to the policy above.

@@ -23,7 +23,7 @@ CI must format, lint, typecheck, unit/integration/RLS/E2E tests, export smoke bu
 
 Local and preview deployment rules are defined in `docs/governance/DEVELOPMENT_ENVIRONMENT_POLICY.md`. Preview URLs can prove deployment flow but cannot substitute for the production two-domain isolation proof required by ADR-002; custom-domain/DNS/SSL evidence remains a P7A gate.
 
-## Current implementation state (DG-04 implementation; verification pending)
+## Current implementation state (DG-04 closed)
 
 - **Shared logger package (`@platform/logger`):** Implemented in `packages/logger` providing structured JSON output, level filtering (`trace`, `debug`, `info`, `warn`, `error`, `fatal`), and deep redaction conforming to SEC-05, SEC-15, and cross-module privacy rules.
 - **Redaction coverage:** Automatic redaction of credentials and secrets (Bearer/Basic authorization headers, JWTs, database URLs with passwords, URL query secret params, API keys for Anthropic, OpenAI, AWS, GitHub, Stripe/Razorpay, Supabase), cookies (preserving standard directives while scrubbing values), and common PII (emails, phone numbers, credit card numbers, national IDs/Aadhaar).
