@@ -4,9 +4,10 @@ title = "platform gitleaks config"
 useDefault = true
 
 [allowlist]
-description = "Throwaway credentials that only exist inside the local Docker stack of Spike B (never a real system)."
+description = "Throwaway credentials that only exist inside the local Docker stacks of Spikes B and F (never a real system)."
 paths = [
   '''spikes/spike-b-rls-pooling/(db|src|test|prisma\.config\.ts|docker-compose\.yml)''',
+  '''spikes/spike-f-better-auth/(db|src|test|prisma\.config\.ts|docker-compose\.yml)''',
   # git-ignored / generated directories: only relevant when scanning a working tree with --no-git
   '''(^|/)node_modules/''',
   '''(^|/)\.next/''',

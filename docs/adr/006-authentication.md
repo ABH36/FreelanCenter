@@ -1,6 +1,6 @@
 # ADR-006: Authentication - Better Auth, self-managed
 
-**Status:** Proposed · **Date:** 2026-09-21 · **SRS:** 6.1, D3
+**Status:** Accepted (verified) - Owner ratified 2026-10-22 with the mandatory configuration below; evidence Spike F (automated suite + live Google round trip) · **Date:** 2026-09-21 · **SRS:** 6.1, D3
 
 ## Context
 
@@ -10,10 +10,31 @@ Needs: email+password with verification, Google OAuth, TOTP MFA, sessions with r
 
 **Better Auth**, storing users/sessions in our Postgres, with our own `Membership` tables (roles per workspace). Auth.js is the fallback. Clerk only if the Owner prefers speed over cost control.
 
-## Not verified
+## Verification (Spike F, DG-05)
 
-No spike was run in Phase 0. Compatibility of Better Auth with Prisma 7 + the RLS pattern (auth tables live outside tenant RLS), its MFA/TOTP support, and its Next 16 integration are **unverified**. Phase 1 starts with a short proof (sign-up, verify email, login, TOTP, session rotation) before schema work depends on it.
+Better Auth 1.7.12 + Prisma 7.10 (`adapter-pg`) through transaction-mode PgBouncer passed 36/36 tests on seven fresh-volume runs: verified-email sign-up, generic errors, hashed single-use expiring reset tokens, rotation and fixation resistance, log-out-all, TOTP with encrypted secrets and lockout, per-IP rate limits, Google authorization URL with state + PKCE and forged-state rejection, CSRF/origin checks, 40 + 120 concurrent auth operations with 0 errors, and the session -> membership bridge under RLS. Evidence: [docs/spikes/SPIKE_F_BETTER_AUTH.md](../spikes/SPIKE_F_BETTER_AUTH.md).
+
+**Persistence pattern.** Identity tables are global and live in schema `identity`, readable only by a dedicated role `app_auth`; the tenant role `app_user` has no access to it. A signed-in user reaches workspaces through `membership`, which has a read-only `self_read` policy on a transaction-local `app.user_id` (NULLIF form) in addition to the workspace policy.
+
+**Mandatory configuration** (each one closes a spike finding):
+
+| Setting                                                                      | Reason                                                                  |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `verification.storeIdentifier: 'hashed'`                                     | default stores reset tokens/OAuth state in plain text (F-1, FR-AUTH-04) |
+| `advanced.disableOriginCheck: false`                                         | default turns CSRF/origin checks off under test runners (F-2)           |
+| `advanced.ipAddress` set to the deployment's trusted client-IP header        | an untrusted `x-forwarded-for` lets clients evade the rate limit (F-5)  |
+| explicit `rateLimit.customRules` and `twoFactor.accountLockout`              | defaults are generous (F-6)                                             |
+| `emailAndPassword.requireEmailVerification`, `revokeSessionsOnPasswordReset` | FR-AUTH-01/04                                                           |
+| `account.encryptOAuthTokens: true`                                           | provider access/id tokens are otherwise stored in plain text (F-10)     |
+| `telemetry.enabled: false`                                                   | no undeclared processor                                                 |
+| plugin subpath imports only                                                  | the plugins barrel is very slow to load (F-8)                           |
+| exact version pin; re-run Spike F on every Better Auth upgrade               | two unsafe defaults (F-1, F-2) were only visible by testing             |
+
+## Still not verified
+
+- Mounting inside `apps/dashboard` (the handler shape is proven; the mount is P1 product work).
+- Session tokens are stored in plain text (F-3); accepted with the role split and expiry as controls.
 
 ## Consequences
 
-Owning auth means owning its security. The security review checklist in the plan covers token hashing, enumeration resistance, and lockout.
+Owning auth means owning its security. The security review checklist in the plan covers token hashing, enumeration resistance, and lockout. Every Better Auth upgrade re-runs Spike F's suite (or its product successor) before merge.

@@ -1,0 +1,16 @@
+{
+  "executedAt": "2026-10-22T12:27:36.142Z",
+  "callbackStatus": 200,
+  "account": {
+    "email": "a***@gmail.com",
+    "email_verified": true,
+    "provider_id": "google",
+    "has_access_token": true,
+    "has_id_token": true,
+    "scope": "https://www.googleapis.com/auth/userinfo.profile,openid,https://www.googleapis.com/auth/userinfo.email"
+  },
+  "auditActions": [
+    "auth.session.created",
+    "auth.user.created"
+  ]
+}

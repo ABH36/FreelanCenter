@@ -1,0 +1,4 @@
+"app_auth" "auth_pw"
+"app_user" "app_pw"
+"migrator" "migrator_pw"
+"postgres" "postgres"

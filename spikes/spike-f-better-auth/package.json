@@ -1,0 +1,25 @@
+{
+  "name": "@platform/spike-f-better-auth",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "SPIKE F (disposable, DG-05): Better Auth + Prisma 7 + RLS-compatible role split behind a transaction-mode pooler. Not product code.",
+  "scripts": {
+    "spike:up": "docker compose up -d --wait",
+    "spike:down": "docker compose down -v",
+    "spike:generate": "prisma generate",
+    "spike:test": "vitest run",
+    "spike:oauth": "vitest run --config vitest.manual.config.ts"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "better-auth": "1.7.12",
+    "pg": "8.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/pg": "8.23.1",
+    "prisma": "7.10.0"
+  }
+}
