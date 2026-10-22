@@ -1,0 +1,85 @@
+{
+  "executedAt": "2026-10-22T12:30:36.025Z",
+  "betterAuth": "1.7.12",
+  "results": {
+    "roleSplit": {
+      "app_user->identity.users": "42501",
+      "app_user->identity.sessions": "42501",
+      "app_user->identity.accounts": "42501",
+      "app_user->identity.verifications": "42501",
+      "app_user->identity.two_factors": "42501",
+      "app_user->identity.rate_limits": "42501",
+      "app_auth->public.workspace": "42501",
+      "app_auth->public.membership": "42501"
+    },
+    "passwordHashPrefix": "xxxxxxxxxxxx",
+    "signUpEnumeration": {
+      "newEmail": 200,
+      "existingEmail": 200,
+      "existingEmailCode": null,
+      "distinguishable": false
+    },
+    "httpCookie": "better-auth.session_token=<redacted>; Max-Age=604800; Path=/; HttpOnly; SameSite=Lax",
+    "httpsCookie": "__Secure-better-auth.session_token=<redacted>; Max-Age=604800; Path=/; HttpOnly; Secure; SameSite=Lax",
+    "sessionTokenAtRest": "plain",
+    "signInTimingMs": {
+      "existingMedian": 219,
+      "unknownMedian": 196
+    },
+    "totpLockout": {
+      "wrongCodeStatuses": [
+        401,
+        401,
+        401,
+        401,
+        401
+      ],
+      "afterLockStatus": 429,
+      "lockedUntilSet": true
+    },
+    "rateLimit": {
+      "statuses": [
+        401,
+        401,
+        401,
+        401,
+        401,
+        429
+      ],
+      "retryAfter": "60",
+      "otherIpStatus": 401
+    },
+    "googleAuthorizeParams": [
+      "client_id",
+      "code_challenge",
+      "code_challenge_method",
+      "include_granted_scopes",
+      "redirect_uri",
+      "response_type",
+      "scope",
+      "state"
+    ],
+    "forgedStateRedirect": "http://localhost:3000/api/auth/error?error=state_mismatch",
+    "concurrency": {
+      "signIns": 40,
+      "sessionReads": 120,
+      "signInErrors": 0,
+      "mismatches": 0,
+      "totalMs": 5133,
+      "poolSize": 2
+    },
+    "csrf": {
+      "untrustedOriginNoCookie": 403,
+      "untrustedOriginWithCookie": 403,
+      "crossSiteNavigation": 403,
+      "openRedirectCallback": 403,
+      "trustedOrigin": 200
+    },
+    "auditActions": [
+      "auth.session.created",
+      "auth.session.revoked",
+      "auth.user.created"
+    ],
+    "auditEventCount": 83
+  }
+}

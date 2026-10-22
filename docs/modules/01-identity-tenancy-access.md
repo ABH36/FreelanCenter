@@ -36,4 +36,4 @@ Unit-test permission matrix and token expiry. Integration-test registration, OAu
 
 ## Dependencies / handoff
 
-Depends on the verified P1 Supabase RLS proof and chosen auth ADR. Unblocks every dashboard module. Before coding, read SRS §5.3, §6.1–6.2, ADR-003, ADR-006 and the live Spike-B evidence; do not bypass the verified transaction-local pattern.
+Depends on the verified P1 Supabase RLS proof and chosen auth ADR. The auth proof is `docs/spikes/SPIKE_F_BETTER_AUTH.md`: reuse its `identity` schema / `app_auth` role split, the membership `self_read` bridge and the mandatory Better Auth configuration listed in ADR-006. Unblocks every dashboard module. Before coding, read SRS §5.3, §6.1–6.2, ADR-003, ADR-006 and the live Spike-B evidence; do not bypass the verified transaction-local pattern.

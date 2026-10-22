@@ -10,7 +10,7 @@ Never paste passwords, database URLs, API keys, private keys or access tokens in
 | ------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | Supabase      | Scratch project in `ap-south-1` and Postgres major version | Put pooled `DATABASE_URL` and direct `DIRECT_URL` in `.env.local`; tell us project is ready and the Postgres version | DG-01: live pooled RLS negative-leak proof; prerequisite for all P1 product schema/code |
 | Vercel        | Team access in `bom1`                                      | Run `vercel login` on the machine or place a token in `.env.local`; provide team slug                                | DG-02: preview deployment/environment proof                                             |
-| Auth decision | Confirm Better Auth working assumption or choose Clerk     | Written decision; ADR-006 will be accepted/revised after proof                                                       | DG-05: P1 auth proof                                                                    |
+| Auth decision | Confirm Better Auth working assumption or choose Clerk     | **Done 2026-10-22:** Better Auth confirmed; ADR-006 accepted after Spike F                                           | DG-05: P1 auth proof (closed)                                                           |
 
 ## Needed soon, but not a Phase-1 blocker
 

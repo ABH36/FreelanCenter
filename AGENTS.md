@@ -8,7 +8,7 @@ Read [docs/governance/DOCUMENTATION_INDEX.md](docs/governance/DOCUMENTATION_INDE
 
 ## Current delivery state
 
-The repository is at Phase 0 approved-with-conditions. No product feature is implemented. The live Supabase `ap-south-1` RLS/pooler proof passed on 2026-10-16 (see `docs/spikes/SPIKE_B_RLS_POOLING.md`), so product Prisma schema work is permitted. The Phase-1 Vercel preview-deployment proof passed on 2026-10-17 (see `docs/reports/PHASE_1_DG02_VERCEL_PREVIEW.md`); remaining early controls are tracked in the gap register.
+The repository is at Phase 0 approved-with-conditions. No product feature is implemented. The live Supabase `ap-south-1` RLS/pooler proof passed on 2026-10-16 (see `docs/spikes/SPIKE_B_RLS_POOLING.md`), so product Prisma schema work is permitted. The Phase-1 Vercel preview-deployment proof passed on 2026-10-17 (see `docs/reports/PHASE_1_DG02_VERCEL_PREVIEW.md`); The Better Auth proof passed and ADR-006 was accepted on 2026-10-22 (see `docs/spikes/SPIKE_F_BETTER_AUTH.md`); product auth must use its mandatory configuration. Remaining early controls are tracked in the gap register.
 
 ## Required implementation discipline
 
