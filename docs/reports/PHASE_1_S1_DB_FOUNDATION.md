@@ -82,5 +82,5 @@ No test data was written to the live project.
 
 ## 8. Open decisions for the Owner
 
-1. Done: live apply approved and executed (see above). Confirm the pinned CA fingerprint against the dashboard download.
+1. Done: live apply approved and executed (see above). CA fingerprint confirmed on 2026-10-22: the dashboard download (`prod-ca-2021.crt`) matches SHA-256 `80:70:25:AD:…:E6:CA:FA`, and that file is now the pinned `.supabase-root-ca.local.pem` (recorded in the S2 PR).
 2. Done 2026-10-22: the Owner turned **Enable Data API** OFF (Integrations → Data API → Overview) and confirmed it after a reload. Exposed schemas were left untouched. Afterwards `db:verify --target env` passed 20/20, so direct Postgres/Prisma connections are unaffected. A key-less probe of `/rest/v1/` returns 401 at the gateway; that does not prove the setting either way, so the dashboard confirmation is the evidence. Before the change, the Data API roles already had no privilege on `app`/`identity` (verified).

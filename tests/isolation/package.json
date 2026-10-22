@@ -1,0 +1,24 @@
+{
+  "name": "@platform/isolation-tests",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Cross-tenant isolation suite (SEC-02 merge gate): per-table matrix, row-factory registry, IDOR harness",
+  "exports": {
+    "./idor": "./src/idor.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test:isolation": "vitest run",
+    "test:mutation": "node scripts/mutation-check.ts"
+  },
+  "dependencies": {
+    "@platform/db": "workspace:*",
+    "pg": "8.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/pg": "8.23.1"
+  }
+}

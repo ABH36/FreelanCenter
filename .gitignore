@@ -34,3 +34,6 @@ spikes/spike-e-images/assets/
 
 # provider CA certificates pinned locally (public, but environment-specific)
 *.local.pem
+
+# isolation-suite reports (uploaded as CI artefacts, not committed)
+tests/isolation/results/
