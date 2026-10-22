@@ -9,17 +9,25 @@
   ],
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "generate", "^generate"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
     "dev": {
       "cache": false,
       "persistent": true
     },
-    "lint": {},
-    "typecheck": {
-      "dependsOn": ["^typecheck"]
+    "lint": {
+      "dependsOn": ["generate", "^generate"]
     },
-    "test": {}
+    "typecheck": {
+      "dependsOn": ["^typecheck", "generate", "^generate"]
+    },
+    "test": {
+      "dependsOn": ["generate", "^generate"]
+    },
+    "generate": {
+      "inputs": ["prisma/schema.prisma", "prisma.config.ts"],
+      "outputs": ["src/generated/**"]
+    }
   }
 }

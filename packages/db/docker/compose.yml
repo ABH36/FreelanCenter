@@ -1,0 +1,44 @@
+# Local and CI database stack for @platform/db (SRS 5.3, NFR-OPS-01).
+# Postgres 17.11 (same major/minor as the live Supabase project) behind PgBouncer 1.25.2 in TRANSACTION mode,
+# the pooler shape proven in Spike B. Images are pinned by digest (SEC-13).
+#
+# Authentication is `trust` and both ports bind to 127.0.0.1 only, so no password exists in this repository.
+# The stack is for synthetic data only (DEVELOPMENT_ENVIRONMENT_POLICY.md).
+name: platform-db
+
+services:
+  postgres:
+    image: postgres:17-alpine@sha256:f02121de6f74d30d8a94cd1d9584125e2178d7e6c377d8130112d4e52d867995
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_DB: postgres
+    ports:
+      - '127.0.0.1:55440:5432'
+    volumes:
+      - ./init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # TCP, not the socket: during initdb a temporary server listens on the socket only, then restarts.
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U postgres -d platform']
+      interval: 2s
+      timeout: 3s
+      retries: 60
+      start_period: 120s
+      start_interval: 1s
+
+  pgbouncer:
+    image: edoburu/pgbouncer@sha256:4c1ca296ef525f108f5d3552cc337c0c09587cf8dae7f0067fd93349e47dc1cd
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - '127.0.0.1:56440:5432'
+    volumes:
+      - ./pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -p 5432']
+      interval: 2s
+      timeout: 3s
+      retries: 60
+      start_period: 120s
+      start_interval: 1s
