@@ -1,6 +1,6 @@
 # Phase 1 · Slice 1: `packages/db` foundation
 
-**Status:** Implemented locally and covered by automated tests. **Pending:** a green CI run of the new `db-integration` job, a live Supabase bootstrap and migrate (needs Owner approval and a corrected `DIRECT_URL`), and Owner review.
+**Status:** Implemented and covered by automated tests; full CI-equivalent run passed in a clean LF worktree on a fresh database (2026-10-22). **Pending:** a green CI run of the new `db-integration` job, a live Supabase bootstrap and migrate (needs Owner approval and a corrected `DIRECT_URL`), and Owner review.
 **Date:** 2026-10-22 · **Branch:** `feat/p1-s1-db-foundation` · **Plan:** `docs/IMPLEMENTATION_PLAN.md`, Phase 1 slice plan, row S1.
 
 ## 1. Requirements
@@ -54,7 +54,7 @@ This is the first product migration (forward-only). `pnpm db:drift` proves that 
 
 | Suite                                                                                                                                                                                                                  | Result                                                                                              |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Unit (`pnpm --filter @platform/db test`): uuid, env, TLS config, SCRAM (RFC 7677 vector), limiter, static scan                                                                                                         | 23/23                                                                                               |
+| Unit (`pnpm --filter @platform/db test`): uuid, env, TLS config, SCRAM (RFC 7677 vector), limiter, static scan                                                                                                         | 19/19                                                                                               |
 | Integration (`test:integration`), Docker Postgres 17.11 + PgBouncer 1.25.2                                                                                                                                             | **67/67**, run twice on the same database; coverage 97.9 % lines, 89.7 % branches, 97.4 % functions |
 | Catalog (in integration): roles, memberships, timeouts, RLS coverage, policy roles, NULLIF form, raw ACLs, column privileges, public schema empty, definer ownership/search_path/EXECUTE, triggers, runtime role guard | 18/18                                                                                               |
 | Concurrency (in integration): pinning, 600 interleaved transactions (0 leaks, 0 errors), reused-connection no-context check, backpressure, statement timeout, slow log, session-SET leak detection                     | 8/8                                                                                                 |
