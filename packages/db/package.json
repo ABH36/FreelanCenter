@@ -25,14 +25,14 @@
   },
   "dependencies": {
     "@platform/logger": "workspace:*",
-    "@prisma/adapter-pg": "7.10.0",
-    "@prisma/client": "7.10.0",
-    "pg": "8.23.0"
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "pg": "8.23.1"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/pg": "8.23.1",
-    "@vitest/coverage-v8": "5.0.1",
-    "prisma": "7.10.0"
+    "@vitest/coverage-v8": "5.0.5",
+    "prisma": "7.10.1"
   }
 }
