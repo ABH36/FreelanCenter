@@ -1,6 +1,6 @@
 # 03 — Data Isolation, Audit and Platform Administration
 
-**Status:** P1 slice 1 implemented (`packages/db`, evidence `docs/reports/PHASE_1_S1_DB_FOUNDATION.md`); verification at the P1 gate; mature P8. **SRS:** SEC-01..06, FR-ADM-01..05, FR-AUD-01..03.
+**Status:** P1 slice 1 implemented (`packages/db`, evidence `docs/reports/PHASE_1_S1_DB_FOUNDATION.md`); P1 slice 2 implemented (`tests/isolation`, evidence `docs/reports/PHASE_1_S2_ISOLATION_SUITE.md`); verification at the P1 gate; mature P8. **SRS:** SEC-01..06, FR-ADM-01..05, FR-AUD-01..03.
 
 ## Outcome
 
@@ -36,4 +36,5 @@ Read `packages/db/prisma/migrations/*/migration.sql` and `packages/db/src/client
 - **Audit (FR-AUD-01, Q8).** `audit_logs` has no UPDATE or DELETE grant, and triggers reject UPDATE, DELETE and TRUNCATE for every role, including the owner. Platform events (`workspace_id` NULL) enter only through `app.record_platform_audit` (executed by `app_auth`), and tenants cannot see them.
 - **Platform admins.** No application role can write `app.platform_admins`. Operators call `app.operator_grant_platform_admin` / `operator_revoke_platform_admin` as `migrator`; both are audited.
 - **Notifications.** Only the recipient can read a notification. `INSERT … RETURNING` must also pass the SELECT policy, so notifying another member uses `createMany`.
+- **Isolation suite (P1 slice 2, `tests/isolation`, evidence `docs/reports/PHASE_1_S2_ISOLATION_SUITE.md`).** Every relation in a product schema must be classified in `tests/isolation/src/factories.ts`: either as a tenant table with a row factory and its expected app_user behaviour, or as a non-tenant relation with a reason. An unclassified relation fails CI. Each tenant table goes through the full cross-tenant matrix, and its Prisma operations go through the IDOR harness (`@platform/isolation-tests/idor`). Later slices register their server actions with that harness. Write probes include a **blind** UPDATE/DELETE (no `WHERE`, no `RETURNING`), because PostgreSQL applies SELECT policies to a write only when it reads columns. A too-permissive write policy is invisible to filtered probes (finding S2-1). `test:mutation` proves in CI that the suite catches seven classes of isolation bug.
 - **Known limits.** Session tokens are stored in plain text (Spike F F-3, accepted). Whether a definer function is executable by `app_public` is first exercised in S7 (`resolve_host`). The live Supabase run of bootstrap and migrate is pending Owner approval.

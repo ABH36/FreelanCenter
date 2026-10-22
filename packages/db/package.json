@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Prisma schema, migrations, RLS SQL, database roles and the tenant-scoped client",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts"
   },
   "scripts": {
     "generate": "prisma generate",

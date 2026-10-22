@@ -6,8 +6,10 @@
 import { createHash } from 'node:crypto';
 import pg from 'pg';
 import { createTenantDatabase, type TenantDatabase, type TenantScope } from '../../src/client';
-import { LOCAL_DATABASE_URLS } from '../../src/env';
+import { LOCAL_DATABASE_URLS } from '../../src/testing';
 import { uuidv7 } from '../../src/uuid';
+
+export { expectPgError, sqlStates } from '../../src/testing';
 
 export const urls = LOCAL_DATABASE_URLS;
 
@@ -116,39 +118,4 @@ export async function tenantTables(admin: pg.Pool): Promise<string[]> {
       ORDER BY 1`,
   );
   return rows.map((r) => r.relname);
-}
-
-/** Every SQLSTATE found on an error from `pg` or Prisma (driver-adapter errors nest it under meta/cause). */
-export function sqlStates(error: unknown, seen = new Set<unknown>()): string[] {
-  if (!error || typeof error !== 'object' || seen.has(error)) return [];
-  seen.add(error);
-  const found: string[] = [];
-  for (const key of Object.getOwnPropertyNames(error)) {
-    const value = (error as Record<string, unknown>)[key];
-    if (
-      (key === 'code' || key === 'originalCode') &&
-      typeof value === 'string' &&
-      /^[0-9A-Z]{5}$/.test(value)
-    ) {
-      found.push(value);
-    } else if (typeof value === 'string') {
-      for (const m of value.matchAll(/\b(?:Code: `|code: |SQLSTATE )([0-9A-Z]{5})\b/g))
-        found.push(m[1] as string);
-    } else if (value && typeof value === 'object') {
-      found.push(...sqlStates(value, seen));
-    }
-  }
-  return found;
-}
-
-export async function expectPgError(promise: Promise<unknown>, code: string): Promise<void> {
-  try {
-    await promise;
-  } catch (error) {
-    const states = sqlStates(error);
-    if (states.includes(code)) return;
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`expected SQLSTATE ${code}, got [${states.join(', ')}]: ${message}`, { cause: error });
-  }
-  throw new Error(`expected SQLSTATE ${code}, but the statement succeeded`);
 }

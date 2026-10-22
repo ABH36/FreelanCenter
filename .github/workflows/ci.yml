@@ -60,7 +60,7 @@ jobs:
 
   # SEC-01/SEC-02 merge gate: roles, migrations, RLS and tenant isolation against real Postgres 17 behind
   # PgBouncer in transaction mode (packages/db/docker). Runs twice on the same database to prove the suite
-  # does not depend on a fresh volume. Phase 1 later adds Playwright E2E.
+  # does not depend on a fresh volume. Required status check on `main` (P1 slice 2). Phase 1 later adds Playwright E2E.
   db-integration:
     name: Database roles, RLS and tenant isolation
     runs-on: ubuntu-latest
@@ -87,6 +87,19 @@ jobs:
         run: pnpm --filter @platform/db test:integration --coverage
       - name: Integration suite again on the now non-fresh database
         run: pnpm --filter @platform/db test:integration
+      # SEC-02 merge gate (P1 slice 2): per-table cross-tenant matrix, row-factory registry and IDOR harness.
+      - name: Cross-tenant isolation suite (tests/isolation)
+        run: pnpm --filter @platform/isolation-tests test:isolation
+      # Re-introduces seven isolation bugs one at a time; each must make the suite fail (proves it is not vacuous).
+      - name: Isolation suite mutation check
+        run: pnpm --filter @platform/isolation-tests test:mutation
+      - name: Upload the per-table isolation report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: isolation-report
+          path: tests/isolation/results/
+          if-no-files-found: warn
       - name: Database logs on failure
         if: failure()
         run: docker compose -f packages/db/docker/compose.yml logs --no-color --tail 300

@@ -2,6 +2,7 @@ packages:
   - apps/*
   - packages/*
   - spikes/*
+  - tests/*
 
 # SEC-13: dependency install scripts are denied by default (pnpm 11). Anything listed here has been
 # reviewed and is allowed to run its build/postinstall step. Add entries only with a note in the PR.
