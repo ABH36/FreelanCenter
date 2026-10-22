@@ -1,7 +1,7 @@
 # Spike G - Inngest durable jobs: retry, idempotency, dead-letter, signed requests (DG-06)
 
-**Status: LOCAL PROOF PASSED (2026-10-22); live Inngest Cloud run pending.** Automated suite **16/16 on 4 consecutive fresh-server runs**. ADR-007 was **accepted by the Owner on 2026-10-22** with the mandatory configuration below.
-Code: [spikes/spike-g-inngest](../../spikes/spike-g-inngest) · Raw results: `spikes/spike-g-inngest/results/spike-g-results.json`
+**Status: VERIFIED (2026-10-22).** Automated suite **16/16 on 4 consecutive fresh-server runs** locally and **16/16 live against Inngest Cloud**. ADR-007 was **accepted by the Owner on 2026-10-22** with the mandatory configuration below.
+Code: [spikes/spike-g-inngest](../../spikes/spike-g-inngest) · Raw results: `spikes/spike-g-inngest/results/spike-g-results.json` (local), `results/spike-g-live-results.json` (Cloud)
 Reproduce: `cd spikes/spike-g-inngest && pnpm spike:up && pnpm spike:test` (needs Docker; about 3 minutes, most of it real retry backoff).
 
 ## Question
@@ -80,11 +80,11 @@ Local developer experience: `pnpm spike:up` starts the server in about 5 s; the 
 
 ## Limits (stated plainly)
 
-- **Live Inngest Cloud run not done yet.** The Owner's Inngest account (FreelanCenter org, Production environment, free tier) exists; the run needs a temporary public tunnel, which awaits Owner approval. Inngest shows no data-region setting. The same 16 tests run against Cloud with `SPIKE_G_LIVE=1`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY` and `SPIKE_G_SERVE_ORIGIN` (a temporary public tunnel to port 3939); results go to `results/spike-g-live-results.json`. Cloud backoff, region and retention are unverified until then.
-- **Self-hosted server, not Cloud.** `inngest start` is the open-source build of the Cloud executor; the SDK path is identical, but queueing, limits and timing under Cloud load are not measured.
+- **Live Inngest Cloud run (2026-10-22, passed 16/16).** The Owner's Inngest account (FreelanCenter org, Production environment, free tier) ran the same suite with `SPIKE_G_LIVE=1`; Inngest Cloud reached the serve handler through a temporary `cloudflared` quick tunnel to port 3939, open for about 4 minutes and closed straight after. The keys were read from `.env.local` and never written to the results or log (checked). Cloud figures: sync `200`; happy latency 6.4 s; retry gaps 37 s and 45 s; PII payload dead-lettered after 5.2 s with no retries; same-workspace overlaps 0, cross-workspace 1; 22 requests and responses verified independently; all six bad signatures `401`; 108-s-old replay accepted (G-2 holds on Cloud too); wrong event key `401`; 4 attempts then dead letter after 152 s (gaps 39, 42, 64 s). Inngest shows no data-region setting, so region and retention stay unverified (privacy inventory: outside India). The synced `spike-g` app in that account now points at a dead tunnel URL and can be archived.
+- **Load and timing.** Cloud matched the self-hosted executor on every claim, but both runs are single-digit-run samples; queueing, limits and timing under real load are not measured.
 - **Collaborators are stand-ins.** The row lookup mimics RLS visibility; the real job will read through `withWorkspace` (S1) and is covered by the isolation suite once S5 adds it. The provider is a fake; real delivery is DG-10.
 - **Not measured:** Vercel deployment of the route (product work in S5), the 24-hour idempotency window length, a failure inside `onFailure`, the app endpoint being down during a run, replaying failed runs from the Inngest UI, cron (`retention.sweep`), throttle (Vercel domain limits, ADR-005), throughput and cost.
 
 ## Recommendation
 
-Accept ADR-007 (Inngest) **with the mandatory configuration above** (G-1 to G-5), with `packages/jobs` as the only place that creates the client, defines functions and emits events. The Owner ratified ADR-007 on 2026-10-22; DG-06 closes after the live Cloud run.
+Accept ADR-007 (Inngest) **with the mandatory configuration above** (G-1 to G-5), with `packages/jobs` as the only place that creates the client, defines functions and emits events. The Owner ratified ADR-007 on 2026-10-22 and the live Cloud run passed, so DG-06 is closed.

@@ -57,7 +57,7 @@
 ## Top risks carried into Phase 1
 
 1. Supabase shared pooler behaviour differs from the PgBouncer used in Spike B (ADR-003) - blocks schema work until re-verified.
-2. Job runner (Inngest) is an unverified choice (ADR-007). Auth (ADR-006) was verified by Spike F on 2026-10-22; its accepted residual risks are the Better Auth rows above.
+2. Auth (ADR-006) and the job runner (ADR-007, Inngest) were verified by Spikes F and G on 2026-10-22. Their residual risks are the Better Auth rows above and Spike G findings G-1..G-7 (dev mode skips signature checks; 5-minute signature replay window; at-least-once steps).
 3. Client-portal access model versus RLS is unresolved (a Client has no workspace membership): see IMPLEMENTATION_PLAN ambiguity Q5.
 4. No live measurement of real-model injection resistance yet (Spike C live run).
 
