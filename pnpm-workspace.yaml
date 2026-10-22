@@ -21,3 +21,4 @@ overrides:
   deepmerge-ts: '>=8.0.0' # stack exhaustion on recursive graphs (high)
   source-map-js: '>=1.2.2' # GHSA-68fv-2mgg-jv7q (high)
   sharp: '>=0.35.5' # GHSA-wq5f-xc86-pv6w (high)
+  vite: '>=8.3.3' # GHSA-587h-7wmj-h5pm (high); dev-only, pulled in by vitest
