@@ -1,4 +1,15 @@
 {
   "extends": "../config/tsconfig/library.json",
-  "include": ["src"]
+  "compilerOptions": {
+    "allowImportingTsExtensions": true
+  },
+  "include": [
+    "src",
+    "test",
+    "scripts",
+    "prisma.config.ts",
+    "vitest.config.ts",
+    "vitest.integration.config.ts",
+    "vitest.live.config.ts"
+  ]
 }

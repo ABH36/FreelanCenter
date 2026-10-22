@@ -3,16 +3,35 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Prisma schema, migrations, RLS SQL and the tenant-scoped client",
+  "description": "Prisma schema, migrations, RLS SQL, database roles and the tenant-scoped client",
   "exports": {
     ".": "./src/index.ts"
   },
   "scripts": {
+    "generate": "prisma generate",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "db:up": "docker compose -f docker/compose.yml up -d --wait",
+    "db:down": "docker compose -f docker/compose.yml down -v",
+    "db:bootstrap": "node scripts/bootstrap-roles.ts",
+    "db:migrate": "prisma migrate deploy",
+    "db:drift": "prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code",
+    "db:setup": "pnpm db:up && pnpm db:bootstrap && pnpm db:migrate",
+    "db:verify": "node scripts/verify-database.ts",
+    "test:live": "vitest run --config vitest.live.config.ts"
+  },
+  "dependencies": {
+    "@platform/logger": "workspace:*",
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "pg": "8.23.0"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.0.0",
+    "@types/pg": "8.23.1",
+    "@vitest/coverage-v8": "5.0.1",
+    "prisma": "7.10.0"
   }
 }
