@@ -81,6 +81,8 @@ jobs:
       - run: pnpm --filter @platform/db db:migrate
       - name: Migrations and schema.prisma do not drift
         run: pnpm --filter @platform/db db:drift
+      - name: Read-only deployment verification (same script as the live check)
+        run: pnpm --filter @platform/db db:verify
       - name: Integration suite with coverage gate (NFR-MAINT-01)
         run: pnpm --filter @platform/db test:integration --coverage
       - name: Integration suite again on the now non-fresh database

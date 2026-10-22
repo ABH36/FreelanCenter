@@ -3,7 +3,7 @@ import { defineConfig } from 'vitest/config';
 // Unit + integration tests against the Docker stack (`pnpm db:setup` first). Coverage gate: NFR-MAINT-01.
 export default defineConfig({
   test: {
-    include: ['src/**/*.test.ts', 'test/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'test/integration/**/*.test.ts', 'test/static/**/*.test.ts'],
     testTimeout: 120_000,
     hookTimeout: 120_000,
     fileParallelism: false,

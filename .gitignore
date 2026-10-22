@@ -31,3 +31,6 @@ spikes/**/*.local.json
 
 # third-party sample photo for Spike E (download command is in docs/spikes/SPIKE_E_IMAGES.md)
 spikes/spike-e-images/assets/
+
+# provider CA certificates pinned locally (public, but environment-specific)
+*.local.pem
