@@ -10,5 +10,6 @@ Disposable experiments that answer one question each. **Not product code**: noth
 | D - payments             | Razorpay vs Stripe Connect for Indian creators                    | not executed (research only)                      |
 | [E](spike-e-images)      | What do image variants cost to make and deliver?                  | measured (one photo) + modelled                   |
 | [F](spike-f-better-auth) | Does Better Auth work on Prisma 7 + pooler without weakening RLS? | executed locally (Docker); Google live run manual |
+| [G](spike-g-inngest)     | Do Inngest retry, idempotency, dead-letter and signing hold up?   | executed locally (Docker); Cloud live run pending |
 
 Scripts are named `spike:*` on purpose so `pnpm test` / Turborepo never run them (Spike B needs Docker).
