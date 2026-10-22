@@ -1,6 +1,6 @@
 # Phase 1 · Slice 2: exhaustive cross-tenant isolation suite
 
-**Status:** Implemented and covered by automated tests. A full CI-equivalent run passed in a clean LF worktree on a fresh database volume. The mutation check killed 7/7 mutations. **Owner approved** the required status check on `main` (2026-10-22); applying it is pending (section 8). **Pending:** the green CI run on PR #19.
+**Status:** Implemented and covered by automated tests. A full CI-equivalent run passed in a clean LF worktree on a fresh database volume, and GitHub Actions on PR #19 passed every check (the mutation check killed 7/7 in CI). **Required status check on `main`: in place** since 2026-10-22, approved and applied by the Owner (rule 85209121) and verified through the API.
 **Date:** 2026-10-22 · **Branch:** `feat/p1-s2-isolation-suite` · **Plan:** `docs/IMPLEMENTATION_PLAN.md`, Phase 1 slice plan, row S2.
 
 ## 1. Requirements
@@ -59,7 +59,7 @@ Local run, 2026-10-22, Docker Postgres 17.11 + PgBouncer 1.25.2 (database alread
 | S1 integration suite (`@platform/db test:integration --coverage`), re-run because the helpers moved                                                                                               | 67/67; coverage 96.4 % lines, 88.1 % branches (gate 80 %) |
 | Repository `pnpm lint`, `pnpm typecheck`, `pnpm test`                                                                                                                                             | pass                                                      |
 
-**Clean-worktree CI-equivalent run (2026-10-22, LF checkout, `db:down -v` then a fresh volume): all steps passed.** These were install (frozen lockfile), format, sync-plan, lint, typecheck, unit tests, the traceability diff and build; then bootstrap ×2, migrate, drift ("No difference detected"), `db:verify` 20/20, the S1 integration suite 67/67 ×2 (coverage 96.4 % lines, 88.1 % branches), the isolation suite 101/101 and the mutation check 7/7. **Not run yet:** the GitHub Actions job (it runs on PR #19).
+**Clean-worktree CI-equivalent run (2026-10-22, LF checkout, `db:down -v` then a fresh volume): all steps passed.** These were install (frozen lockfile), format, sync-plan, lint, typecheck, unit tests, the traceability diff and build; then bootstrap ×2, migrate, drift ("No difference detected"), `db:verify` 20/20, the S1 integration suite 67/67 ×2 (coverage 96.4 % lines, 88.1 % branches), the isolation suite 101/101 and the mutation check 7/7. **GitHub Actions on PR #19 (run 39818658657):** all checks passed. `Database roles, RLS and tenant isolation` ran the isolation suite and the mutation check (7/7 killed).
 
 ## 7. Mutation evidence
 
@@ -75,7 +75,7 @@ Local run, 2026-10-22, Docker Postgres 17.11 + PgBouncer 1.25.2 (database alread
 
 ## 8. Open decisions for the Owner
 
-1. **Required status check (part of this slice's gate).** `main` currently has no branch protection and no ruleset (`gh api …/branches/main/protection` → 404). Proposal: protect `main` with the required checks `Database roles, RLS and tenant isolation` and `Format, lint, typecheck, test, build`, and require branches to be up to date before merging. GitHub applies the protection immediately, and it changes how everyone merges, so it needed the Owner's explicit approval. **Approved by the Owner on 2026-10-22.** The automated session was not permitted to change repository settings, so the Owner applies it with the command in section 9 or in Settings → Branches. The required check is in place once `gh api repos/ABH36/FreelanCenter/branches/main/protection` returns the two contexts.
+1. **Required status check (part of this slice's gate).** `main` currently has no branch protection and no ruleset (`gh api …/branches/main/protection` → 404). Proposal: protect `main` with the required checks `Database roles, RLS and tenant isolation` and `Format, lint, typecheck, test, build`, and require branches to be up to date before merging. GitHub applies the protection immediately, and it changes how everyone merges, so it needed the Owner's explicit approval. **Approved by the Owner on 2026-10-22.** The Owner applied it in Settings → Branches (rule 85209121). Verified with `gh api …/branches/main/protection`: required contexts `Database roles, RLS and tenant isolation` and `Format, lint, typecheck, test, build`; `strict` true; admin bypass allowed; no required reviews.
 2. **CA fingerprint (S1 open decision 1): done.** On 2026-10-22 the Owner's dashboard download (`prod-ca-2021.crt`) matched SHA-256 `80:70:25:AD:…:E6:CA:FA`. That file is now the pinned `.supabase-root-ca.local.pem`.
 
 ## 9. Branch protection command (after approval)
