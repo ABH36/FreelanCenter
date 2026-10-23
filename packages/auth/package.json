@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Product authentication: Better Auth with the ADR-006 mandatory configuration, platform audit events and MFA guard",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./rbac": "./src/rbac.ts"
   },
   "scripts": {
     "lint": "eslint .",
