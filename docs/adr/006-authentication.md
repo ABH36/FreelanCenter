@@ -32,7 +32,7 @@ Better Auth 1.7.12 + Prisma 7.10 (`adapter-pg`) through transaction-mode PgBounc
 
 ## Still not verified
 
-- Mounting inside `apps/dashboard` (the handler shape is proven; the mount is P1 product work).
+- ~~Mounting inside `apps/dashboard`~~: done in P1 S4 (`apps/dashboard/app/api/auth/[...all]/route.ts`), smoke-tested through a running Next 16.4.2 server; the product auth suite (successor of the Spike F suite) asserts every mandatory setting and runs 3x in CI. Evidence: `docs/reports/PHASE_1_S4_DASHBOARD_AUTH.md`.
 - Session tokens are stored in plain text (F-3); accepted with the role split and expiry as controls.
 
 ## Consequences

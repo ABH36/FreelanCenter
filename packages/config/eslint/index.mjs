@@ -65,8 +65,8 @@ export const platformConfig = tseslint.config(
     // The two apps must never import each other (ADR-002: separate trust domains).
     files: ['apps/sites/**/*.{ts,tsx}'],
     rules: restrict([
-      ['**/apps/dashboard/**', '@platform/dashboard'],
-      'ADR-002: sites must not import dashboard code.',
+      ['**/apps/dashboard/**', '@platform/dashboard', '@platform/auth'],
+      'ADR-002: sites must not import dashboard code or dashboard auth (no shared sessions or cookies).',
     ]),
   },
   {
