@@ -9,6 +9,8 @@ const config: NextConfig = {
     '@platform/db',
     '@platform/logger',
     '@platform/providers',
+    '@platform/jobs',
+    '@platform/workspaces',
   ],
   async headers() {
     // Baseline hardening (SEC-03). A full per-surface CSP lands with the builder (P3).
@@ -32,6 +34,14 @@ const config: NextConfig = {
       {
         source: '/api/auth/:path(reset-password|verify-email)/:rest*',
         headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }],
+      },
+      {
+        // SEC-11: the invitation token is in the path.
+        source: '/invite/:token*',
+        headers: [
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'Cache-Control', value: 'no-store' },
+        ],
       },
     ];
   },
