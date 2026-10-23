@@ -21,8 +21,8 @@ export default async function WorkspaceOverviewPage({ params }: { params: Promis
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{ws.name}</h1>
         <p className="mt-1 text-sm text-slate-600">
-          You are {ws.role === 'admin' || ws.role === 'owner' ? 'an' : 'a'}{' '}
-          <span className="capitalize">{ws.role}</span> of this workspace.
+          You are {ws.role === 'viewer' ? 'a' : 'an'} <span className="capitalize">{ws.role}</span> of this
+          workspace.
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-3">
