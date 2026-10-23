@@ -1,6 +1,6 @@
 # Phase 1 · Slice 4: dashboard authentication
 
-**Status:** Implemented and covered by automated tests; local CI-equivalent run recorded in section 6. **Not yet:** GitHub Actions run on the PR, live Google round trip through the dashboard, real e-mail delivery (DG-10) and the production Turnstile keys (DG-16). Those are listed in section 8 with who has to do what.
+**Status:** Implemented and covered by automated tests; local CI-equivalent run recorded in section 6. GitHub Actions on PR #23: all checks green, product auth suite 54/54 ×3 in CI. **Not yet:** live Google round trip through the dashboard, real e-mail delivery (DG-10) and the production Turnstile keys (DG-16). Those are listed in section 8 with who has to do what.
 **Date:** 2026-10-23 · **Branch:** `feat/p1-s4-dashboard-auth` · **Plan:** `docs/IMPLEMENTATION_PLAN.md`, Phase 1 slice plan, row S4.
 
 ## 1. Requirements
@@ -93,9 +93,9 @@ Each mutation was applied to `packages/auth/src/auth.ts` and the behavioural sui
 
 ## 8. Open items and decisions for the Owner
 
-| Item                                 | Needed from                                                                                                                                                                                                        |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Live Google round trip via dashboard | Owner: sign in with Google on the running dashboard once (redirect URI `http://localhost:3000/api/auth/callback/google` is already registered from Spike F).                                                       |
-| ADR-012 / DG-10 e-mail               | Owner decision: accept Resend for transactional mail and provide a verified sending domain. Until then every environment uses capture mail; a one-off live send with Resend's test sender is possible on approval. |
-| DG-16 production Turnstile           | Owner: create a Turnstile site for the dashboard hostname(s) and add its keys to Vercel.                                                                                                                           |
-| Branch protection                    | No change needed: the auth suite runs inside the already-required `db-integration` job.                                                                                                                            |
+| Item                                 | Needed from                                                                                                                                                       |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Live Google round trip via dashboard | Owner: sign in with Google on the running dashboard once (redirect URI `http://localhost:3000/api/auth/callback/google` is already registered from Spike F).      |
+| ADR-012 / DG-10 e-mail               | Owner (2026-10-23): no own domain yet, so ADR-012 stays Proposed and every environment uses capture mail. Real delivery waits for a verified sending domain.      |
+| DG-16 production Turnstile           | Widget created and site key in Vercel (2026-10-23). Owner: add `TURNSTILE_SECRET_KEY` (Production + Preview) by hand; then one live widget solve on a deployment. |
+| Branch protection                    | No change needed: the auth suite runs inside the already-required `db-integration` job.                                                                           |
