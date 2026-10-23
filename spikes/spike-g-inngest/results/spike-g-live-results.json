@@ -1,0 +1,125 @@
+{
+  "executedAt": "2026-10-22T18:07:33.355Z",
+  "inngestSdk": "4.22.0",
+  "inngestServer": "Inngest Cloud",
+  "results": {
+    "sync": {
+      "status": 200,
+      "body": "{\"message\":\"Successfully registered\",\"modified\":true}"
+    },
+    "happy": {
+      "runId": "01M5JCKACMVT1GMZGBQTDF68XA",
+      "latencyMs": 6441,
+      "eventDataKeys": [
+        "notificationId",
+        "workspaceId"
+      ]
+    },
+    "retry": {
+      "attempts": 3,
+      "backoffGapsMs": [
+        37298,
+        45127
+      ],
+      "loadCalls": 1
+    },
+    "crashAfterSend": {
+      "providerCalls": 2,
+      "emailsDelivered": 1,
+      "duplicateSuppressedByProviderKey": 1
+    },
+    "idempotencyKey": {
+      "eventsSent": 2,
+      "runs": 1
+    },
+    "eventIdDedupe": {
+      "sends": 2,
+      "runs": 1
+    },
+    "piiBypass": {
+      "deadLetteredAfterMs": 5247,
+      "retries": 0
+    },
+    "concurrency": {
+      "sameWorkspace": {
+        "intervals": [
+          [
+            0,
+            2509
+          ],
+          [
+            4268,
+            6778
+          ],
+          [
+            8792,
+            11300
+          ]
+        ],
+        "overlaps": 0
+      },
+      "differentWorkspaces": {
+        "intervals": [
+          [
+            0,
+            2509
+          ],
+          [
+            4231,
+            6749
+          ],
+          [
+            4237,
+            6752
+          ]
+        ],
+        "overlaps": 1
+      }
+    },
+    "signedRequests": {
+      "executorRequestsVerified": 22,
+      "sdkResponsesVerified": 22
+    },
+    "signatureRejections": {
+      "missing": 401,
+      "wrongKey": 401,
+      "tamperedBody": 401,
+      "expired6min": 401,
+      "future6min": 401,
+      "garbage": 401
+    },
+    "replay": {
+      "independentlySignedStatus": 206,
+      "capturedReplayStatus": 206,
+      "replayAgeSeconds": 108,
+      "functionReExecuted": true,
+      "emailsDelivered": 1
+    },
+    "devModeHazard": {
+      "unsignedForgedRequestInDevMode": 206,
+      "modeWithEnvOnly": "dev",
+      "modeWithExplicitIsDevFalse": "cloud"
+    },
+    "wrongEventKey": "Inngest API Error: 401 Event key not found",
+    "introspectionUnsigned": {
+      "message": "Unauthorized"
+    },
+    "deadLetter": {
+      "attempts": 4,
+      "backoffGapsMs": [
+        39101,
+        42188,
+        64265
+      ],
+      "deadLetteredAfterMs": 152290,
+      "record": {
+        "functionId": "spike-g-notification-email-v1",
+        "runId": "<run id>",
+        "workspaceId": "b8af367e-587c-46ca-b035-801978db94cd",
+        "notificationId": "8a403c0c-0db5-450d-b801-9b9658dbc6d8",
+        "error": "provider unavailable (simulated 503)",
+        "at": "2026-10-22T18:07:33.324Z"
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "@platform/spike-g-inngest",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "SPIKE G (disposable, DG-06): Inngest durable function with retry/backoff, idempotency, dead-letter, signed requests and per-workspace concurrency. Not product code.",
+  "scripts": {
+    "spike:up": "docker compose up -d --wait",
+    "spike:down": "docker compose down -v",
+    "spike:test": "vitest run"
+  },
+  "dependencies": {
+    "inngest": "4.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0"
+  }
+}

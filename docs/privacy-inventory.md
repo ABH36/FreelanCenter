@@ -17,16 +17,17 @@
 
 ## Cross-border processors (record before use; none engaged in Phase 0)
 
-| Processor                              | Data                                                     | Region                     | Note                                                                                   |
-| -------------------------------------- | -------------------------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------- |
-| Supabase (Postgres)                    | all tenant data                                          | Mumbai ap-south-1          | primary                                                                                |
-| Vercel                                 | request logs, rendered content                           | `bom1` compute; CDN global | edge caches published content worldwide                                                |
-| Cloudflare (R2/CDN)                    | images, asset requests                                   | global CDN                 |                                                                                        |
-| Upstash (Redis)                        | cache keys, rate-limit counters (no PII values intended) | ap-south-1 to confirm      |                                                                                        |
-| Anthropic                              | prompts with business content; lead text for triage      | outside India              | disclose; redact PII where possible; no training on API data per vendor terms (verify) |
-| Inngest, Sentry                        | event/error payloads                                     | vendor                     | scrub PII in payloads                                                                  |
-| Resend/Postmark, WhatsApp/SMS provider | recipient contact + message                              | vendor                     |                                                                                        |
-| Razorpay                               | payer/payee details                                      | India                      | KYC by provider                                                                        |
+| Processor                              | Data                                                     | Region                     | Note                                                                                     |
+| -------------------------------------- | -------------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------- |
+| Supabase (Postgres)                    | all tenant data                                          | Mumbai ap-south-1          | primary                                                                                  |
+| Vercel                                 | request logs, rendered content                           | `bom1` compute; CDN global | edge caches published content worldwide                                                  |
+| Cloudflare (R2/CDN)                    | images, asset requests                                   | global CDN                 |                                                                                          |
+| Upstash (Redis)                        | cache keys, rate-limit counters (no PII values intended) | ap-south-1 to confirm      |                                                                                          |
+| Anthropic                              | prompts with business content; lead text for triage      | outside India              | disclose; redact PII where possible; no training on API data per vendor terms (verify)   |
+| Inngest                                | job event payloads: workspace/record ids only            | vendor (outside India)     | ids-only enforced by typed senders in `packages/jobs` (Spike G, G-4); no PII in payloads |
+| Sentry                                 | error payloads                                           | vendor                     | scrub PII in payloads                                                                    |
+| Resend/Postmark, WhatsApp/SMS provider | recipient contact + message                              | vendor                     |                                                                                          |
+| Razorpay                               | payer/payee details                                      | India                      | KYC by provider                                                                          |
 
 ## Open items for counsel
 

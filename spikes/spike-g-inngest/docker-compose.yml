@@ -1,0 +1,23 @@
+# Spike G: Inngest server in self-hosted mode (`inngest start`), which runs the same executor as Inngest
+# Cloud but locally and - unlike `inngest dev` - REQUIRES an event key and signs every request to the app
+# with the signing key. That lets the suite exercise the production (cloud-mode) SDK path end to end.
+# The SDK serve handler runs on the host inside the vitest process (port 3939); the container reaches it
+# through host.docker.internal. The keys below are throwaway local values with no meaning anywhere else.
+services:
+  inngest:
+    image: inngest/inngest:v1.46.0
+    command:
+      - inngest
+      - start
+      - --port=8288
+      - --event-key=spike-g-local-event-key
+      - --signing-key=000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
+    ports:
+      - '8288:8288'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    healthcheck:
+      test: ['CMD', 'bash', '-c', '</dev/tcp/127.0.0.1/8288']
+      interval: 2s
+      timeout: 3s
+      retries: 30

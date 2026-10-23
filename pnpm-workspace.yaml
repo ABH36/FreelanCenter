@@ -10,6 +10,8 @@ allowBuilds:
   # Prisma CLI + engines: verify/fetch the schema-engine binary used by `prisma migrate`.
   '@prisma/engines': true
   prisma: true
+  # protobufjs (Inngest SDK -> OpenTelemetry gRPC exporter): postinstall only prints a version-compat warning. Denied.
+  protobufjs: false
 
 # Security overrides for transitive dependencies of the Prisma CLI (found by `pnpm audit` in Phase 0).
 # Neither package is used by our runtime code (we use PostgreSQL; mysql2 is MySQL tooling inside the CLI), but
