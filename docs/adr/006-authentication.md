@@ -18,17 +18,17 @@ Better Auth 1.7.12 + Prisma 7.10 (`adapter-pg`) through transaction-mode PgBounc
 
 **Mandatory configuration** (each one closes a spike finding):
 
-| Setting                                                                      | Reason                                                                  |
-| ---------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `verification.storeIdentifier: 'hashed'`                                     | default stores reset tokens/OAuth state in plain text (F-1, FR-AUTH-04) |
-| `advanced.disableOriginCheck: false`                                         | default turns CSRF/origin checks off under test runners (F-2)           |
-| `advanced.ipAddress` set to the deployment's trusted client-IP header        | an untrusted `x-forwarded-for` lets clients evade the rate limit (F-5)  |
-| explicit `rateLimit.customRules` and `twoFactor.accountLockout`              | defaults are generous (F-6)                                             |
-| `emailAndPassword.requireEmailVerification`, `revokeSessionsOnPasswordReset` | FR-AUTH-01/04                                                           |
-| `account.encryptOAuthTokens: true`                                           | provider access/id tokens are otherwise stored in plain text (F-10)     |
-| `telemetry.enabled: false`                                                   | no undeclared processor                                                 |
-| plugin subpath imports only                                                  | the plugins barrel is very slow to load (F-8)                           |
-| exact version pin; re-run Spike F on every Better Auth upgrade               | two unsafe defaults (F-1, F-2) were only visible by testing             |
+| Setting                                                                           | Reason                                                                                                       |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `verification.storeIdentifier: 'hashed'`                                          | default stores reset tokens/OAuth state in plain text (F-1, FR-AUTH-04)                                      |
+| `advanced.disableOriginCheck: false`                                              | default turns CSRF/origin checks off under test runners (F-2)                                                |
+| `advanced.ipAddress` set to the deployment's trusted client-IP header             | an untrusted `x-forwarded-for` lets clients evade the rate limit (F-5)                                       |
+| explicit `rateLimit.customRules` and `twoFactor.accountLockout`                   | defaults are generous (F-6)                                                                                  |
+| `emailAndPassword.requireEmailVerification`, `revokeSessionsOnPasswordReset`      | FR-AUTH-01/04                                                                                                |
+| `account.encryptOAuthTokens: true`, plus dropping `id_token` in the account hooks | provider access/id tokens are otherwise stored in plain text (F-10); 1.7.12 never encrypts `id_token` (S4-6) |
+| `telemetry.enabled: false`                                                        | no undeclared processor                                                                                      |
+| plugin subpath imports only                                                       | the plugins barrel is very slow to load (F-8)                                                                |
+| exact version pin; re-run Spike F on every Better Auth upgrade                    | two unsafe defaults (F-1, F-2) were only visible by testing                                                  |
 
 ## Still not verified
 

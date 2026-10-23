@@ -290,7 +290,11 @@ export function createAuth(deps: AuthDeps) {
         },
       },
       account: {
+        // S4-6: `encryptOAuthTokens` encrypts access/refresh tokens but Better Auth 1.7.12 stores the provider
+        // `id_token` (a signed JWT with e-mail and name) in plain text. The product never reads it after the
+        // callback, so it is never persisted.
         create: {
+          before: async (account) => ({ data: { ...account, idToken: null } }),
           after: async (account, ctx) => {
             if (account.providerId === 'credential') return;
             await audit.record({
@@ -302,6 +306,10 @@ export function createAuth(deps: AuthDeps) {
               ...requestMeta(ctx as unknown as HookContext),
             });
           },
+        },
+        update: {
+          before: async (account) =>
+            'idToken' in account ? { data: { ...account, idToken: null } } : undefined,
         },
       },
       session: {

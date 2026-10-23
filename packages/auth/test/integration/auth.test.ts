@@ -440,6 +440,25 @@ describe('6. Google OAuth start and callback validation (FR-AUTH-01)', () => {
     expect(after!.n).toBe(before!.n);
   });
 
+  it('the provider id_token is never persisted, on link or on later token updates (S4-6)', async () => {
+    const { id } = await verifiedUser(email('oauth-store'));
+    const ctx = await auth.$context;
+    const fakeIdToken = 'eyJhbGciOiJSUzI1NiJ9.eyJlbWFpbCI6InZpY3RpbUBleGFtcGxlLnRlc3QifQ.sig';
+    const account = await ctx.internalAdapter.createAccount({
+      userId: id,
+      providerId: 'google',
+      accountId: `google-${id}`,
+      idToken: fakeIdToken,
+      scope: 'openid',
+    });
+    await ctx.internalAdapter.updateAccount(account.id, { idToken: fakeIdToken });
+    const [row] = await q<{ id_token: string | null }>(
+      'SELECT id_token FROM identity.accounts WHERE id = $1',
+      [account.id],
+    );
+    expect(row!.id_token).toBeNull();
+  });
+
   it('an off-origin callbackURL is refused (open redirect)', async () => {
     const r = await browser().req('/sign-in/social', {
       body: { provider: 'google', callbackURL: 'https://evil.example/x' },
