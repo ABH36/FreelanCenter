@@ -51,6 +51,9 @@ importers:
       '@platform/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@platform/jobs':
+        specifier: workspace:*
+        version: link:../../packages/jobs
       '@platform/logger':
         specifier: workspace:*
         version: link:../../packages/logger
@@ -60,6 +63,9 @@ importers:
       '@platform/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@platform/workspaces':
+        specifier: workspace:*
+        version: link:../../packages/workspaces
       better-auth:
         specifier: 1.7.12
         version: 1.7.12(@opentelemetry/api@1.10.0)(@prisma/client@7.10.0(prisma@7.10.0(@types/node@22.20.4)(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(typescript@5.9.3))(typescript@5.9.3))(mysql2@3.24.4(@types/node@22.20.4))(next@16.4.2(@opentelemetry/api@1.10.0)(@types/node@22.20.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(pg@8.23.0)(prisma@7.10.0(@types/node@22.20.4)(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(typescript@5.9.3))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(vitest@5.0.1)
@@ -203,6 +209,10 @@ importers:
         version: 7.10.0(@types/node@22.20.4)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(typescript@5.9.3)
 
   packages/jobs:
+    dependencies:
+      inngest:
+        specifier: 4.22.0
+        version: 4.22.0(@opentelemetry/core@3.0.0(@opentelemetry/api@1.10.0))(next@16.4.2(@opentelemetry/api@1.10.0)(@types/node@22.20.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)(typescript@5.9.3)(zod@4.6.5)
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -231,6 +241,37 @@ importers:
       '@types/node':
         specifier: ^22.0.0
         version: 22.20.4
+
+  packages/workspaces:
+    dependencies:
+      '@platform/auth':
+        specifier: workspace:*
+        version: link:../auth
+      '@platform/db':
+        specifier: workspace:*
+        version: link:../db
+      '@platform/jobs':
+        specifier: workspace:*
+        version: link:../jobs
+      '@platform/logger':
+        specifier: workspace:*
+        version: link:../logger
+      '@platform/providers':
+        specifier: workspace:*
+        version: link:../providers
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.4
+      '@types/pg':
+        specifier: 8.23.1
+        version: 8.23.1
+      pg:
+        specifier: 8.23.0
+        version: 8.23.0
 
   spikes/spike-b-rls-pooling:
     dependencies:
@@ -320,6 +361,15 @@ importers:
       '@platform/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@platform/jobs':
+        specifier: workspace:*
+        version: link:../../packages/jobs
+      '@platform/providers':
+        specifier: workspace:*
+        version: link:../../packages/providers
+      '@platform/workspaces':
+        specifier: workspace:*
+        version: link:../../packages/workspaces
       pg:
         specifier: 8.23.0
         version: 8.23.0
