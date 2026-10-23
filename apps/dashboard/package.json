@@ -14,9 +14,11 @@
   "dependencies": {
     "@platform/auth": "workspace:*",
     "@platform/db": "workspace:*",
+    "@platform/jobs": "workspace:*",
     "@platform/logger": "workspace:*",
     "@platform/providers": "workspace:*",
     "@platform/ui": "workspace:*",
+    "@platform/workspaces": "workspace:*",
     "better-auth": "1.7.12",
     "next": "16.4.2",
     "react": "19.3.0",

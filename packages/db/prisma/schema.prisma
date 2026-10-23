@@ -232,7 +232,7 @@ model PlatformAdmin {
 model Workspace {
   id               String          @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name             String
-  /// Unique, lower-case, 3-48 chars (CHECK); reserved words are rejected by the service layer (FR-WS-01).
+  /// Unique, lower-case, 3-48 chars; reserved words (app.reserved_slugs()) blocked by CHECK and the service (FR-WS-01).
   slug             String          @unique
   status           WorkspaceStatus @default(active)
   planId           String?         @map("plan_id")

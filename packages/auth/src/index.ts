@@ -38,3 +38,16 @@ export {
   inlineDefer,
   renderAuthMail,
 } from './mail';
+export {
+  type Actor,
+  type Capability,
+  type Resource,
+  type WorkspacePolicy,
+  type WorkspaceRole,
+  CAPABILITIES,
+  ForbiddenError,
+  WORKSPACE_ROLES,
+  assignableRoles,
+  authorize,
+  can,
+} from './rbac';

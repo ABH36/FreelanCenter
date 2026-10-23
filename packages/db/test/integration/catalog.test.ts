@@ -260,10 +260,16 @@ describe('functions', () => {
         WHERE n.nspname IN ('app', 'identity') AND p.prosecdef`,
     );
     expect(rows.map((r) => r.proname).sort()).toEqual([
+      'accept_invitation',
       'admin_set_workspace_status',
+      'current_member_role',
+      'invitation_preview',
+      'memberships_keep_owner',
       'operator_grant_platform_admin',
       'operator_revoke_platform_admin',
       'record_platform_audit',
+      'workspace_has_members',
+      'workspace_members',
       'workspace_writable',
     ]);
     for (const r of rows) {
@@ -294,6 +300,25 @@ describe('functions', () => {
     expect(await executors('operator_grant_platform_admin')).toEqual(['migrator']);
     expect(await executors('operator_revoke_platform_admin')).toEqual(['migrator']);
     expect(await executors('workspace_writable')).toEqual(['app_user']);
+    // S5: membership role helpers, invitation acceptance/preview, the member directory and the slug list.
+    for (const fn of [
+      'current_member_role',
+      'workspace_has_members',
+      'accept_invitation',
+      'invitation_preview',
+      'workspace_members',
+    ]) {
+      expect(await executors(fn), fn).toEqual(['app_user']);
+    }
+    // Invoker functions owned by migrator (the owner always holds EXECUTE): the slug list for app_user's CHECK,
+    // and the trigger functions, which no request role can call directly.
+    for (const fn of ['is_reserved_slug', 'reserved_slugs']) {
+      expect(await executors(fn), fn).toEqual(['app_user', 'migrator']);
+    }
+    for (const fn of ['memberships_guard', 'workspaces_guard']) {
+      expect(await executors(fn), fn).toEqual(['migrator']);
+    }
+    expect(await executors('memberships_keep_owner')).toEqual([]);
   });
 
   it('audit_logs carries the append-only triggers', async () => {

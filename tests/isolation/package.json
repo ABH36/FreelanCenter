@@ -15,6 +15,9 @@
   },
   "dependencies": {
     "@platform/db": "workspace:*",
+    "@platform/jobs": "workspace:*",
+    "@platform/providers": "workspace:*",
+    "@platform/workspaces": "workspace:*",
     "pg": "8.23.0"
   },
   "devDependencies": {

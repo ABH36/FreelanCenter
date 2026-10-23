@@ -102,6 +102,14 @@ jobs:
         run: pnpm --filter @platform/auth test:integration
       - name: Product auth suite (run 3 of 3)
         run: pnpm --filter @platform/auth test:integration
+      # FR-WS-01/02/03, FR-AUTH-05/06/08, SEC-10 (P1 slice 5): workspace, membership and invitation commands, the
+      # role-aware RLS and owner guards (raw SQL as app_user), the accept-once and last-owner races.
+      - name: Workspace service suite
+        run: pnpm --filter @platform/workspaces test:integration
+      # ADR-007 (P1 slice 5): the invitation e-mail function through a local signed `inngest start` executor
+      # (keys generated per run): delivery, de-duplication, retry, dead letter, unsigned call refused.
+      - name: Job suite against the signed Inngest executor
+        run: pnpm --filter @platform/jobs test:integration
       - name: Upload the per-table isolation report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

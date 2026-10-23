@@ -12,6 +12,22 @@ const restrict = (...rules) => ({
   'no-restricted-imports': ['error', { patterns: rules.map(([group, message]) => ({ group, message })) }],
 });
 
+// ADR-007 rule 3 (Spike G G-4): only packages/jobs talks to Inngest; everything else uses its typed emitters.
+const NO_INNGEST = [
+  ['inngest', 'inngest/*'],
+  'ADR-007: import job helpers from @platform/jobs; only packages/jobs imports the Inngest SDK.',
+];
+
+const NO_INNER_HTML = {
+  selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
+  message: 'SEC-04: dangerouslySetInnerHTML is forbidden. Render tenant content as data.',
+};
+// A job scope has workspace context without an actor; only the job handlers (and tests) may open one.
+const NO_JOB_SCOPE = {
+  selector: "MemberExpression[property.name='withJobTenant']",
+  message: 'withJobTenant is for background job handlers only (packages/workspaces/src/delivery.ts).',
+};
+
 const NO_APPS = [
   ['**/apps/**', '@platform/dashboard', '@platform/sites'],
   'packages must not import from apps (SRS 4.4).',
@@ -39,42 +55,52 @@ export const platformConfig = tseslint.config(
       eqeqeq: ['error', 'always'],
       'no-console': ['warn', { allow: ['warn', 'error'] }],
       // SEC-04: tenant-supplied content is rendered as data, never as markup.
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
-          message: 'SEC-04: dangerouslySetInnerHTML is forbidden. Render tenant content as data.',
-        },
-      ],
+      'no-restricted-syntax': ['error', NO_INNER_HTML, NO_JOB_SCOPE],
     },
   },
   {
     // Layering: packages never depend on apps.
     files: ['packages/**/*.{ts,tsx}'],
+    rules: restrict(NO_APPS, NO_INNGEST),
+  },
+  {
+    files: ['packages/jobs/**/*.{ts,tsx}'],
     rules: restrict(NO_APPS),
+  },
+  {
+    // The job handler, the data layer that defines it, and test suites may open a job scope.
+    files: ['packages/workspaces/src/delivery.ts', 'packages/db/**/*.ts', '**/test/**/*.ts', 'tests/**/*.ts'],
+    rules: { 'no-restricted-syntax': ['error', NO_INNER_HTML] },
   },
   {
     // Pure layers: schema, blocks and ui must stay free of I/O packages (and still may not import apps).
     files: ['packages/schema/**/*.{ts,tsx}', 'packages/blocks/**/*.{ts,tsx}', 'packages/ui/**/*.{ts,tsx}'],
-    rules: restrict(NO_APPS, [
-      ['@platform/db', '@platform/jobs', '@platform/ai', '@platform/providers', '@prisma/*'],
-      'schema/blocks/ui are pure layers: no database, jobs, AI or provider imports.',
-    ]),
+    rules: restrict(
+      NO_APPS,
+      [
+        ['@platform/db', '@platform/jobs', '@platform/ai', '@platform/providers', '@prisma/*'],
+        'schema/blocks/ui are pure layers: no database, jobs, AI or provider imports.',
+      ],
+      NO_INNGEST,
+    ),
   },
   {
     // The two apps must never import each other (ADR-002: separate trust domains).
     files: ['apps/sites/**/*.{ts,tsx}'],
-    rules: restrict([
-      ['**/apps/dashboard/**', '@platform/dashboard', '@platform/auth'],
-      'ADR-002: sites must not import dashboard code or dashboard auth (no shared sessions or cookies).',
-    ]),
+    rules: restrict(
+      [
+        ['**/apps/dashboard/**', '@platform/dashboard', '@platform/auth'],
+        'ADR-002: sites must not import dashboard code or dashboard auth (no shared sessions or cookies).',
+      ],
+      NO_INNGEST,
+    ),
   },
   {
     files: ['apps/dashboard/**/*.{ts,tsx}'],
-    rules: restrict([
-      ['**/apps/sites/**', '@platform/sites'],
-      'ADR-002: dashboard must not import sites code.',
-    ]),
+    rules: restrict(
+      [['**/apps/sites/**', '@platform/sites'], 'ADR-002: dashboard must not import sites code.'],
+      NO_INNGEST,
+    ),
   },
   {
     // Node scripts, configs and spikes may print to the console.

@@ -1,6 +1,6 @@
-import { createHash, createHmac, pbkdf2Sync } from 'node:crypto';
+import { X509Certificate, createHash, createHmac, pbkdf2Sync } from 'node:crypto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { connectionConfig } from './connection';
+import { PINNED_CAS, connectionConfig } from './connection';
 import { assertUrlRole, isLocalHost, parseDotEnv, passwordOf, resolveDatabaseUrl, roleOf } from './env';
 import { DbBusyError } from './errors';
 import { TransactionLimiter } from './limiter';
@@ -69,6 +69,24 @@ describe('connectionConfig', () => {
     expect(() => connectionConfig('postgresql://u:p@db.example.com/x', {})).toThrow(/sslmode/);
     expect(connectionConfig('postgresql://u:p@db.example.com/x?sslmode=verify-full', {})).toEqual({
       connectionString: 'postgresql://u:p@db.example.com/x?sslmode=verify-full',
+    });
+  });
+
+  it('the bundled Supabase CA is the one the Owner confirmed (fingerprint pinned)', () => {
+    const cert = new X509Certificate(PINNED_CAS['supabase-root-2021']!);
+    expect(cert.fingerprint256).toBe(
+      '80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA',
+    );
+    expect(cert.subject).toContain('CN=Supabase Root 2021 CA');
+  });
+
+  it('a pinned CA name verifies the server certificate against that CA, with sslmode removed', () => {
+    const config = connectionConfig('postgresql://u:p@pooler.supabase.com:6543/postgres?sslmode=require', {
+      DATABASE_SSL_ROOT_CERT: 'supabase-root-2021',
+    });
+    expect(config).toEqual({
+      connectionString: 'postgresql://u:p@pooler.supabase.com:6543/postgres',
+      ssl: { ca: PINNED_CAS['supabase-root-2021'], rejectUnauthorized: true },
     });
   });
 });

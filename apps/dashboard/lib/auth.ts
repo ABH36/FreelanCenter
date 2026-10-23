@@ -20,6 +20,9 @@ export const logger = createLogger({ app: 'dashboard' });
 
 interface AuthRuntime {
   auth: Auth;
+  /** The one mail transport of this process (auth mail and, since S5, invitation mail). */
+  email: EmailProvider;
+  config: ReturnType<typeof loadAuthConfig>;
   /** Local development only: mail captured in memory and shown at /dev/mailbox. */
   mailbox: CaptureEmailProvider | null;
   ready: Promise<void>;
@@ -56,7 +59,7 @@ function build(): AuthRuntime {
   // One role check per process: the auth route must never run as a tenant, owner or BYPASSRLS role.
   const ready = assertConnectionRole(prisma, 'app_auth');
   ready.catch((error: unknown) => logger.fatal('auth.db.role_check_failed', error));
-  return { auth, mailbox, ready };
+  return { auth, email, config, mailbox, ready };
 }
 
 export function authRuntime(): AuthRuntime {

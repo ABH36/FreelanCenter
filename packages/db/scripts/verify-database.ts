@@ -119,9 +119,23 @@ const tenantTables = await withClient('bootstrap', async (op) => {
        FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
       WHERE n.nspname = 'app' AND p.prosecdef`,
   );
+  // P1 foundation (5) + P1 S5 (6). An unexpected definer is as much a finding as a missing one.
+  const expectedDefiners = [
+    'accept_invitation',
+    'admin_set_workspace_status',
+    'current_member_role',
+    'invitation_preview',
+    'memberships_keep_owner',
+    'operator_grant_platform_admin',
+    'operator_revoke_platform_admin',
+    'record_platform_audit',
+    'workspace_has_members',
+    'workspace_members',
+    'workspace_writable',
+  ];
   check(
-    'SECURITY DEFINER functions: 5, owned by svc_definer, search_path pinned',
-    definers.length === 5 &&
+    `SECURITY DEFINER functions: exactly the ${expectedDefiners.length} expected, owned by svc_definer, search_path pinned`,
+    JSON.stringify(definers.map((d) => d.proname).sort()) === JSON.stringify(expectedDefiners) &&
       definers.every((d) => d.owner === DEFINER_ROLE && (d.proconfig ?? []).includes('search_path=""')),
     JSON.stringify(definers.map((d) => [d.proname, d.owner])),
   );

@@ -69,6 +69,13 @@ export interface TenantDatabase {
    * and the actor's owner membership; nothing else can reference an id that does not exist yet.
    */
   withNewWorkspace<T>(actorUserId: string, fn: (tx: Tx, scope: TenantScope) => Promise<T>): Promise<T>;
+  /**
+   * Workspace context with no actor, for background jobs only (ADR-007): the id comes from a signed, ids-only
+   * event this platform emitted after an authorized command, never from a browser. With no actor,
+   * `app.current_member_role()` is NULL, so every role-gated write (memberships, invitations, workspace
+   * settings) is refused by RLS; reads and audit appends work. ESLint confines callers to job handlers.
+   */
+  withJobTenant<T>(workspaceId: string, fn: (tx: Tx) => Promise<T>): Promise<T>;
   /** Fails unless the connection role is `expectedRole` and has neither SUPERUSER nor BYPASSRLS. */
   verifyRole(expectedRole?: string): Promise<void>;
   readonly stats: { active: number; queued: number };
@@ -194,6 +201,11 @@ export function createTenantDatabase(options: TenantDatabaseOptions): TenantData
       requireUuid(actorUserId, 'actorUserId');
       const scope = makeScope({ workspaceId: uuidv7(), actorUserId, role: 'owner', writable: true });
       return run(scope.workspaceId, actorUserId, (tx) => fn(tx, scope));
+    },
+
+    async withJobTenant(workspaceId, fn) {
+      requireUuid(workspaceId, 'workspaceId');
+      return run(workspaceId, '', fn);
     },
 
     verifyRole(expectedRole = 'app_user') {

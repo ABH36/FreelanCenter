@@ -3,16 +3,20 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Durable background job functions (Inngest)",
+  "description": "Durable background jobs (ADR-007, Inngest): config, ids-only events, functions and the serve route",
   "exports": {
     ".": "./src/index.ts"
   },
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "devDependencies": {
     "@types/node": "^22.0.0"
+  },
+  "dependencies": {
+    "inngest": "4.22.0"
   }
 }
