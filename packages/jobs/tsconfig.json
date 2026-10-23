@@ -1,4 +1,4 @@
 {
   "extends": "../config/tsconfig/library.json",
-  "include": ["src"]
+  "include": ["src", "test", "vitest.integration.config.ts"]
 }
