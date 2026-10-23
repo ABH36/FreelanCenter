@@ -123,6 +123,31 @@ importers:
         specifier: ^22.0.0
         version: 22.20.4
 
+  packages/auth:
+    dependencies:
+      '@platform/db':
+        specifier: workspace:*
+        version: link:../db
+      '@platform/logger':
+        specifier: workspace:*
+        version: link:../logger
+      '@platform/providers':
+        specifier: workspace:*
+        version: link:../providers
+      better-auth:
+        specifier: 1.7.12
+        version: 1.7.12(@opentelemetry/api@1.10.0)(@prisma/client@7.10.0(prisma@7.10.0(@types/node@22.20.4)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(typescript@5.9.3))(typescript@5.9.3))(mysql2@3.24.4(@types/node@22.20.4))(next@16.4.2(@opentelemetry/api@1.10.0)(@types/node@22.20.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(pg@8.23.0)(prisma@7.10.0(@types/node@22.20.4)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(typescript@5.9.3))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(vitest@5.0.1)
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.4
+      '@types/pg':
+        specifier: 8.23.1
+        version: 8.23.1
+      pg:
+        specifier: 8.23.0
+        version: 8.23.0
+
   packages/blocks:
     devDependencies:
       '@types/node':

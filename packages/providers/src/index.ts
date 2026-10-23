@@ -1,6 +1,16 @@
 /**
  * @platform/providers
- * Provider interfaces and adapters: domain, payment, email, storage, WhatsApp
- * Placeholder created in Phase 0 (scaffold only). Real implementation lands in Phases 3-7.
+ * Provider interfaces and adapters: domain, payment, email, storage, WhatsApp.
+ * Email lands in P1 S4 (auth mail); the others land in Phases 3-7.
  */
 export const PACKAGE_NAME = '@platform/providers' as const;
+
+export {
+  type CaptureEmailProvider,
+  type EmailMessage,
+  type EmailProvider,
+  type ResendOptions,
+  EmailSendError,
+  createCaptureProvider,
+  createResendProvider,
+} from './email';
