@@ -1,0 +1,29 @@
+{
+  "name": "@platform/workspaces",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Workspaces, membership, invitations and their authorization (module 01/02, P1 S5). Server-only services",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
+  },
+  "dependencies": {
+    "@platform/auth": "workspace:*",
+    "@platform/db": "workspace:*",
+    "@platform/jobs": "workspace:*",
+    "@platform/logger": "workspace:*",
+    "@platform/providers": "workspace:*",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/pg": "8.23.1",
+    "pg": "8.23.0"
+  }
+}
