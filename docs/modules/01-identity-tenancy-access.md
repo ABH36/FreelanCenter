@@ -1,6 +1,6 @@
 # 01 — Identity, Tenancy and Access
 
-**Status:** Partially implemented (P1). Authentication (FR-AUTH-01..04, -07) landed in P1 S4: `packages/auth`, dashboard pages, product auth suite; evidence `docs/reports/PHASE_1_S4_DASHBOARD_AUTH.md`. Workspaces, RBAC and invitations follow in S5. **SRS:** FR-AUTH-01..08, FR-WS-01..05, SEC-01..07. **Owner:** Platform team.
+**Status:** Partially implemented (P1). Authentication (FR-AUTH-01..04, -07) landed in P1 S4: `packages/auth`, dashboard pages, product auth suite; evidence `docs/reports/PHASE_1_S4_DASHBOARD_AUTH.md`. Workspaces, membership, RBAC (`authorize()` + tested SRS 7 matrix) and invitations (FR-AUTH-05, -06, -08, FR-WS-01..03, SEC-10) landed in P1 S5: `packages/workspaces`, `@platform/auth/rbac`, migration `p1_s5_workspaces_rbac`, dashboard `/w/<slug>` routes and `/invite/<token>`; evidence `docs/reports/PHASE_1_S5_WORKSPACES_RBAC.md` (implemented, pending phase audit). **SRS:** FR-AUTH-01..08, FR-WS-01..05, SEC-01..07. **Owner:** Platform team.
 
 ## Outcome and scope
 

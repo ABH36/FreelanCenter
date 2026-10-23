@@ -1,6 +1,6 @@
 # 02 — Workspaces and Project Lifecycle
 
-**Status:** Planned (P1; extended P3/P5). **SRS:** FR-WS-01..05, FR-PRJ-01..06.
+**Status:** Workspace part implemented in P1 S5 (create with reserved slugs, `/w/<slug>` routes, settings, usage overview, members/roles, last-owner protection, deletion-request hook FR-WS-05/Q4); evidence `docs/reports/PHASE_1_S5_WORKSPACES_RBAC.md`. Projects and lifecycle: planned for S6 (P1; extended P3/P5). **SRS:** FR-WS-01..05, FR-PRJ-01..06.
 
 ## Outcome and scope
 
