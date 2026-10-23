@@ -1,0 +1,27 @@
+{
+  "name": "@platform/auth",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Product authentication: Better Auth with the ADR-006 mandatory configuration, platform audit events and MFA guard",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
+  },
+  "dependencies": {
+    "@platform/db": "workspace:*",
+    "@platform/logger": "workspace:*",
+    "@platform/providers": "workspace:*",
+    "better-auth": "1.7.12"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/pg": "8.23.1",
+    "pg": "8.23.0"
+  }
+}

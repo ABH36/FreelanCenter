@@ -93,6 +93,15 @@ jobs:
       # Re-introduces seven isolation bugs one at a time; each must make the suite fail (proves it is not vacuous).
       - name: Isolation suite mutation check
         run: pnpm --filter @platform/isolation-tests test:mutation
+      # FR-AUTH-01..04/07, SEC-03/09/11 (P1 slice 4): the product auth suite, Spike F's successor. Three runs on
+      # the same database settle Spike F's open flake and prove the suite needs no fresh volume. It calls
+      # Cloudflare's Turnstile siteverify with the official test keys (pass and fail).
+      - name: Product auth suite (run 1 of 3)
+        run: pnpm --filter @platform/auth test:integration
+      - name: Product auth suite (run 2 of 3)
+        run: pnpm --filter @platform/auth test:integration
+      - name: Product auth suite (run 3 of 3)
+        run: pnpm --filter @platform/auth test:integration
       - name: Upload the per-table isolation report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

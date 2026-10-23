@@ -1,6 +1,6 @@
 # 01 — Identity, Tenancy and Access
 
-**Status:** Planned (P1). **SRS:** FR-AUTH-01..08, FR-WS-01..05, SEC-01..07. **Owner:** Platform team.
+**Status:** Partially implemented (P1). Authentication (FR-AUTH-01..04, -07) landed in P1 S4: `packages/auth`, dashboard pages, product auth suite; evidence `docs/reports/PHASE_1_S4_DASHBOARD_AUTH.md`. Workspaces, RBAC and invitations follow in S5. **SRS:** FR-AUTH-01..08, FR-WS-01..05, SEC-01..07. **Owner:** Platform team.
 
 ## Outcome and scope
 

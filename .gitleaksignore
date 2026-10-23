@@ -1,0 +1,4 @@
+# Reviewed false positives, by exact gitleaks fingerprint (commit:file:rule:line). Add entries only with a reason.
+# 8aee873: an unsigned, JWT-shaped test fixture ('{"alg":"RS256"}.{"email":"victim@example.test"}.sig') in the
+# S4-6 id_token regression test; not a credential. The next commit builds it at run time instead.
+8aee87372ddb174025e1cab7766abe2f16fc1066:packages/auth/test/integration/auth.test.ts:generic-api-key:446

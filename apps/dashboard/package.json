@@ -12,11 +12,17 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@platform/auth": "workspace:*",
+    "@platform/db": "workspace:*",
     "@platform/logger": "workspace:*",
+    "@platform/providers": "workspace:*",
     "@platform/ui": "workspace:*",
+    "better-auth": "1.7.12",
     "next": "16.4.2",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "server-only": "0.0.1",
+    "uqr": "0.1.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.3",
