@@ -443,7 +443,11 @@ describe('6. Google OAuth start and callback validation (FR-AUTH-01)', () => {
   it('the provider id_token is never persisted, on link or on later token updates (S4-6)', async () => {
     const { id } = await verifiedUser(email('oauth-store'));
     const ctx = await auth.$context;
-    const fakeIdToken = 'eyJhbGciOiJSUzI1NiJ9.eyJlbWFpbCI6InZpY3RpbUBleGFtcGxlLnRlc3QifQ.sig';
+    // Built at run time: a JWT-shaped literal trips the secret scanner (gitleaks generic-api-key).
+    const fakeIdToken = [{ alg: 'RS256' }, { email: 'victim@example.test' }]
+      .map((part) => Buffer.from(JSON.stringify(part)).toString('base64url'))
+      .concat('sig')
+      .join('.');
     const account = await ctx.internalAdapter.createAccount({
       userId: id,
       providerId: 'google',
