@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import {
   type DeadLetter,
   type InvitationCreated,
+  type NotificationEmailRequested,
   SERVE_PATH,
   createInngestClient,
   createInngestJobs,
@@ -20,6 +21,7 @@ const BASE = 'http://localhost:8298';
 
 const delivered: InvitationCreated[] = [];
 const deadLetters: DeadLetter[] = [];
+const notified: NotificationEmailRequested[] = [];
 /** Invitation ids whose first attempt must fail (retry test). */
 const failOnce = new Set<string>();
 
@@ -42,6 +44,19 @@ const jobs = createInngestJobs(
       },
       async deadLetter(failure) {
         deadLetters.push(failure);
+      },
+    },
+    // S6: the notification e-mail function and the outbox sweep (cron) are served by the same app.
+    notificationEmail: {
+      async deliver(n) {
+        notified.push(n);
+        return 'sent';
+      },
+      async deadLetter() {},
+    },
+    outboxSweep: {
+      async sweep() {
+        return { dispatched: 0, failed: 0 };
       },
     },
   },
@@ -147,5 +162,17 @@ describe('invitation e-mail through the signed executor', () => {
       },
     );
     expect(response.status).toBe(401);
+  });
+});
+
+describe('S6: notification e-mail through the signed executor', () => {
+  it('an outbox emit is delivered once, even when the same outbox row is emitted twice', async () => {
+    const event: NotificationEmailRequested = { workspaceId: randomUUID(), notificationId: randomUUID() };
+    const outboxId = randomUUID();
+    await jobs.emitter.notificationEmailRequested(event, { eventId: outboxId });
+    await jobs.emitter.notificationEmailRequested(event, { eventId: outboxId });
+    await waitFor('delivery', () => notified.find((n) => n.notificationId === event.notificationId));
+    await new Promise((r) => setTimeout(r, 5_000));
+    expect(notified.filter((n) => n.notificationId === event.notificationId)).toEqual([event]);
   });
 });

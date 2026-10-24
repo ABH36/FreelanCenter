@@ -25,7 +25,13 @@ const NO_INNER_HTML = {
 // A job scope has workspace context without an actor; only the job handlers (and tests) may open one.
 const NO_JOB_SCOPE = {
   selector: "MemberExpression[property.name='withJobTenant']",
-  message: 'withJobTenant is for background job handlers only (packages/workspaces/src/delivery.ts).',
+  message:
+    'withJobTenant is for background job handlers only (packages/workspaces/src/delivery.ts, notification-delivery.ts, outbox.ts).',
+};
+// No context at all; only the outbox sweep may open one (it reads nothing but app.outbox_pending()).
+const NO_SYSTEM_SCOPE = {
+  selector: "MemberExpression[property.name='withSystem']",
+  message: 'withSystem is for the outbox sweep only (packages/workspaces/src/outbox.ts).',
 };
 
 const NO_APPS = [
@@ -55,7 +61,7 @@ export const platformConfig = tseslint.config(
       eqeqeq: ['error', 'always'],
       'no-console': ['warn', { allow: ['warn', 'error'] }],
       // SEC-04: tenant-supplied content is rendered as data, never as markup.
-      'no-restricted-syntax': ['error', NO_INNER_HTML, NO_JOB_SCOPE],
+      'no-restricted-syntax': ['error', NO_INNER_HTML, NO_JOB_SCOPE, NO_SYSTEM_SCOPE],
     },
   },
   {
@@ -68,8 +74,13 @@ export const platformConfig = tseslint.config(
     rules: restrict(NO_APPS),
   },
   {
-    // The job handler, the data layer that defines it, and test suites may open a job scope.
-    files: ['packages/workspaces/src/delivery.ts', 'packages/db/**/*.ts', '**/test/**/*.ts', 'tests/**/*.ts'],
+    // The job handlers may open a job scope.
+    files: ['packages/workspaces/src/delivery.ts', 'packages/workspaces/src/notification-delivery.ts'],
+    rules: { 'no-restricted-syntax': ['error', NO_INNER_HTML, NO_SYSTEM_SCOPE] },
+  },
+  {
+    // The outbox (dispatch in a job scope, sweep with no context), the data layer and test suites.
+    files: ['packages/workspaces/src/outbox.ts', 'packages/db/**/*.ts', '**/test/**/*.ts', 'tests/**/*.ts'],
     rules: { 'no-restricted-syntax': ['error', NO_INNER_HTML] },
   },
   {

@@ -8,7 +8,12 @@ import { createTenantDatabase, uuidv7 } from '@platform/db';
 import { LOCAL_DATABASE_URLS } from '@platform/db/testing';
 import { createInlineJobs } from '@platform/jobs';
 import { createCaptureProvider } from '@platform/providers';
+import { createAuditService } from '../src/audit';
 import { createInvitationEmailHandler } from '../src/delivery';
+import { createNotificationEmailHandler } from '../src/notification-delivery';
+import { createNotificationService } from '../src/notifications';
+import { createOutbox } from '../src/outbox';
+import { createProjectService } from '../src/projects';
 import { createWorkspaceService } from '../src/service';
 import { deriveInvitationKey } from '../src/token';
 
@@ -28,8 +33,21 @@ export const handler = createInvitationEmailHandler({
   baseURL: BASE_URL,
   appName: 'Platform',
 });
-export const jobs = createInlineJobs({ invitationEmail: handler }, (task) => void tasks.push(task));
+export const notificationHandler = createNotificationEmailHandler({
+  db,
+  email: mail,
+  baseURL: BASE_URL,
+  appName: 'Platform',
+});
+export const jobs = createInlineJobs(
+  { invitationEmail: handler, notificationEmail: notificationHandler },
+  (task) => void tasks.push(task),
+);
 export const service = createWorkspaceService({ db, jobs: jobs.emitter, invitationKey, baseURL: BASE_URL });
+export const outbox = createOutbox({ db, jobs: jobs.emitter });
+export const projects = createProjectService({ db, outbox });
+export const notifications = createNotificationService({ db });
+export const audit = createAuditService({ db });
 
 /** Runs the job work queued so far (the inline transport defers it past the "response"). */
 export async function runJobs(): Promise<void> {

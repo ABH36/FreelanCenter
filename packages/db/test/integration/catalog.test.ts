@@ -101,8 +101,11 @@ describe('row-level security coverage', () => {
       'client_contacts',
       'domains',
       'invitations',
+      'job_dead_letters',
       'memberships',
+      'notification_preferences',
       'notifications',
+      'outbox_events',
       'projects',
     ]);
     for (const table of [...tables, 'workspaces']) {
@@ -262,11 +265,15 @@ describe('functions', () => {
     expect(rows.map((r) => r.proname).sort()).toEqual([
       'accept_invitation',
       'admin_set_workspace_status',
+      'allocate_platform_subdomain',
       'current_member_role',
       'invitation_preview',
       'memberships_keep_owner',
+      'notification_delivery',
       'operator_grant_platform_admin',
       'operator_revoke_platform_admin',
+      'operator_set_platform_setting',
+      'outbox_pending',
       'record_platform_audit',
       'workspace_has_members',
       'workspace_members',
@@ -299,6 +306,7 @@ describe('functions', () => {
     expect(await executors('record_platform_audit')).toEqual(['app_auth']);
     expect(await executors('operator_grant_platform_admin')).toEqual(['migrator']);
     expect(await executors('operator_revoke_platform_admin')).toEqual(['migrator']);
+    expect(await executors('operator_set_platform_setting')).toEqual(['migrator']);
     expect(await executors('workspace_writable')).toEqual(['app_user']);
     // S5: membership role helpers, invitation acceptance/preview, the member directory and the slug list.
     for (const fn of [
@@ -307,15 +315,19 @@ describe('functions', () => {
       'accept_invitation',
       'invitation_preview',
       'workspace_members',
+      // S6: the subdomain allocator, the e-mail job's reader and the outbox sweep's reader.
+      'allocate_platform_subdomain',
+      'notification_delivery',
+      'outbox_pending',
     ]) {
       expect(await executors(fn), fn).toEqual(['app_user']);
     }
     // Invoker functions owned by migrator (the owner always holds EXECUTE): the slug list for app_user's CHECK,
     // and the trigger functions, which no request role can call directly.
-    for (const fn of ['is_reserved_slug', 'reserved_slugs']) {
+    for (const fn of ['is_reserved_slug', 'reserved_slugs', 'project_transition_roles']) {
       expect(await executors(fn), fn).toEqual(['app_user', 'migrator']);
     }
-    for (const fn of ['memberships_guard', 'workspaces_guard']) {
+    for (const fn of ['memberships_guard', 'workspaces_guard', 'projects_guard']) {
       expect(await executors(fn), fn).toEqual(['migrator']);
     }
     expect(await executors('memberships_keep_owner')).toEqual([]);

@@ -9,6 +9,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export const EVENTS = {
   /** An invitation was created (or re-issued): send its e-mail (FR-AUTH-06, FR-NOT-01). */
   invitationCreated: 'workspace.invitation.created.v1',
+  /** See NotificationEmailRequested. */
+  notificationEmailRequested: 'notification.email.requested.v1',
 } as const;
 
 export interface InvitationCreated {
@@ -43,3 +45,12 @@ export function parseIds<K extends string>(data: unknown, keys: readonly K[]): R
 
 export const parseInvitationCreated = (data: unknown): InvitationCreated =>
   parseIds(data, ['workspaceId', 'invitationId'] as const);
+
+/** A notification wants an e-mail (FR-NOT-01). Emitted from the outbox; the event id is the outbox id. */
+export interface NotificationEmailRequested {
+  workspaceId: string;
+  notificationId: string;
+}
+
+export const parseNotificationEmailRequested = (data: unknown): NotificationEmailRequested =>
+  parseIds(data, ['workspaceId', 'notificationId'] as const);

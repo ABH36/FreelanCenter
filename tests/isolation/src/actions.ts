@@ -9,7 +9,8 @@
  * the server) and form parsing, so the service is where a browser-supplied id meets authorization.
  */
 
-export type Selector = 'workspaceId' | 'membershipId' | 'invitationId' | 'slug';
+export type Selector =
+  'workspaceId' | 'membershipId' | 'invitationId' | 'slug' | 'projectId' | 'notificationId';
 
 export type ActionRegistration =
   { service: string; selectors: Selector[] } | { service: string | null; noSelector: string };
@@ -43,6 +44,19 @@ export const SERVER_ACTIONS: Record<string, ActionRegistration> = {
     noSelector:
       'the 256-bit token is the credential, not a selector; wrong-account, expired, revoked and race cases are in packages/workspaces/test',
   },
+  // P1 S6: projects and notifications.
+  createProjectAction: { service: 'createProject', selectors: ['workspaceId'] },
+  updateProjectAction: { service: 'updateProject', selectors: ['workspaceId', 'projectId'] },
+  saveClientContactAction: { service: 'saveClientContact', selectors: ['workspaceId', 'projectId'] },
+  removeClientContactAction: { service: 'removeClientContact', selectors: ['workspaceId', 'projectId'] },
+  transitionProjectAction: { service: 'transitionProject', selectors: ['workspaceId', 'projectId'] },
+  duplicateProjectAction: { service: 'duplicateProject', selectors: ['workspaceId', 'projectId'] },
+  markNotificationReadAction: {
+    service: 'markNotificationRead',
+    selectors: ['workspaceId', 'notificationId'],
+  },
+  markAllNotificationsReadAction: { service: 'markAllNotificationsRead', selectors: ['workspaceId'] },
+  saveNotificationPreferencesAction: { service: 'savePreferences', selectors: ['workspaceId'] },
 };
 
 /** Server-rendered routes that resolve a browser-supplied selector (not actions, probed the same way). */
@@ -51,4 +65,17 @@ export const PAGE_LOADERS: Record<string, { service: string; selectors: Selector
   'page:/w/[slug]/members': { service: 'listMembers', selectors: ['workspaceId'] },
   'page:/w/[slug]/members (invitations)': { service: 'listInvitations', selectors: ['workspaceId'] },
   'page:/w/[slug] (overview)': { service: 'getOverview', selectors: ['workspaceId'] },
+  // P1 S6
+  'page:/w/[slug] (layout: unread count)': { service: 'unreadCount', selectors: ['workspaceId'] },
+  'page:/w/[slug]/projects': { service: 'listProjects', selectors: ['workspaceId'] },
+  'page:/w/[slug]/projects/[projectId]': { service: 'getProject', selectors: ['workspaceId', 'projectId'] },
+  'page:/w/[slug]/notifications': { service: 'listNotifications', selectors: ['workspaceId'] },
+  'page:/w/[slug]/notifications (preferences)': { service: 'getPreferences', selectors: ['workspaceId'] },
+  'page:/w/[slug]/notifications (project names)': {
+    service: 'projectNames',
+    selectors: ['workspaceId', 'projectId'],
+  },
+  'page:/w/[slug]/audit': { service: 'listAuditLog', selectors: ['workspaceId'] },
+  'page:/w/[slug]/audit (dead letters)': { service: 'listDeadLetters', selectors: ['workspaceId'] },
+  'route:/w/[slug]/audit/export': { service: 'exportAuditLog', selectors: ['workspaceId'] },
 };

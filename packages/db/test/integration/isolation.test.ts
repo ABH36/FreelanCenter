@@ -9,6 +9,7 @@ import { type TenantDatabase } from '../../src/client';
 import { InvalidScopeError } from '../../src/errors';
 import { uuidv7 } from '../../src/uuid';
 import {
+  asDefiner,
   createUser,
   expectPgError,
   pool,
@@ -24,6 +25,7 @@ let db: TenantDatabase;
 let admin: pg.Pool;
 let auth: pg.Pool;
 let rawApp: pg.Pool;
+let migrator: pg.Pool;
 let A: SeededWorkspace;
 let B: SeededWorkspace;
 let tables: string[];
@@ -34,13 +36,14 @@ beforeAll(async () => {
   admin = pool(urls.bootstrap);
   auth = pool(urls.auth);
   rawApp = pool(urls.app, 2);
+  migrator = pool(urls.migrator, 2);
   A = await seedWorkspace(db, auth);
   B = await seedWorkspace(db, auth);
   tables = await tenantTables(admin);
 });
 afterAll(async () => {
   await db.disconnect();
-  await Promise.all([admin.end(), auth.end(), rawApp.end()]);
+  await Promise.all([admin.end(), auth.end(), rawApp.end(), migrator.end()]);
 });
 
 describe('fail-closed context', () => {
@@ -162,12 +165,29 @@ describe('workspace scoping', () => {
     const bareB = await db.withTenant(B.scope, (tx) =>
       tx.project.create({ data: { workspaceId: B.scope.workspaceId, name: 'Bare' } }),
     );
+    // S6: app_user has no INSERT on domains at all; the allocator refuses a project outside the context.
     await expectPgError(
       db.withTenant(
         A.scope,
         (tx) =>
           tx.$executeRaw`INSERT INTO app.domains (workspace_id, project_id, hostname, type)
                        VALUES (${A.scope.workspaceId}::uuid, ${bareB.id}::uuid, ${`${uniqueSlug('x')}.sites.test`}, 'subdomain')`,
+      ),
+      '42501',
+    );
+    await expectPgError(
+      db.withTenant(
+        A.scope,
+        (tx) =>
+          tx.$queryRaw`SELECT * FROM app.allocate_platform_subdomain(${bareB.id}::uuid, ${uniqueSlug('x')})`,
+      ),
+      '42501',
+    );
+    await expectPgError(
+      asDefiner(
+        migrator,
+        `INSERT INTO app.domains (workspace_id, project_id, hostname, type) VALUES ($1, $2, $3, 'subdomain')`,
+        [A.scope.workspaceId, bareB.id, `${uniqueSlug('x')}.sites.test`],
       ),
       '23503',
     );
@@ -190,18 +210,21 @@ describe('workspace scoping', () => {
 
   it('global uniqueness holds across workspaces without revealing the other row', async () => {
     await expectPgError(
-      db.withTenant(B.scope, (tx) =>
-        tx.domain.create({
-          data: {
-            workspaceId: B.scope.workspaceId,
-            projectId: B.projectId,
-            hostname: A.hostname,
-            type: 'subdomain',
-          },
-        }),
+      asDefiner(
+        migrator,
+        `INSERT INTO app.domains (workspace_id, project_id, hostname, type) VALUES ($1, $2, $3, 'subdomain')`,
+        [B.scope.workspaceId, B.projectId, A.hostname],
       ),
       '23505',
     );
+    // Through the allocator, B asking for A's label gets a suffixed name of its own and learns nothing else (Q9).
+    const label = A.hostname.split('.')[0]!;
+    const rows = await db.withTenant(B.scope, async (tx) => {
+      const p = await tx.project.create({ data: { workspaceId: B.scope.workspaceId, name: 'Same label' } });
+      return tx.$queryRaw<Array<{ hostname: string }>>`
+        SELECT hostname FROM app.allocate_platform_subdomain(${p.id}::uuid, ${label})`;
+    });
+    expect(rows[0]?.hostname).toMatch(new RegExp(`^${label}-[a-z0-9]{4}\\.sites\\.localhost$`));
   });
 });
 
@@ -510,20 +533,34 @@ describe('integrity constraints', () => {
     const project = await db.withTenant(A.scope, (tx) =>
       tx.project.create({ data: { workspaceId: A.scope.workspaceId, name: 'Second' } }),
     );
+    // Host-name CHECKs, reached as svc_definer (the only role that may insert domains since S6), plus the
+    // reserved-label CHECK (Q9).
     for (const hostname of [
       'UPPER.sites.test',
       'no_underscore.sites.test',
       'trailing.dot.',
       'nodot',
       '-x.sites.test',
+      'admin.sites.test',
+      'www.sites.test',
     ]) {
       await expectPgError(
-        db.withTenant(A.scope, (t) =>
-          t.domain.create({
-            data: { workspaceId: A.scope.workspaceId, projectId: project.id, hostname, type: 'subdomain' },
-          }),
+        asDefiner(
+          migrator,
+          `INSERT INTO app.domains (workspace_id, project_id, hostname, type) VALUES ($1, $2, $3, 'subdomain')`,
+          [A.scope.workspaceId, project.id, hostname],
         ),
         '23514',
+      );
+    }
+    // The allocator validates its label before building a host name.
+    for (const label of ['UP', 'a', 'x_y', '-lead', 'dou--ble', 'a'.repeat(41)]) {
+      await expectPgError(
+        db.withTenant(
+          A.scope,
+          (tx) => tx.$queryRaw`SELECT * FROM app.allocate_platform_subdomain(${project.id}::uuid, ${label})`,
+        ),
+        '22023',
       );
     }
     await expectPgError(
@@ -539,19 +576,21 @@ describe('integrity constraints', () => {
       ),
       '42501',
     );
+    // One live platform subdomain per project: the index stops a second row, and the allocator is idempotent.
     await expectPgError(
-      db.withTenant(A.scope, (tx) =>
-        tx.domain.create({
-          data: {
-            workspaceId: A.scope.workspaceId,
-            projectId: A.projectId,
-            hostname: `${uniqueSlug('d')}.sites.test`,
-            type: 'subdomain',
-          },
-        }),
+      asDefiner(
+        migrator,
+        `INSERT INTO app.domains (workspace_id, project_id, hostname, type) VALUES ($1, $2, $3, 'subdomain')`,
+        [A.scope.workspaceId, A.projectId, `${uniqueSlug('d')}.sites.test`],
       ),
       '23505',
     );
+    const again = await db.withTenant(
+      A.scope,
+      (tx) => tx.$queryRaw<Array<{ domain_id: string; hostname: string }>>`
+        SELECT domain_id, hostname FROM app.allocate_platform_subdomain(${A.projectId}::uuid, ${uniqueSlug('other')})`,
+    );
+    expect(again).toEqual([{ domain_id: A.domainId, hostname: A.hostname }]);
     const email = `new-${uniqueSlug()}@example.test`;
     const invite = (role: 'owner' | 'admin', tokenHash: string, to = email) =>
       db.withTenant(A.scope, (tx) =>

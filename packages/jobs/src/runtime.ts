@@ -2,12 +2,18 @@
  * The only place that talks to Inngest (ADR-007 rule 3: events are emitted through typed, ids-only helpers;
  * ESLint forbids importing `inngest` anywhere else). Spike G proved every option used here: retry with backoff,
  * function idempotency on a domain id, per-workspace concurrency, `onFailure` as the dead-letter hook and
- * signed requests in cloud mode.
+ * signed requests in cloud mode. S6 adds the notification e-mail and the outbox sweep (a cron function).
  */
 import { Inngest, NonRetriableError } from 'inngest';
 import { serve } from 'inngest/next';
 import type { JobsConfig } from './config';
-import { EVENTS, type InvitationCreated, parseInvitationCreated } from './events';
+import {
+  EVENTS,
+  type InvitationCreated,
+  type NotificationEmailRequested,
+  parseInvitationCreated,
+  parseNotificationEmailRequested,
+} from './events';
 
 export const APP_ID = 'platform-dashboard';
 export const SERVE_PATH = '/api/inngest';
@@ -18,10 +24,23 @@ export const INVITATION_EMAIL_FUNCTION = {
   /** Per workspace: one tenant inviting in bulk cannot hold every worker (Spike G G12). */
   concurrencyPerWorkspace: 2,
 } as const;
+export const NOTIFICATION_EMAIL_FUNCTION = {
+  id: 'notification-email-v1',
+  name: 'notification.email.v1',
+  retries: 3,
+  concurrencyPerWorkspace: 5,
+} as const;
+/** Re-emits outbox events whose emit after commit was lost (cross-module contracts; S5 decision D4). */
+export const OUTBOX_SWEEP_FUNCTION = {
+  id: 'outbox-sweep-v1',
+  name: 'outbox.sweep.v1',
+  cron: '*/5 * * * *',
+  retries: 1,
+} as const;
 
-export interface DeadLetter {
+export interface DeadLetter<I = InvitationCreated> {
   /** null when the payload itself was invalid (no ids to attach it to). */
-  ids: InvitationCreated | null;
+  ids: I | null;
   functionId: string;
   runId: string;
   error: string;
@@ -34,8 +53,27 @@ export interface InvitationEmailHandler {
   deadLetter(failure: DeadLetter): Promise<void>;
 }
 
+export interface NotificationEmailHandler {
+  /** Idempotent: at most one e-mail per notification; `skipped` when the recipient no longer wants or can get it. */
+  deliver(ids: NotificationEmailRequested): Promise<'sent' | 'skipped'>;
+  deadLetter(failure: DeadLetter<NotificationEmailRequested>): Promise<void>;
+}
+
+export interface OutboxSweeper {
+  sweep(): Promise<{ dispatched: number; failed: number }>;
+}
+
+export interface JobHandlers {
+  invitationEmail: InvitationEmailHandler;
+  /** Optional so a process that sends no notification e-mail (some test suites) need not wire one. */
+  notificationEmail?: NotificationEmailHandler;
+  outboxSweep?: OutboxSweeper;
+}
+
 export interface JobEmitter {
   invitationCreated(ids: InvitationCreated): Promise<void>;
+  /** `eventId` is the outbox row id: a repeated emit of the same row is de-duplicated by Inngest. */
+  notificationEmailRequested(ids: NotificationEmailRequested, options: { eventId: string }): Promise<void>;
 }
 
 export type RouteHandler = (request: Request) => Promise<Response>;
@@ -102,15 +140,73 @@ export function createInvitationEmailFunction(client: Inngest, handler: Invitati
   );
 }
 
+export function createNotificationEmailFunction(client: Inngest, handler: NotificationEmailHandler) {
+  return client.createFunction(
+    {
+      id: NOTIFICATION_EMAIL_FUNCTION.id,
+      name: NOTIFICATION_EMAIL_FUNCTION.name,
+      triggers: [{ event: EVENTS.notificationEmailRequested }],
+      retries: NOTIFICATION_EMAIL_FUNCTION.retries,
+      idempotency: 'event.data.notificationId',
+      concurrency: [
+        { key: 'event.data.workspaceId', limit: NOTIFICATION_EMAIL_FUNCTION.concurrencyPerWorkspace },
+      ],
+      onFailure: async ({ event, error }) => {
+        let ids: NotificationEmailRequested | null;
+        try {
+          ids = parseNotificationEmailRequested(event.data.event.data);
+        } catch {
+          ids = null;
+        }
+        await handler.deadLetter({
+          ids,
+          functionId: NOTIFICATION_EMAIL_FUNCTION.id,
+          runId: String(event.data.run_id),
+          error: errorMessage(error),
+        });
+      },
+    },
+    async ({ event, step }) => {
+      let ids: NotificationEmailRequested;
+      try {
+        ids = parseNotificationEmailRequested(event.data);
+      } catch (error) {
+        throw new NonRetriableError(errorMessage(error));
+      }
+      return step.run('send-notification-email', () => handler.deliver(ids));
+    },
+  );
+}
+
+export function createOutboxSweepFunction(client: Inngest, sweeper: OutboxSweeper) {
+  return client.createFunction(
+    {
+      id: OUTBOX_SWEEP_FUNCTION.id,
+      name: OUTBOX_SWEEP_FUNCTION.name,
+      triggers: [{ cron: OUTBOX_SWEEP_FUNCTION.cron }],
+      retries: OUTBOX_SWEEP_FUNCTION.retries,
+      // One sweep at a time across the app: overlapping sweeps would only emit the same rows twice.
+      concurrency: [{ limit: 1 }],
+    },
+    async ({ step }) => step.run('sweep-outbox', () => sweeper.sweep()),
+  );
+}
+
 /** Production path: signed events to Inngest, functions served at `/api/inngest`. */
 export function createInngestJobs(
   config: JobsConfig,
-  handlers: { invitationEmail: InvitationEmailHandler },
+  handlers: JobHandlers,
   /** Tests only: the origin a containerised executor uses to reach this process (default: from the request). */
   options: { serveOrigin?: string } = {},
 ): Jobs {
   const client = createInngestClient(config);
-  const functions = [createInvitationEmailFunction(client, handlers.invitationEmail)];
+  const functions = [
+    createInvitationEmailFunction(client, handlers.invitationEmail),
+    ...(handlers.notificationEmail
+      ? [createNotificationEmailFunction(client, handlers.notificationEmail)]
+      : []),
+    ...(handlers.outboxSweep ? [createOutboxSweepFunction(client, handlers.outboxSweep)] : []),
+  ];
   const route = serve({ client, functions, servePath: SERVE_PATH, serveOrigin: options.serveOrigin });
   return {
     emitter: {
@@ -123,6 +219,10 @@ export function createInngestJobs(
           data,
         });
       },
+      async notificationEmailRequested(ids, { eventId }) {
+        const data = parseNotificationEmailRequested(ids);
+        await client.send({ id: `outbox:${eventId}`, name: EVENTS.notificationEmailRequested, data });
+      },
     },
     route: {
       GET: route.GET as RouteHandler,
@@ -133,10 +233,11 @@ export function createInngestJobs(
 }
 
 /**
- * Local development and tests: the same handler, in-process, after the response; one attempt, then the
- * dead-letter hook. `loadJobsConfig` refuses this transport on any deployment.
+ * Local development and tests: the same handlers, in-process, after the response; one attempt, then the
+ * dead-letter hook. There is no cron: the outbox sweep runs only when called. `loadJobsConfig` refuses this
+ * transport on any deployment.
  */
-export function createInlineJobs(handlers: { invitationEmail: InvitationEmailHandler }, defer: Defer): Jobs {
+export function createInlineJobs(handlers: JobHandlers, defer: Defer): Jobs {
   return {
     emitter: {
       async invitationCreated(ids) {
@@ -154,16 +255,29 @@ export function createInlineJobs(handlers: { invitationEmail: InvitationEmailHan
           }
         });
       },
+      async notificationEmailRequested(ids) {
+        const data = parseNotificationEmailRequested(ids);
+        const handler = handlers.notificationEmail;
+        if (!handler) throw new Error('no notification e-mail handler is configured');
+        defer(async () => {
+          try {
+            await handler.deliver(data);
+          } catch (error) {
+            await handler.deadLetter({
+              ids: data,
+              functionId: NOTIFICATION_EMAIL_FUNCTION.id,
+              runId: 'inline',
+              error: errorMessage(error),
+            });
+          }
+        });
+      },
     },
     route: null,
   };
 }
 
-export function createJobs(
-  config: JobsConfig,
-  handlers: { invitationEmail: InvitationEmailHandler },
-  defer: Defer,
-): Jobs {
+export function createJobs(config: JobsConfig, handlers: JobHandlers, defer: Defer): Jobs {
   return config.transport === 'inngest'
     ? createInngestJobs(config, handlers)
     : createInlineJobs(handlers, defer);

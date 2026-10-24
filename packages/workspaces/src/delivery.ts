@@ -83,8 +83,22 @@ export function createInvitationEmailHandler(deps: DeliveryDeps): InvitationEmai
         invitationId: ids?.invitationId ?? null,
       });
       if (!ids) return;
-      await deps.db.withJobTenant(ids.workspaceId, (tx) =>
-        tx.auditLog.createMany({
+      // S6: the operational record (job_dead_letters, S5 decision D5) and, as before, the audit evidence.
+      await deps.db.withJobTenant(ids.workspaceId, async (tx) => {
+        await tx.jobDeadLetter.createMany({
+          data: [
+            {
+              workspaceId: ids.workspaceId,
+              functionId,
+              runId: runId.slice(0, 64),
+              event: 'workspace.invitation.created.v1',
+              targetType: 'invitation',
+              targetId: ids.invitationId,
+              error: redactString(error).slice(0, 300),
+            },
+          ],
+        });
+        await tx.auditLog.createMany({
           data: [
             {
               workspaceId: ids.workspaceId,
@@ -100,8 +114,8 @@ export function createInvitationEmailHandler(deps: DeliveryDeps): InvitationEmai
               },
             },
           ],
-        }),
-      );
+        });
+      });
     },
   };
 }

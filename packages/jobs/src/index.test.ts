@@ -8,6 +8,10 @@ import {
   createInlineJobs,
   createInngestClient,
   createInvitationEmailFunction,
+  createNotificationEmailFunction,
+  createOutboxSweepFunction,
+  NOTIFICATION_EMAIL_FUNCTION,
+  OUTBOX_SWEEP_FUNCTION,
   loadJobsConfig,
   parseInvitationCreated,
   type InvitationEmailHandler,
@@ -131,5 +135,61 @@ describe('inline transport (local development and tests)', () => {
       jobs.emitter.invitationCreated({ ...IDS, email: 'x@example.test' } as unknown as typeof IDS),
     ).rejects.toThrow(InvalidPayloadError);
     expect(tasks).toHaveLength(0);
+  });
+});
+
+describe('S6: notification e-mail and outbox sweep', () => {
+  const N = { workspaceId: IDS.workspaceId, notificationId: '01900000-0000-7000-8000-000000000003' };
+
+  it('the notification function retries, is idempotent per notification and limits concurrency per workspace', () => {
+    const client = createInngestClient({ transport: 'inngest', isDev: true });
+    const fn = createNotificationEmailFunction(client, { deliver: vi.fn(), deadLetter: vi.fn() });
+    expect(fn.opts).toMatchObject({
+      id: NOTIFICATION_EMAIL_FUNCTION.id,
+      triggers: [{ event: EVENTS.notificationEmailRequested }],
+      retries: 3,
+      idempotency: 'event.data.notificationId',
+      concurrency: [{ key: 'event.data.workspaceId', limit: 5 }],
+    });
+    expect(typeof fn.opts.onFailure).toBe('function');
+  });
+
+  it('the sweep is a cron function that never overlaps itself', () => {
+    const client = createInngestClient({ transport: 'inngest', isDev: true });
+    const fn = createOutboxSweepFunction(client, { sweep: vi.fn() });
+    expect(fn.opts).toMatchObject({
+      id: OUTBOX_SWEEP_FUNCTION.id,
+      triggers: [{ cron: '*/5 * * * *' }],
+      concurrency: [{ limit: 1 }],
+    });
+  });
+
+  it('inline: delivers after the response, dead-letters a failure, refuses non-id payloads', async () => {
+    const tasks: Array<() => Promise<void>> = [];
+    const notificationEmail = {
+      deliver: vi.fn(async () => {
+        throw new Error('provider down');
+      }),
+      deadLetter: vi.fn(async () => {}),
+    };
+    const jobs = createInlineJobs(
+      { invitationEmail: { deliver: vi.fn(), deadLetter: vi.fn() }, notificationEmail },
+      (t) => void tasks.push(t),
+    );
+    await jobs.emitter.notificationEmailRequested(N, { eventId: 'x' });
+    await tasks[0]!();
+    expect(notificationEmail.deliver).toHaveBeenCalledWith(N);
+    expect(notificationEmail.deadLetter).toHaveBeenCalledWith({
+      ids: N,
+      functionId: NOTIFICATION_EMAIL_FUNCTION.id,
+      runId: 'inline',
+      error: 'provider down',
+    });
+    await expect(
+      jobs.emitter.notificationEmailRequested({ ...N, to: 'x@example.test' } as unknown as typeof N, {
+        eventId: 'y',
+      }),
+    ).rejects.toThrow(InvalidPayloadError);
+    expect(tasks).toHaveLength(1);
   });
 });
