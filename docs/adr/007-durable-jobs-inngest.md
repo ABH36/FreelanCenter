@@ -30,6 +30,10 @@ Mandatory configuration (ratified by the Owner on 2026-10-22):
 
 First product function: `workspace.invitation.email.v1` in `packages/jobs` (served at `/api/inngest` in the dashboard). Rules 1-4 are implemented and tested: `loadJobsConfig` refuses dev mode, the inline transport, a custom base URL and missing keys on Vercel preview/production (rule 1); delivery is idempotent through the provider idempotency key and the function idempotency key (rule 2); ESLint forbids importing `inngest` outside `packages/jobs` (rule 3); `onFailure` writes a workspace-scoped audit row `jobs.invitation_email.dead_lettered` and logs at error level (rule 4; a dedicated dead-letter table is proposed with S6 notifications). Rule 5 (edge rate limit of `/api/inngest`) is a Vercel firewall rule, still open. Evidence: `pnpm --filter @platform/jobs test:integration` against a local signed `inngest start` executor, in CI; `docs/reports/PHASE_1_S5_WORKSPACES_RBAC.md`.
 
+## Product use (P1 S6)
+
+Transactional outbox (`app.outbox_events`, S5 decision D4): a command writes its outbox rows in its own transaction; the dashboard dispatches them after the response (Next `after()`), and the cron function `outbox.sweep.v1` (every 5 minutes, concurrency 1) re-emits rows still undispatched a minute later. The outbox id is the Inngest event id, so a row emitted twice is de-duplicated. Second product function: `notification.email.v1` (3 retries, idempotent on `notificationId`, 5 per workspace). Rule 4 now writes `app.job_dead_letters` (S5 decision D5) for both functions; the invitation function also keeps its audit row. Evidence: `docs/reports/PHASE_1_S6_PROJECTS_LIFECYCLE.md`.
+
 ## Consequences
 
 Another vendor on the critical path for background work (not for serving sites). All job payloads carry `workspace_id` and are traced.
