@@ -1,6 +1,6 @@
 # 02 — Workspaces and Project Lifecycle
 
-**Status:** Workspace part implemented in P1 S5 (create with reserved slugs, `/w/<slug>` routes, settings, usage overview, members/roles, last-owner protection, deletion-request hook FR-WS-05/Q4); evidence `docs/reports/PHASE_1_S5_WORKSPACES_RBAC.md`. Projects, lifecycle, platform subdomains, audit viewer and notifications implemented in P1 S6 (awaiting Owner approval); evidence `docs/reports/PHASE_1_S6_PROJECTS_LIFECYCLE.md`. Template-based creation (SiteDraft) P2; published versions P3. **SRS:** FR-WS-01..05, FR-PRJ-01..06.
+**Status:** Workspace part implemented in P1 S5 (create with reserved slugs, `/w/<slug>` routes, settings, usage overview, members/roles, last-owner protection, deletion-request hook FR-WS-05/Q4); evidence `docs/reports/PHASE_1_S5_WORKSPACES_RBAC.md`. Projects, lifecycle, platform subdomains, audit viewer and notifications implemented in P1 S6 (Owner-approved 2026-10-24); evidence `docs/reports/PHASE_1_S6_PROJECTS_LIFECYCLE.md`. Template-based creation (SiteDraft) P2; published versions P3. **SRS:** FR-WS-01..05, FR-PRJ-01..06.
 
 ## Outcome and scope
 
