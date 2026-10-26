@@ -234,6 +234,27 @@ describe('dashboard changes reach apps/sites through the outbox and the host cac
     expect(await hostCache.get(hostCacheKey(bHost))).not.toBeNull();
   });
 
+  it('a cache built on first use: a configuration error fails the run, not the handler construction', async () => {
+    const ws = await workspaceWith([]);
+    const { id } = await projects.createProject(ws.owner.id, {
+      workspaceId: ws.id,
+      requestKey: key(),
+      name: unique('Host Lazy'),
+    });
+    await runJobs();
+    let built = 0;
+    const handler = createHostCacheInvalidationHandler({
+      db,
+      cache: () => {
+        built++;
+        throw new Error('UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN must be set when deployed');
+      },
+    });
+    expect(built).toBe(0);
+    await expect(handler.invalidate({ workspaceId: ws.id, projectId: id })).rejects.toThrow(/must be set/);
+    expect(built).toBe(1);
+  });
+
   it('a failing cache dead-letters the invalidation with ids only, visible to the owner', async () => {
     const ws = await workspaceWith([]);
     const { id } = await projects.createProject(ws.owner.id, {

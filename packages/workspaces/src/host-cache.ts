@@ -13,8 +13,12 @@ import { OUTBOX_EVENTS } from './outbox';
 
 export interface HostCacheDeps {
   db: TenantDatabase;
-  /** null: no cache configured (local development without Upstash); the handler then has nothing to delete. */
-  cache: KeyValueStore | null;
+  /**
+   * null: no cache configured (local development without Upstash); the handler then has nothing to delete. A
+   * function is called on each run, so a missing or broken cache configuration fails (and dead-letters) the
+   * invalidation job instead of the whole dashboard runtime.
+   */
+  cache: KeyValueStore | null | (() => KeyValueStore | null);
   logger?: Logger;
 }
 
@@ -25,7 +29,8 @@ export function createHostCacheInvalidationHandler(deps: HostCacheDeps): HostCac
         tx.domain.findMany({ where: { projectId }, select: { hostname: true } }),
       );
       const hostnames = domains.map((d) => d.hostname);
-      const removed = deps.cache && hostnames.length ? await invalidateHosts(deps.cache, hostnames) : 0;
+      const cache = typeof deps.cache === 'function' ? deps.cache() : deps.cache;
+      const removed = cache && hostnames.length ? await invalidateHosts(cache, hostnames) : 0;
       deps.logger?.info('sites.host_cache.invalidated', {
         workspaceId,
         projectId,

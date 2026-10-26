@@ -11,7 +11,7 @@ import { cache } from 'react';
 import { assertUrlRole, createTenantDatabase } from '@platform/db';
 import { type Jobs, createJobs, loadJobsConfig } from '@platform/jobs';
 import { getCorrelationIdFromHeaders, runWithContext } from '@platform/logger';
-import { createKeyValueStore, loadKeyValueConfig } from '@platform/providers';
+import { type KeyValueStore, createKeyValueStore, loadKeyValueConfig } from '@platform/providers';
 import {
   type AuditService,
   type NotificationService,
@@ -68,10 +68,13 @@ function build(): WorkspaceRuntime {
     appName: config.appName,
     logger,
   });
-  // S7: the same Upstash database apps/sites reads (Mumbai); required on deployments, optional locally.
+  // S7: the same Upstash database apps/sites reads (Mumbai); required on deployments, optional locally. Built on
+  // first use, so a missing variable fails the invalidation job (dead letter, owner-visible), not every page.
+  let hostCache: KeyValueStore | null | undefined;
   const hostCacheInvalidation = createHostCacheInvalidationHandler({
     db,
-    cache: createKeyValueStore(loadKeyValueConfig()),
+    cache: () =>
+      hostCache === undefined ? (hostCache = createKeyValueStore(loadKeyValueConfig())) : hostCache,
     logger,
   });
   // The sweep needs the emitter and the emitter's transport needs the sweep: bind it late.
