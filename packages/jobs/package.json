@@ -17,6 +17,6 @@
     "@types/node": "^22.0.0"
   },
   "dependencies": {
-    "inngest": "4.22.0"
+    "inngest": "4.26.0"
   }
 }
