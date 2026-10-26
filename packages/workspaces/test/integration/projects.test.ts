@@ -746,7 +746,13 @@ describe('notifications, preferences, outbox and dead letters (FR-NOT-01; S5 D4/
 
     // Younger than the sweep's minimum age (60 s): not swept yet. A sweep with no minimum age (what the cron does a
     // minute later) emits it, the mail goes out once and the row is marked dispatched.
-    expect((await flakyOutbox.sweep()).dispatched).toBe(0);
+    // Other suites may leave older pending rows that this sweep emits; this workspace's row must stay pending.
+    await flakyOutbox.sweep();
+    expect(
+      await db.withTenant(owner, (tx) =>
+        tx.outboxEvent.count({ where: { id: rows[0]!.id, dispatchedAt: null } }),
+      ),
+    ).toBe(1);
     fail = false;
     const eager = createOutbox({ db, jobs: flaky.emitter, sweepMinAgeSeconds: 0 });
     // Other suites leave rows of other workspaces in the shared local database (e.g. unknown test events, which the
