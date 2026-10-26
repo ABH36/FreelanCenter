@@ -17,6 +17,7 @@
   "dependencies": {
     "@platform/auth": "workspace:*",
     "@platform/db": "workspace:*",
+    "@platform/hosting": "workspace:*",
     "@platform/jobs": "workspace:*",
     "@platform/logger": "workspace:*",
     "@platform/providers": "workspace:*",

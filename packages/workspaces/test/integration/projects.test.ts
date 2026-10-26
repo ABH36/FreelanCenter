@@ -19,6 +19,7 @@ import {
   closeAll,
   createUser,
   db,
+  hostCacheHandler,
   mail,
   notifications,
   projects,
@@ -689,6 +690,7 @@ describe('notifications, preferences, outbox and dead letters (FR-NOT-01; S5 D4/
           baseURL: BASE_URL,
           appName: 'Platform',
         }),
+        hostCacheInvalidation: hostCacheHandler,
       },
       (task) => void tasks.push(task),
     );
@@ -775,6 +777,7 @@ describe('notifications, preferences, outbox and dead letters (FR-NOT-01; S5 D4/
       {
         invitationEmail: { deliver: async () => 'skipped', deadLetter: async () => undefined },
         notificationEmail: broken,
+        hostCacheInvalidation: hostCacheHandler,
       },
       (task) => void tasks.push(task),
     );

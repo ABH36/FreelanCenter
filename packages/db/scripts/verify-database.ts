@@ -119,7 +119,8 @@ const tenantTables = await withClient('bootstrap', async (op) => {
        FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
       WHERE n.nspname = 'app' AND p.prosecdef`,
   );
-  // P1 foundation (5) + P1 S5 (6) + P1 S6 (4). An unexpected definer is as much a finding as a missing one.
+  // P1 foundation (5) + P1 S5 (6) + P1 S6 (4) + P1 S7 (1). An unexpected definer is as much a finding as a
+  // missing one.
   const expectedDefiners = [
     'accept_invitation',
     'admin_set_workspace_status',
@@ -133,6 +134,7 @@ const tenantTables = await withClient('bootstrap', async (op) => {
     'operator_set_platform_setting',
     'outbox_pending',
     'record_platform_audit',
+    'resolve_host',
     'workspace_has_members',
     'workspace_members',
     'workspace_writable',
@@ -151,6 +153,17 @@ const tenantTables = await withClient('bootstrap', async (op) => {
     'no app function executable by PUBLIC',
     publicExec.length === 0,
     publicExec.map((r) => r.proname).join(', '),
+  );
+
+  // S7: the visitor role executes exactly one function, the host resolver (SRS 5.3 item 1).
+  const { rows: publicFns } = await op.query(
+    `SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname IN ('app', 'identity') AND has_function_privilege('app_public', p.oid, 'EXECUTE')`,
+  );
+  check(
+    'app_public can execute exactly app.resolve_host',
+    JSON.stringify(publicFns.map((r) => r.proname)) === JSON.stringify(['resolve_host']),
+    publicFns.map((r) => r.proname).join(', '),
   );
 
   const { rows: inPublic } = await op.query(
@@ -219,6 +232,20 @@ await withClient('public', async (c) => {
   for (const t of tenantTables) results.push(await denied(c, `SELECT 1 FROM app.${t} LIMIT 1`));
   check('app_public is denied every tenant table', results.every(Boolean));
   check('app_public is denied identity', await denied(c, 'SELECT 1 FROM identity.users LIMIT 1'));
+  // Read-only: a host name that cannot exist (RFC 2606 `.invalid`) resolves to `unknown`.
+  const { rows } = await c.query("SELECT outcome FROM app.resolve_host('db-verify.invalid')");
+  check(
+    'app_public resolves an unknown host to unknown (resolve_host)',
+    rows.length === 1 && rows[0].outcome === 'unknown',
+    JSON.stringify(rows),
+  );
+  check(
+    'app_public cannot allocate subdomains',
+    await denied(
+      c,
+      "SELECT app.allocate_platform_subdomain('00000000-0000-7000-8000-000000000000', 'x-verify')",
+    ),
+  );
 });
 
 await withClient('admin', async (c) => {

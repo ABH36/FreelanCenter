@@ -11,6 +11,8 @@ export const EVENTS = {
   invitationCreated: 'workspace.invitation.created.v1',
   /** See NotificationEmailRequested. */
   notificationEmailRequested: 'notification.email.requested.v1',
+  /** See SiteHostsChanged. */
+  siteHostsChanged: 'sites.hosts.changed.v1',
 } as const;
 
 export interface InvitationCreated {
@@ -54,3 +56,15 @@ export interface NotificationEmailRequested {
 
 export const parseNotificationEmailRequested = (data: unknown): NotificationEmailRequested =>
   parseIds(data, ['workspaceId', 'notificationId'] as const);
+
+/**
+ * What a project's hosts may show has changed (status, subdomain allocated or removed): drop the cached host
+ * resolutions (FR-DOM-07, P1 S7). Emitted from the outbox; the consumer reloads the host names through RLS.
+ */
+export interface SiteHostsChanged {
+  workspaceId: string;
+  projectId: string;
+}
+
+export const parseSiteHostsChanged = (data: unknown): SiteHostsChanged =>
+  parseIds(data, ['workspaceId', 'projectId'] as const);

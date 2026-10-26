@@ -13,10 +13,14 @@ export {
   parseIds,
   parseInvitationCreated,
   parseNotificationEmailRequested,
+  parseSiteHostsChanged,
+  type SiteHostsChanged,
 } from './events';
 export {
   APP_ID,
   type DeadLetter,
+  HOST_CACHE_INVALIDATION_FUNCTION,
+  type HostCacheInvalidationHandler,
   type Defer,
   INVITATION_EMAIL_FUNCTION,
   type InvitationEmailHandler,
@@ -35,5 +39,6 @@ export {
   createInvitationEmailFunction,
   createJobs,
   createNotificationEmailFunction,
+  createHostCacheInvalidationFunction,
   createOutboxSweepFunction,
 } from './runtime';

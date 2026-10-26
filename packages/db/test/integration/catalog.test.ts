@@ -275,6 +275,7 @@ describe('functions', () => {
       'operator_set_platform_setting',
       'outbox_pending',
       'record_platform_audit',
+      'resolve_host',
       'workspace_has_members',
       'workspace_members',
       'workspace_writable',
@@ -307,6 +308,13 @@ describe('functions', () => {
     expect(await executors('operator_grant_platform_admin')).toEqual(['migrator']);
     expect(await executors('operator_revoke_platform_admin')).toEqual(['migrator']);
     expect(await executors('operator_set_platform_setting')).toEqual(['migrator']);
+    // S7: the visitor role's only function (SRS 5.3 item 1); no other role needs it.
+    expect(await executors('resolve_host')).toEqual(['app_public']);
+    const { rows: publicFns } = await admin.query(
+      `SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname IN ('app', 'identity') AND has_function_privilege('app_public', p.oid, 'EXECUTE')`,
+    );
+    expect(publicFns.map((r) => r.proname)).toEqual(['resolve_host']);
     expect(await executors('workspace_writable')).toEqual(['app_user']);
     // S5: membership role helpers, invitation acceptance/preview, the member directory and the slug list.
     for (const fn of [

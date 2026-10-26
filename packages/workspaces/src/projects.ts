@@ -9,6 +9,10 @@
  * returns the project it made, a different payload under that key is refused. Transitions carry the status the
  * user saw (`from`): repeating a transition that already happened is a no-op, a transition from a status that
  * changed meanwhile is STALE; a compare-and-set UPDATE makes concurrent transitions race-safe.
+ *
+ * Host routing (S7, FR-DOM-07): every command that changes what a project's hosts may show (create, duplicate,
+ * status change) writes a `sites.hosts.changed.v1` outbox row in its transaction; after commit the outbox emits
+ * it and the invalidation job drops the cached host resolutions in apps/sites.
  */
 import { type Capability, can } from '@platform/auth/rbac';
 import { type Prisma, type TenantDatabase, type TenantScope, type Tx, isUuid, uuidv7 } from '@platform/db';
@@ -24,7 +28,7 @@ import {
   transitionsFrom,
 } from './lifecycle';
 import { notify } from './notifications';
-import type { Outbox } from './outbox';
+import { OUTBOX_EVENTS, type Outbox } from './outbox';
 import { createScopedRunner, memberActor, parse, requireId } from './scoped';
 import { subdomainLabel } from './slug';
 
@@ -204,6 +208,26 @@ export function createProjectService(deps: ProjectServiceDeps) {
     const hostname = rows[0]?.hostname;
     if (!hostname) throw new Error('subdomain allocation returned nothing');
     return hostname;
+  }
+
+  /** The outbox row that makes apps/sites forget the project's cached host resolutions after commit. */
+  async function hostsChanged(tx: Tx, scope: TenantScope, projectId: string): Promise<string> {
+    const id = uuidv7();
+    await tx.outboxEvent.createMany({
+      data: [
+        {
+          id,
+          workspaceId: scope.workspaceId,
+          event: OUTBOX_EVENTS.siteHostsChanged,
+          payload: { workspaceId: scope.workspaceId, projectId },
+        },
+      ],
+    });
+    return id;
+  }
+
+  async function dispatchAfterCommit(workspaceId: unknown, ids: readonly string[]): Promise<void> {
+    if (ids.length) await outbox.dispatch(requireId(workspaceId), ids);
   }
 
   async function enforceCreateLimit(tx: Tx) {
@@ -431,7 +455,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
           { action: 'project.created', capability: 'projects.create' },
           async (tx, scope) => {
             const replayed = await replay(tx, requestKey, sameRequest);
-            if (replayed) return { result: { id: replayed }, audit: null };
+            if (replayed) return { result: { id: replayed, outboxIds: [] as string[] }, audit: null };
             await enforceCreateLimit(tx);
             const id = uuidv7();
             await tx.project.create({
@@ -440,8 +464,10 @@ export function createProjectService(deps: ProjectServiceDeps) {
             });
             if (contact) await insertContact(tx, scope, id, contact);
             const hostname = await allocateSubdomain(tx, id, name);
+            // A visitor may have hit this host name before it existed (negative cache entry).
+            const outboxIds = [await hostsChanged(tx, scope, id)];
             return {
-              result: { id },
+              result: { id, outboxIds },
               audit: {
                 targetType: 'project',
                 targetId: id,
@@ -451,7 +477,9 @@ export function createProjectService(deps: ProjectServiceDeps) {
             };
           },
         );
-      return onKeyConflict(run, run);
+      const created = await onKeyConflict(run, run);
+      await dispatchAfterCommit(input.workspaceId, created.outboxIds);
+      return { id: created.id };
     },
 
     /** FR-PRJ-05: a new Draft with the same details and its own subdomain; the client contact is not copied. */
@@ -468,7 +496,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
           async (tx, scope) => {
             const source = await findProject(tx, input.projectId);
             const replayed = await replay(tx, requestKey, (p) => p.duplicatedFromId === source.id);
-            if (replayed) return { result: { id: replayed }, audit: null };
+            if (replayed) return { result: { id: replayed, outboxIds: [] as string[] }, audit: null };
             await enforceCreateLimit(tx);
             const id = uuidv7();
             await tx.project.create({
@@ -484,8 +512,9 @@ export function createProjectService(deps: ProjectServiceDeps) {
               select: { id: true },
             });
             const hostname = await allocateSubdomain(tx, id, source.name);
+            const outboxIds = [await hostsChanged(tx, scope, id)];
             return {
-              result: { id },
+              result: { id, outboxIds },
               audit: {
                 targetType: 'project',
                 targetId: id,
@@ -495,7 +524,9 @@ export function createProjectService(deps: ProjectServiceDeps) {
             };
           },
         );
-      return onKeyConflict(run, run);
+      const created = await onKeyConflict(run, run);
+      await dispatchAfterCommit(input.workspaceId, created.outboxIds);
+      return { id: created.id };
     },
 
     /** Name, category, city. The subdomain does not follow a rename (addresses stay stable). */
@@ -659,6 +690,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
             recipients: recipients.ids,
             payload: { projectId: project.id, from, to },
           });
+          outboxIds.push(await hostsChanged(tx, scope, project.id));
           return {
             result: { status: to, changed: true, outboxIds },
             audit: {
@@ -670,9 +702,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
           };
         },
       );
-      if (outcome.outboxIds.length) {
-        await outbox.dispatch(requireId(input.workspaceId), outcome.outboxIds);
-      }
+      await dispatchAfterCommit(input.workspaceId, outcome.outboxIds);
       return { status: outcome.status, changed: outcome.changed };
     },
   };

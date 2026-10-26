@@ -1,20 +1,13 @@
 import type { NextConfig } from 'next';
+import { SECURITY_HEADERS } from './lib/security-headers';
 
 const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   transpilePackages: ['@platform/ui'],
   async headers() {
-    // Baseline hardening only (SEC-03). Per-surface CSP is added when real pages exist.
-    return [
-      {
-        source: '/:path*',
-        headers: [
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-        ],
-      },
-    ];
+    // SEC-03 baseline on every path; the host pages add a strict per-response CSP (lib/pages.ts).
+    return [{ source: '/:path*', headers: [...SECURITY_HEADERS] }];
   },
 };
 

@@ -26,13 +26,16 @@ const NO_INNER_HTML = {
 const NO_JOB_SCOPE = {
   selector: "MemberExpression[property.name='withJobTenant']",
   message:
-    'withJobTenant is for background job handlers only (packages/workspaces/src/delivery.ts, notification-delivery.ts, outbox.ts).',
+    'withJobTenant is for background job handlers only (packages/workspaces/src/delivery.ts, notification-delivery.ts, host-cache.ts, outbox.ts).',
 };
 // No context at all; only the outbox sweep may open one (it reads nothing but app.outbox_pending()).
 const NO_SYSTEM_SCOPE = {
   selector: "MemberExpression[property.name='withSystem']",
   message: 'withSystem is for the outbox sweep only (packages/workspaces/src/outbox.ts).',
 };
+
+const VISITOR_ONLY =
+  'SRS 5.3 item 1: the visitor path uses only @platform/db/public (app_public), never the tenant client, services or jobs.';
 
 const NO_APPS = [
   ['**/apps/**', '@platform/dashboard', '@platform/sites'],
@@ -75,7 +78,11 @@ export const platformConfig = tseslint.config(
   },
   {
     // The job handlers may open a job scope.
-    files: ['packages/workspaces/src/delivery.ts', 'packages/workspaces/src/notification-delivery.ts'],
+    files: [
+      'packages/workspaces/src/delivery.ts',
+      'packages/workspaces/src/notification-delivery.ts',
+      'packages/workspaces/src/host-cache.ts',
+    ],
     rules: { 'no-restricted-syntax': ['error', NO_INNER_HTML, NO_SYSTEM_SCOPE] },
   },
   {
@@ -98,18 +105,42 @@ export const platformConfig = tseslint.config(
   {
     // The two apps must never import each other (ADR-002: separate trust domains).
     files: ['apps/sites/**/*.{ts,tsx}'],
-    rules: restrict(
-      [
-        ['**/apps/dashboard/**', '@platform/dashboard', '@platform/auth'],
-        'ADR-002: sites must not import dashboard code or dashboard auth (no shared sessions or cookies).',
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          // SRS 5.3 item 1 (P1 S7): the visitor path holds app_public only. `paths` matches the bare specifier, so
+          // the `@platform/db/public` subpath stays allowed.
+          paths: [{ name: '@platform/db', message: VISITOR_ONLY }],
+          patterns: [
+            {
+              group: [
+                '**/apps/dashboard/**',
+                '**/../dashboard/**',
+                '@platform/dashboard',
+                '@platform/auth',
+                '@platform/auth/*',
+              ],
+              message:
+                'ADR-002: sites must not import dashboard code or dashboard auth (no shared sessions or cookies).',
+            },
+            {
+              group: ['@platform/db/testing', '@platform/workspaces', '@platform/jobs', '@prisma/*'],
+              message: VISITOR_ONLY,
+            },
+            { group: NO_INNGEST[0], message: NO_INNGEST[1] },
+          ],
+        },
       ],
-      NO_INNGEST,
-    ),
+    },
   },
   {
     files: ['apps/dashboard/**/*.{ts,tsx}'],
     rules: restrict(
-      [['**/apps/sites/**', '@platform/sites'], 'ADR-002: dashboard must not import sites code.'],
+      [
+        ['**/apps/sites/**', '**/../sites/**', '@platform/sites'],
+        'ADR-002: dashboard must not import sites code.',
+      ],
       NO_INNGEST,
     ),
   },

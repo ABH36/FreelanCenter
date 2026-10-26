@@ -92,7 +92,7 @@ jobs:
       # SEC-02 merge gate (P1 slice 2): per-table cross-tenant matrix, row-factory registry and IDOR harness.
       - name: Cross-tenant isolation suite (tests/isolation)
         run: pnpm --filter @platform/isolation-tests test:isolation
-      # Re-introduces seven isolation bugs one at a time; each must make the suite fail (proves it is not vacuous).
+      # Re-introduces nine isolation bugs one at a time; each must make the suite fail (proves it is not vacuous).
       - name: Isolation suite mutation check
         run: pnpm --filter @platform/isolation-tests test:mutation
       # FR-AUTH-01..04/07, SEC-03/09/11 (P1 slice 4): the product auth suite, Spike F's successor. Three runs on
@@ -112,6 +112,11 @@ jobs:
       # (keys generated per run): delivery, de-duplication, retry, dead letter, unsigned call refused.
       - name: Job suite against the signed Inngest executor
         run: pnpm --filter @platform/jobs test:integration
+      # FR-DOM-07, SEC-03 (P1 S7): the host-resolution cache over the Upstash REST protocol (the stack's
+      # serverless-redis-http emulator) with the real app.resolve_host as app_public. The workspace suite above
+      # already covers dashboard change -> outbox -> invalidation job -> resolver end to end.
+      - name: Host routing cache suite
+        run: pnpm --filter @platform/hosting test:integration
       - name: Upload the per-table isolation report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

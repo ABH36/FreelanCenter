@@ -8,12 +8,15 @@ import {
   createInlineJobs,
   createInngestClient,
   createInvitationEmailFunction,
+  createHostCacheInvalidationFunction,
   createNotificationEmailFunction,
   createOutboxSweepFunction,
+  HOST_CACHE_INVALIDATION_FUNCTION,
   NOTIFICATION_EMAIL_FUNCTION,
   OUTBOX_SWEEP_FUNCTION,
   loadJobsConfig,
   parseInvitationCreated,
+  parseSiteHostsChanged,
   type InvitationEmailHandler,
 } from './index';
 
@@ -191,5 +194,59 @@ describe('S6: notification e-mail and outbox sweep', () => {
       }),
     ).rejects.toThrow(InvalidPayloadError);
     expect(tasks).toHaveLength(1);
+  });
+});
+
+describe('S7: host-cache invalidation', () => {
+  const H = { workspaceId: IDS.workspaceId, projectId: '01900000-0000-7000-8000-000000000004' };
+
+  it('retries, has no idempotency key (every change must invalidate) and limits concurrency per workspace', () => {
+    const client = createInngestClient({ transport: 'inngest', isDev: true });
+    const fn = createHostCacheInvalidationFunction(client, { invalidate: vi.fn(), deadLetter: vi.fn() });
+    expect(fn.opts).toMatchObject({
+      id: HOST_CACHE_INVALIDATION_FUNCTION.id,
+      name: 'sites.host_cache.invalidate.v1',
+      triggers: [{ event: EVENTS.siteHostsChanged }],
+      retries: 5,
+      concurrency: [{ key: 'event.data.workspaceId', limit: 5 }],
+    });
+    expect(fn.opts).not.toHaveProperty('idempotency');
+    expect(typeof fn.opts.onFailure).toBe('function');
+    expect(EVENTS.siteHostsChanged).toBe('sites.hosts.changed.v1');
+  });
+
+  it('payload: exactly workspaceId and projectId', () => {
+    expect(parseSiteHostsChanged({ ...H })).toEqual(H);
+    expect(() => parseSiteHostsChanged({ ...H, hostname: 'a.example.test' })).toThrow(InvalidPayloadError);
+    expect(() => parseSiteHostsChanged({ workspaceId: H.workspaceId })).toThrow(InvalidPayloadError);
+  });
+
+  it('inline: invalidates after the response and dead-letters a failure', async () => {
+    const tasks: Array<() => Promise<void>> = [];
+    const hostCacheInvalidation = {
+      invalidate: vi.fn(async () => {
+        throw new Error('cache down');
+      }),
+      deadLetter: vi.fn(async () => {}),
+    };
+    const jobs = createInlineJobs(
+      { invitationEmail: { deliver: vi.fn(), deadLetter: vi.fn() }, hostCacheInvalidation },
+      (t) => void tasks.push(t),
+    );
+    await jobs.emitter.siteHostsChanged(H, { eventId: 'x' });
+    expect(hostCacheInvalidation.invalidate).not.toHaveBeenCalled();
+    await tasks[0]!();
+    expect(hostCacheInvalidation.invalidate).toHaveBeenCalledWith(H);
+    expect(hostCacheInvalidation.deadLetter).toHaveBeenCalledWith({
+      ids: H,
+      functionId: HOST_CACHE_INVALIDATION_FUNCTION.id,
+      runId: 'inline',
+      error: 'cache down',
+    });
+    const without = createInlineJobs(
+      { invitationEmail: { deliver: vi.fn(), deadLetter: vi.fn() } },
+      (t) => void tasks.push(t),
+    );
+    await expect(without.emitter.siteHostsChanged(H, { eventId: 'y' })).rejects.toThrow(/no host-cache/);
   });
 });

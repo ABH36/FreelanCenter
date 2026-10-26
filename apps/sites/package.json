@@ -12,11 +12,15 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@platform/db": "workspace:*",
+    "@platform/hosting": "workspace:*",
     "@platform/logger": "workspace:*",
+    "@platform/providers": "workspace:*",
     "@platform/ui": "workspace:*",
     "next": "16.4.2",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "server-only": "0.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.3",

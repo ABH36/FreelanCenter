@@ -7,11 +7,13 @@
  * (ADR-007 rule 2).
  */
 import type { TenantDatabase } from '@platform/db';
-import { type JobEmitter, parseNotificationEmailRequested } from '@platform/jobs';
+import { type JobEmitter, parseNotificationEmailRequested, parseSiteHostsChanged } from '@platform/jobs';
 import { type Logger, redactString } from '@platform/logger';
 
 export const OUTBOX_EVENTS = {
   notificationEmail: 'notification.email.requested.v1',
+  /** S7: a project's hosts changed; drop their cached resolutions (apps/sites). */
+  siteHostsChanged: 'sites.hosts.changed.v1',
 } as const;
 
 export const SWEEP_BATCH = 100;
@@ -36,6 +38,8 @@ export function createOutbox(deps: OutboxDeps) {
     switch (event) {
       case OUTBOX_EVENTS.notificationEmail:
         return jobs.notificationEmailRequested(parseNotificationEmailRequested(payload), { eventId });
+      case OUTBOX_EVENTS.siteHostsChanged:
+        return jobs.siteHostsChanged(parseSiteHostsChanged(payload), { eventId });
       default:
         throw new Error(`unknown outbox event ${event}`);
     }
