@@ -149,18 +149,13 @@ export const TENANT_TABLES = {
   domains: {
     tenantKey: 'workspace_id',
     prepare: project,
-    insert: async (tx, ctx, deps) =>
-      (
-        await tx.domain.create({
-          data: {
-            workspaceId: ctx.workspaceId,
-            projectId: deps.projectId!,
-            hostname: `${ctx.unique('iso')}.sites.test`,
-            type: 'subdomain',
-          },
-          select: { id: true },
-        })
-      ).id,
+    // S6: app_user has no INSERT on domains; the allocator is the only path and refuses a project outside the
+    // context (42501), which the matrix's cross-tenant and actor-only INSERT checks rely on.
+    insert: async (tx, ctx, deps) => {
+      const rows = await tx.$queryRaw<Array<{ domain_id: string }>>`
+        SELECT domain_id FROM app.allocate_platform_subdomain(${deps.projectId!}::uuid, ${ctx.unique('iso')})`;
+      return rows[0]!.domain_id;
+    },
     update: `deleted_at = now()`,
     delete: 'denied',
     prisma: { model: (tx) => delegate(tx.domain), data: { deletedAt: new Date() } },
@@ -201,6 +196,57 @@ export const TENANT_TABLES = {
     delete: 'allowed',
     prisma: { model: (tx) => delegate(tx.notification), data: { readAt: new Date() } },
   },
+  notification_preferences: {
+    tenantKey: 'workspace_id',
+    prepare: none,
+    // The member's own choice (self_* policies); ctx.ownerId is the acting user.
+    insert: async (tx, ctx) =>
+      (
+        await tx.notificationPreference.create({
+          data: {
+            workspaceId: ctx.workspaceId,
+            userId: ctx.ownerId,
+            category: `iso.c${randomBytes(4).toString('hex')}`,
+          },
+          select: { id: true },
+        })
+      ).id,
+    update: `email = false`,
+    delete: 'allowed',
+    prisma: { model: (tx) => delegate(tx.notificationPreference), data: { email: false } },
+  },
+  outbox_events: {
+    tenantKey: 'workspace_id',
+    prepare: none,
+    insert: async (tx, ctx) =>
+      (
+        await tx.outboxEvent.create({
+          data: {
+            workspaceId: ctx.workspaceId,
+            event: 'isolation.seeded.v1',
+            payload: { workspaceId: ctx.workspaceId },
+          },
+          select: { id: true },
+        })
+      ).id,
+    update: `last_error = 'tampered'`,
+    delete: 'denied',
+    prisma: { model: (tx) => delegate(tx.outboxEvent), data: { lastError: 'tampered' } },
+  },
+  job_dead_letters: {
+    tenantKey: 'workspace_id',
+    prepare: none,
+    insert: async (tx, ctx) =>
+      (
+        await tx.jobDeadLetter.create({
+          data: { workspaceId: ctx.workspaceId, functionId: 'isolation-v1', runId: 'iso', error: 'seeded' },
+          select: { id: true },
+        })
+      ).id,
+    update: 'denied',
+    delete: 'denied',
+    prisma: { model: (tx) => delegate(tx.jobDeadLetter), data: { error: 'tampered' } },
+  },
 } satisfies Record<string, TenantTableSpec>;
 
 export type TableName = keyof typeof TENANT_TABLES;
@@ -213,6 +259,8 @@ export const spec = (table: TableName): TenantTableSpec => TENANT_TABLES[table];
  */
 export const NON_TENANT_RELATIONS: Record<string, string> = {
   'app._prisma_migrations': 'Prisma migration ledger, private to migrator',
+  'app.platform_settings':
+    'per-environment platform settings (sites_domain); no app_user grant or policy; operator function only',
   'app.platform_admins':
     'platform role grants; no app_user grant or policy; written by operator definer functions',
   'identity.users': 'Better Auth (app_auth only); a user spans workspaces through memberships',

@@ -79,6 +79,8 @@ jobs:
       - name: Bootstrap is idempotent
         run: pnpm --filter @platform/db db:bootstrap
       - run: pnpm --filter @platform/db db:migrate
+      - name: Platform settings (sites_domain for platform subdomains, S6)
+        run: pnpm --filter @platform/db db:configure
       - name: Migrations and schema.prisma do not drift
         run: pnpm --filter @platform/db db:drift
       - name: Read-only deployment verification (same script as the live check)

@@ -42,6 +42,25 @@ export function slugProblem(slug: string): SlugProblem | null {
   return null;
 }
 
+/**
+ * The label proposed for a project's platform subdomain (Q9): ASCII-folded, lower-case, hyphenated, 3-40
+ * characters, so `<label>-<4 random>` still fits a DNS label. A name without ASCII letters or digits gives
+ * `site`, which is reserved and therefore always gets the random suffix. Reserved words and collisions are
+ * resolved by `app.allocate_platform_subdomain`.
+ */
+export function subdomainLabel(name: string): string {
+  const base = name
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40)
+    .replace(/-+$/g, '');
+  if (base.length >= 3) return base;
+  return base ? `${base}-site` : 'site';
+}
+
 /** A slug proposal from a display name: ASCII-folded, lower-case, hyphenated, trimmed to 48 characters. */
 export function slugify(name: string): string {
   const base = name

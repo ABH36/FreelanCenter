@@ -16,7 +16,11 @@ import { createCaptureProvider } from '@platform/providers';
 import {
   type WorkspaceService,
   WorkspaceError,
+  createAuditService,
   createInvitationEmailHandler,
+  createNotificationService,
+  createOutbox,
+  createProjectService,
   createWorkspaceService,
   deriveInvitationKey,
 } from '@platform/workspaces';
@@ -43,6 +47,18 @@ const service: WorkspaceService = createWorkspaceService({
   invitationKey,
   baseURL: 'http://localhost:3000',
 });
+
+// S6: mail is not under test here either; the outbox emits into the dropped inline transport.
+const s6Jobs = createInlineJobs(
+  {
+    invitationEmail: handler,
+    notificationEmail: { deliver: async () => 'skipped', deadLetter: async () => undefined },
+  },
+  () => {},
+);
+const projects = createProjectService({ db, outbox: createOutbox({ db, jobs: s6Jobs.emitter }) });
+const notifications = createNotificationService({ db });
+const audit = createAuditService({ db });
 
 type Selectors = Record<Selector, string>;
 interface Tenant {
@@ -75,6 +91,20 @@ async function seed(): Promise<Tenant> {
     role: 'viewer',
   });
   const members = await service.listMembers(ownerId, id);
+  // S6: a project with a contact, submitted for review by the editor, so the owner holds a notification.
+  const project = await projects.createProject(editorId, {
+    workspaceId: id,
+    requestKey: crypto.randomUUID(),
+    name: 'IDOR project',
+    contact: { name: 'IDOR client', email: 'client@example.test' },
+  });
+  await projects.transitionProject(editorId, {
+    workspaceId: id,
+    projectId: project.id,
+    from: 'draft',
+    to: 'in_review',
+  });
+  const inbox = await notifications.listNotifications(ownerId, id);
   return {
     ownerId,
     own: {
@@ -82,6 +112,8 @@ async function seed(): Promise<Tenant> {
       slug,
       membershipId: members.find((m) => m.userId === editorId)!.membershipId,
       invitationId: open.invitationId,
+      projectId: project.id,
+      notificationId: inbox.items[0]!.id,
     },
   };
 }
@@ -125,8 +157,67 @@ const CALLS: Record<string, (actor: string, s: Selectors) => Promise<unknown>> =
   listMembers: (a, s) => service.listMembers(a, s.workspaceId),
   listInvitations: (a, s) => service.listInvitations(a, s.workspaceId),
   getOverview: (a, s) => service.getOverview(a, s.workspaceId),
+  // P1 S6
+  createProject: (a, s) =>
+    projects.createProject(a, {
+      workspaceId: s.workspaceId,
+      requestKey: crypto.randomUUID(),
+      name: 'IDOR probe',
+    }),
+  updateProject: (a, s) =>
+    projects.updateProject(a, { workspaceId: s.workspaceId, projectId: s.projectId, name: 'IDOR probe' }),
+  saveClientContact: (a, s) =>
+    projects.saveClientContact(a, { workspaceId: s.workspaceId, projectId: s.projectId, name: 'IDOR probe' }),
+  removeClientContact: (a, s) =>
+    projects.removeClientContact(a, { workspaceId: s.workspaceId, projectId: s.projectId }),
+  transitionProject: (a, s) =>
+    projects.transitionProject(a, {
+      workspaceId: s.workspaceId,
+      projectId: s.projectId,
+      from: 'in_review',
+      to: 'archived',
+    }),
+  duplicateProject: (a, s) =>
+    projects.duplicateProject(a, {
+      workspaceId: s.workspaceId,
+      projectId: s.projectId,
+      requestKey: crypto.randomUUID(),
+    }),
+  markNotificationRead: (a, s) =>
+    notifications.markNotificationRead(a, { workspaceId: s.workspaceId, notificationId: s.notificationId }),
+  markAllNotificationsRead: (a, s) =>
+    notifications.markAllNotificationsRead(a, { workspaceId: s.workspaceId }),
+  savePreferences: (a, s) =>
+    notifications.savePreferences(a, {
+      workspaceId: s.workspaceId,
+      preferences: { 'project.review': { inApp: false, email: false } },
+    }),
+  unreadCount: (a, s) => notifications.unreadCount(a, s.workspaceId),
+  listProjects: (a, s) => projects.listProjects(a, s.workspaceId),
+  getProject: (a, s) => projects.getProject(a, s.workspaceId, s.projectId),
+  listNotifications: (a, s) => notifications.listNotifications(a, s.workspaceId),
+  getPreferences: (a, s) => notifications.getPreferences(a, s.workspaceId),
+  projectNames: async (a, s) =>
+    Object.fromEntries(await projects.projectNames(a, s.workspaceId, [s.projectId])),
+  listAuditLog: (a, s) => audit.listAuditLog(a, s.workspaceId),
+  listDeadLetters: (a, s) => audit.listDeadLetters(a, s.workspaceId),
+  exportAuditLog: (a, s) => audit.exportAuditLog(a, { workspaceId: s.workspaceId }),
 };
-const READS = new Set(['invitationLink', 'resolveBySlug', 'listMembers', 'listInvitations', 'getOverview']);
+const READS = new Set([
+  'invitationLink',
+  'resolveBySlug',
+  'listMembers',
+  'listInvitations',
+  'getOverview',
+  'unreadCount',
+  'listProjects',
+  'getProject',
+  'listNotifications',
+  'getPreferences',
+  'projectNames',
+  'listAuditLog',
+  'listDeadLetters',
+]);
 
 const call = (method: string) => async (actor: string, s: Selectors) => {
   try {
@@ -145,6 +236,15 @@ async function victimState() {
     deletion: ctx.deletionScheduledFor,
     members: (await service.listMembers(B.ownerId, B.own.workspaceId)).map((m) => [m.membershipId, m.role]),
     invitations: (await service.listInvitations(B.ownerId, B.own.workspaceId)).map((i) => i.id),
+    // S6: B's projects (status, name, contact), B's owner's inbox and preferences.
+    projects: (await projects.listProjects(B.ownerId, B.own.workspaceId, { status: 'all' })).items.map(
+      (p) => [p.id, p.name, p.status, p.clientName],
+    ),
+    inbox: (await notifications.listNotifications(B.ownerId, B.own.workspaceId)).items.map((n) => [
+      n.id,
+      n.readAt,
+    ]),
+    preferences: await notifications.getPreferences(B.ownerId, B.own.workspaceId),
   };
 }
 

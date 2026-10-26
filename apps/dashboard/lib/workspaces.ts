@@ -1,5 +1,6 @@
 /**
- * Server-only workspace runtime (P1 S5): the app_user data layer, the job transport and the workspace service.
+ * Server-only workspace runtime (P1 S5, S6): the app_user data layer, the job transport, the outbox and the
+ * workspace, project, notification and audit services.
  * Built lazily on first use, like the auth runtime, so `next build` needs no secrets.
  */
 import 'server-only';
@@ -11,9 +12,17 @@ import { assertUrlRole, createTenantDatabase } from '@platform/db';
 import { type Jobs, createJobs, loadJobsConfig } from '@platform/jobs';
 import { getCorrelationIdFromHeaders, runWithContext } from '@platform/logger';
 import {
+  type AuditService,
+  type NotificationService,
+  type ProjectService,
   type WorkspaceContext,
   type WorkspaceService,
+  createAuditService,
   createInvitationEmailHandler,
+  createNotificationEmailHandler,
+  createNotificationService,
+  createOutbox,
+  createProjectService,
   createWorkspaceService,
   deriveInvitationKey,
 } from '@platform/workspaces';
@@ -26,6 +35,9 @@ export const PENDING_INVITE_COOKIE = 'pending_invite';
 
 interface WorkspaceRuntime {
   service: WorkspaceService;
+  projects: ProjectService;
+  notifications: NotificationService;
+  audit: AuditService;
   jobs: Jobs;
   ready: Promise<void>;
 }
@@ -47,7 +59,23 @@ function build(): WorkspaceRuntime {
     appName: config.appName,
     logger,
   });
-  const jobs = createJobs(loadJobsConfig(), { invitationEmail: handler }, (task) => after(task));
+  const notificationEmail = createNotificationEmailHandler({
+    db,
+    email,
+    baseURL: config.baseURL,
+    appName: config.appName,
+    logger,
+  });
+  // The sweep needs the emitter and the emitter's transport needs the sweep: bind it late.
+  let sweep = async () => ({ dispatched: 0, failed: 0 });
+  const jobs = createJobs(
+    loadJobsConfig(),
+    { invitationEmail: handler, notificationEmail, outboxSweep: { sweep: () => sweep() } },
+    (task) => after(task),
+  );
+  // Dispatch after the response: a command never waits for Inngest; the sweep re-emits anything lost.
+  const outbox = createOutbox({ db, jobs: jobs.emitter, logger, defer: (task) => after(task) });
+  sweep = outbox.sweep;
   const service = createWorkspaceService({
     db,
     jobs: jobs.emitter,
@@ -58,7 +86,10 @@ function build(): WorkspaceRuntime {
   // One role check per process: tenant queries must never run as an owner or BYPASSRLS role.
   const ready = db.verifyRole('app_user');
   ready.catch((error: unknown) => logger.fatal('workspaces.db.role_check_failed', error));
-  return { service, jobs, ready };
+  const projects = createProjectService({ db, outbox, logger });
+  const notifications = createNotificationService({ db, logger });
+  const audit = createAuditService({ db, logger });
+  return { service, projects, notifications, audit, jobs, ready };
 }
 
 export function workspaceRuntime(): WorkspaceRuntime {
@@ -71,6 +102,16 @@ export async function workspaces(): Promise<WorkspaceService> {
   await runtime.ready;
   return runtime.service;
 }
+
+async function ready(): Promise<WorkspaceRuntime> {
+  const runtime = workspaceRuntime();
+  await runtime.ready;
+  return runtime;
+}
+
+export const projectService = async (): Promise<ProjectService> => (await ready()).projects;
+export const notificationService = async (): Promise<NotificationService> => (await ready()).notifications;
+export const auditService = async (): Promise<AuditService> => (await ready()).audit;
 
 /** The signed-in, verified user's id, or a redirect to /sign-in. Never taken from client input. */
 export async function requireUserId(): Promise<string> {

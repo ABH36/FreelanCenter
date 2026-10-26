@@ -249,6 +249,8 @@ model Workspace {
   projects         Project[]
   clientContacts   ClientContact[]
   domains          Domain[]
+  outboxEvents     OutboxEvent[]
+  jobDeadLetters   JobDeadLetter[]
 
   @@map("workspaces")
   @@schema("app")
@@ -256,16 +258,17 @@ model Workspace {
 
 /// User <-> Workspace with a workspace-scoped role (FR-AUTH-05, FR-AUTH-08).
 model Membership {
-  id            String         @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  workspaceId   String         @map("workspace_id") @db.Uuid
-  userId        String         @map("user_id") @db.Uuid
-  role          MemberRole
-  createdBy     String?        @map("created_by") @db.Uuid
-  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
-  user          User           @relation(fields: [userId], references: [id], onDelete: Restrict)
-  notifications Notification[]
+  id                      String                   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  workspaceId             String                   @map("workspace_id") @db.Uuid
+  userId                  String                   @map("user_id") @db.Uuid
+  role                    MemberRole
+  createdBy               String?                  @map("created_by") @db.Uuid
+  createdAt               DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  workspace               Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  user                    User                     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  notifications           Notification[]
+  notificationPreferences NotificationPreference[]
 
   @@unique([workspaceId, userId])
   @@index([userId])
@@ -294,7 +297,8 @@ model Invitation {
   @@schema("app")
 }
 
-/// One client's site inside a workspace (FR-PRJ-01..04). Template references arrive with P2.
+/// One client's site inside a workspace (FR-PRJ-01..05). Template references arrive with P2. The status changes
+/// only along the transition table (`app.project_transition_roles`, trigger `projects_guard`; FR-PRJ-02).
 model Project {
   id                String          @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   workspaceId       String          @map("workspace_id") @db.Uuid
@@ -305,6 +309,10 @@ model Project {
   templateId        String?         @map("template_id") @db.Uuid
   templateVersionId String?         @map("template_version_id") @db.Uuid
   clientContactId   String?         @map("client_contact_id") @db.Uuid
+  /// Idempotency key of the create or duplicate request that made this project (cross-module contracts).
+  creationKey       String?         @map("creation_key") @db.Uuid
+  /// The project this one was duplicated from (FR-PRJ-05); same workspace by composite FK.
+  duplicatedFromId  String?         @map("duplicated_from_id") @db.Uuid
   statusChangedAt   DateTime        @default(now()) @map("status_changed_at") @db.Timestamptz(6)
   createdBy         String?         @map("created_by") @db.Uuid
   createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -313,10 +321,13 @@ model Project {
   workspace         Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
   /// Composite FK: the primary contact must belong to the same workspace (SRS 5.3 item 4).
   primaryContact    ClientContact?  @relation("ProjectPrimaryContact", fields: [workspaceId, clientContactId], references: [workspaceId, id], onDelete: Restrict, map: "projects_workspace_id_client_contact_id_fkey")
+  duplicatedFrom    Project?        @relation("ProjectDuplicates", fields: [workspaceId, duplicatedFromId], references: [workspaceId, id], onDelete: Restrict, map: "projects_workspace_id_duplicated_from_id_fkey")
+  duplicates        Project[]       @relation("ProjectDuplicates")
   contacts          ClientContact[] @relation("ProjectContacts")
   domains           Domain[]
 
   @@unique([workspaceId, id])
+  @@unique([workspaceId, creationKey])
   @@index([workspaceId, status])
   @@index([workspaceId, createdAt])
   @@map("projects")
@@ -414,5 +425,76 @@ model Notification {
 
   @@index([workspaceId, userId, createdAt(sort: Desc)])
   @@map("notifications")
+  @@schema("app")
+}
+
+/// A member's notification choices per category (FR-NOT-01). No row means the category default from
+/// packages/workspaces/src/notifications.ts. Readable inside the workspace; written only by the member themself.
+model NotificationPreference {
+  id          String     @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  workspaceId String     @map("workspace_id") @db.Uuid
+  userId      String     @map("user_id") @db.Uuid
+  /// Namespaced, e.g. `project.review` (CHECK).
+  category    String
+  inApp       Boolean    @default(true) @map("in_app")
+  email       Boolean    @default(true)
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  membership  Membership @relation(fields: [workspaceId, userId], references: [workspaceId, userId], onDelete: Cascade, map: "notification_preferences_workspace_id_user_id_fkey")
+
+  @@unique([workspaceId, userId, category])
+  @@map("notification_preferences")
+  @@schema("app")
+}
+
+/// Transactional outbox (cross-module contracts: state and event are persisted atomically). Written in the
+/// transaction of the state change, emitted after commit, and emitted again by the `outbox.sweep` job when an
+/// emit was lost. Payloads are ids only (CHECK-bounded). The outbox id is the Inngest event id, so a repeated
+/// emit is de-duplicated.
+model OutboxEvent {
+  id           String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  workspaceId  String    @map("workspace_id") @db.Uuid
+  /// Versioned event name, e.g. `notification.email.requested.v1` (CHECK).
+  event        String
+  payload      Json
+  attempts     Int       @default(0)
+  lastError    String?   @map("last_error")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  dispatchedAt DateTime? @map("dispatched_at") @db.Timestamptz(6)
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, createdAt])
+  @@map("outbox_events")
+  @@schema("app")
+}
+
+/// Durable dead-letter record of a background job that used up its retries (ADR-007 rule 4, S5 decision D5).
+/// app_user may only append; owners and admins of the workspace can read it.
+model JobDeadLetter {
+  id          String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  functionId  String    @map("function_id")
+  runId       String    @map("run_id")
+  event       String?
+  targetType  String?   @map("target_type")
+  targetId    String?   @map("target_id")
+  /// Redacted and length-capped by the handler (CHECK).
+  error       String
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@map("job_dead_letters")
+  @@schema("app")
+}
+
+/// Platform settings of one environment, e.g. `sites_domain`, the parent of every platform subdomain (Q9).
+/// No application role can read or write it; operators call `app.operator_set_platform_setting` as migrator.
+model PlatformSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("platform_settings")
   @@schema("app")
 }

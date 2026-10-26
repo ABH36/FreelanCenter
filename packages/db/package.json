@@ -18,8 +18,9 @@
     "db:down": "docker compose -f docker/compose.yml down -v",
     "db:bootstrap": "node scripts/bootstrap-roles.ts",
     "db:migrate": "prisma migrate deploy",
+    "db:configure": "node scripts/configure-platform.ts",
     "db:drift": "prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code",
-    "db:setup": "pnpm db:up && pnpm db:bootstrap && pnpm db:migrate",
+    "db:setup": "pnpm db:up && pnpm db:bootstrap && pnpm db:migrate && pnpm db:configure",
     "db:verify": "node scripts/verify-database.ts",
     "test:live": "vitest run --config vitest.live.config.ts"
   },

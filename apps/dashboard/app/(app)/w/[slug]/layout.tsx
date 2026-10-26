@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { currentWorkspace } from '@/lib/workspaces';
+import Link from 'next/link';
+import { currentWorkspace, notificationService, requireUserId } from '@/lib/workspaces';
 
 /**
  * FR-WS-03: every workspace has its own dashboard route. The slug in the URL is only a selector: a non-member and
@@ -13,8 +14,24 @@ export default async function WorkspaceLayout({
   params: Promise<{ slug: string }>;
 }) {
   const ws = await currentWorkspace((await params).slug);
+  const unread = await (await notificationService()).unreadCount(await requireUserId(), ws.id);
   return (
     <div className="space-y-6">
+      <div className="flex flex-wrap justify-end gap-3 text-sm">
+        <Link href={`/w/${ws.slug}/notifications`} className="text-slate-600 hover:underline">
+          Notifications
+          {unread ? (
+            <span className="ml-1 rounded-full bg-[var(--color-primary)] px-1.5 text-xs text-white">
+              {unread}
+            </span>
+          ) : null}
+        </Link>
+        {ws.can['audit.view'] ? (
+          <Link href={`/w/${ws.slug}/audit`} className="text-slate-600 hover:underline">
+            Audit log
+          </Link>
+        ) : null}
+      </div>
       {ws.status === 'suspended' ? (
         <div
           role="status"

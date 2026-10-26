@@ -8,37 +8,12 @@
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { WorkspaceError } from '@platform/workspaces';
-import {
-  PENDING_INVITE_COOKIE,
-  rememberWorkspace,
-  requireUserId,
-  withRequestContext,
-  workspaces,
-} from '@/lib/workspaces';
+import { type ActionState, field, runAction } from '@/lib/actions';
+import { PENDING_INVITE_COOKIE, rememberWorkspace, requireUserId, workspaces } from '@/lib/workspaces';
 
-export interface ActionState {
-  ok?: string;
-  error?: string;
-  fieldErrors?: Record<string, string>;
-  /** Only for invitationLinkAction: the link to copy. */
-  link?: string;
-}
+export type { ActionState };
 
-const field = (form: FormData, name: string) => {
-  const value = form.get(name);
-  return typeof value === 'string' ? value : '';
-};
-
-/** Typed failures become form state; anything else is a 500 (logged by Next). */
-async function run(fn: () => Promise<ActionState | void>): Promise<ActionState> {
-  try {
-    return (await withRequestContext(fn)) ?? {};
-  } catch (error) {
-    if (error instanceof WorkspaceError) return { error: error.message, fieldErrors: error.fieldErrors };
-    throw error;
-  }
-}
+const run = runAction;
 
 export async function createWorkspaceAction(_prev: ActionState, form: FormData): Promise<ActionState> {
   const userId = await requireUserId();

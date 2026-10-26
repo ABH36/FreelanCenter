@@ -119,15 +119,19 @@ const tenantTables = await withClient('bootstrap', async (op) => {
        FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
       WHERE n.nspname = 'app' AND p.prosecdef`,
   );
-  // P1 foundation (5) + P1 S5 (6). An unexpected definer is as much a finding as a missing one.
+  // P1 foundation (5) + P1 S5 (6) + P1 S6 (4). An unexpected definer is as much a finding as a missing one.
   const expectedDefiners = [
     'accept_invitation',
     'admin_set_workspace_status',
+    'allocate_platform_subdomain',
     'current_member_role',
     'invitation_preview',
     'memberships_keep_owner',
+    'notification_delivery',
     'operator_grant_platform_admin',
     'operator_revoke_platform_admin',
+    'operator_set_platform_setting',
+    'outbox_pending',
     'record_platform_audit',
     'workspace_has_members',
     'workspace_members',
@@ -185,6 +189,23 @@ await withClient('app', async (c) => {
   );
   check('app_user is denied the identity schema', await denied(c, 'SELECT 1 FROM identity.users LIMIT 1'));
   check('app_user cannot update audit_logs', await denied(c, "UPDATE app.audit_logs SET action = 'x.y'"));
+});
+
+// S6: platform subdomains need this environment's sites domain (db:configure). No application role can read
+// platform_settings, so read it as svc_definer (migrator holds SET on it) in a READ ONLY transaction.
+await withClient('migrator', async (c) => {
+  await c.query('BEGIN READ ONLY');
+  try {
+    await c.query('SET LOCAL ROLE svc_definer');
+    const { rows } = await c.query("SELECT value FROM app.platform_settings WHERE key = 'sites_domain'");
+    check(
+      'sites_domain is configured (platform subdomains, Q9)',
+      rows.length === 1,
+      'missing: run db:configure',
+    );
+  } finally {
+    await c.query('ROLLBACK');
+  }
 });
 
 await withClient('auth', async (c) => {

@@ -76,6 +76,12 @@ export interface TenantDatabase {
    * settings) is refused by RLS; reads and audit appends work. ESLint confines callers to job handlers.
    */
   withJobTenant<T>(workspaceId: string, fn: (tx: Tx) => Promise<T>): Promise<T>;
+  /**
+   * No context at all (no workspace, no actor), for the outbox sweep only: every tenant policy returns nothing,
+   * and the one function that answers in this context, `app.outbox_pending()`, returns event ids and their
+   * workspace ids. ESLint confines callers to packages/workspaces/src/outbox.ts.
+   */
+  withSystem<T>(fn: (tx: Tx) => Promise<T>): Promise<T>;
   /** Fails unless the connection role is `expectedRole` and has neither SUPERUSER nor BYPASSRLS. */
   verifyRole(expectedRole?: string): Promise<void>;
   readonly stats: { active: number; queued: number };
@@ -206,6 +212,10 @@ export function createTenantDatabase(options: TenantDatabaseOptions): TenantData
     async withJobTenant(workspaceId, fn) {
       requireUuid(workspaceId, 'workspaceId');
       return run(workspaceId, '', fn);
+    },
+
+    async withSystem(fn) {
+      return run('', '', fn);
     },
 
     verifyRole(expectedRole = 'app_user') {

@@ -9,8 +9,10 @@ export {
   EVENTS,
   type InvitationCreated,
   InvalidPayloadError,
+  type NotificationEmailRequested,
   parseIds,
   parseInvitationCreated,
+  parseNotificationEmailRequested,
 } from './events';
 export {
   APP_ID,
@@ -19,7 +21,12 @@ export {
   INVITATION_EMAIL_FUNCTION,
   type InvitationEmailHandler,
   type JobEmitter,
+  type JobHandlers,
   type Jobs,
+  NOTIFICATION_EMAIL_FUNCTION,
+  type NotificationEmailHandler,
+  OUTBOX_SWEEP_FUNCTION,
+  type OutboxSweeper,
   type RouteHandler,
   SERVE_PATH,
   createInlineJobs,
@@ -27,4 +34,6 @@ export {
   createInngestJobs,
   createInvitationEmailFunction,
   createJobs,
+  createNotificationEmailFunction,
+  createOutboxSweepFunction,
 } from './runtime';

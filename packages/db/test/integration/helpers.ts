@@ -53,7 +53,6 @@ export interface SeededWorkspace {
 export async function seedWorkspace(db: TenantDatabase, auth: pg.Pool): Promise<SeededWorkspace> {
   const ownerId = await createUser(auth);
   const slug = uniqueSlug();
-  const hostname = `${slug}.sites.test`;
   return db.withNewWorkspace(ownerId, async (tx, scope) => {
     await tx.workspace.create({
       data: { id: scope.workspaceId, name: `Workspace ${slug}`, slug, createdBy: ownerId },
@@ -71,16 +70,11 @@ export async function seedWorkspace(db: TenantDatabase, auth: pg.Pool): Promise<
       },
     });
     await tx.project.update({ where: { id: project.id }, data: { clientContactId: contact.id } });
-    const domain = await tx.domain.create({
-      data: {
-        workspaceId: scope.workspaceId,
-        projectId: project.id,
-        hostname,
-        type: 'subdomain',
-        status: 'active',
-        activatedAt: new Date(),
-      },
-    });
+    // S6: platform subdomains come only from the allocator (`<label>.<sites_domain>`, db:configure).
+    const [domain] = await tx.$queryRaw<Array<{ id: string; hostname: string }>>`
+      SELECT domain_id AS id, hostname FROM app.allocate_platform_subdomain(${project.id}::uuid, ${slug})`;
+    if (!domain) throw new Error('seed: no subdomain allocated');
+    const hostname = domain.hostname;
     await tx.auditLog.create({
       data: {
         workspaceId: scope.workspaceId,
@@ -92,6 +86,25 @@ export async function seedWorkspace(db: TenantDatabase, auth: pg.Pool): Promise<
     });
     await tx.notification.create({
       data: { workspaceId: scope.workspaceId, userId: ownerId, type: 'workspace.welcome' },
+    });
+    // S6 tables: a preference, an outbox event and a dead letter.
+    await tx.notificationPreference.create({
+      data: { workspaceId: scope.workspaceId, userId: ownerId, category: 'project.review', email: false },
+    });
+    await tx.outboxEvent.create({
+      data: {
+        workspaceId: scope.workspaceId,
+        event: 'notification.email.requested.v1',
+        payload: { workspaceId: scope.workspaceId, notificationId: uuidv7() },
+      },
+    });
+    await tx.jobDeadLetter.create({
+      data: {
+        workspaceId: scope.workspaceId,
+        functionId: 'seed-v1',
+        runId: 'seed',
+        error: 'seeded dead letter',
+      },
     });
     await tx.invitation.create({
       data: {
@@ -118,4 +131,20 @@ export async function tenantTables(admin: pg.Pool): Promise<string[]> {
       ORDER BY 1`,
   );
   return rows.map((r) => r.relname);
+}
+
+/**
+ * Runs one statement as svc_definer (migrator holds SET on it, Spike B B-7) inside a rolled-back transaction:
+ * how the tests reach table constraints that no application role can write directly any more (S6 domains).
+ */
+export async function asDefiner(migrator: pg.Pool, sql: string, params: unknown[] = []): Promise<void> {
+  const client = await migrator.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SET LOCAL ROLE svc_definer');
+    await client.query(sql, params);
+  } finally {
+    await client.query('ROLLBACK').catch(() => undefined);
+    client.release();
+  }
 }

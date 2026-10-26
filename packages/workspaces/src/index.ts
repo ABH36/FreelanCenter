@@ -1,12 +1,72 @@
 /**
- * @platform/workspaces - workspaces, membership, RBAC-checked commands and invitations (modules 01/02, P1 S5).
- * Server-only. Every exported command authorizes with `@platform/auth/rbac` before touching data.
+ * @platform/workspaces - workspaces, membership, invitations (P1 S5), projects and their lifecycle, the audit
+ * viewer, notifications and the outbox (P1 S6); modules 01/02/03/09. Server-only. Every exported command
+ * authorizes with `@platform/auth/rbac` before touching data.
  */
 export const PACKAGE_NAME = '@platform/workspaces' as const;
 
+export {
+  AUDIT_EXPORT_MAX_ROWS,
+  AUDIT_PAGE_SIZE,
+  type AuditEntryRow,
+  type AuditFilters,
+  type AuditService,
+  createAuditService,
+  csvCell,
+  parseAuditFilters,
+  toCsv,
+} from './audit';
 export { INVITATION_MAIL_KIND, type DeliveryDeps, createInvitationEmailHandler } from './delivery';
 export { LAST_OWNER_SQLSTATE, WorkspaceError, type WorkspaceErrorCode } from './errors';
-export { type InvitationMail, renderInvitationMail } from './mail';
+export {
+  PROJECT_STATUSES,
+  PROJECT_TRANSITIONS,
+  type ProjectStatus,
+  STATUS_LABEL,
+  type Transition,
+  findTransition,
+  isProjectStatus,
+  transitionsFrom,
+} from './lifecycle';
+export {
+  type InvitationMail,
+  type NotificationMail,
+  renderInvitationMail,
+  renderNotificationMail,
+} from './mail';
+export {
+  NOTIFICATION_MAIL_KIND,
+  type NotificationDeliveryDeps,
+  createNotificationEmailHandler,
+} from './notification-delivery';
+export {
+  CATEGORY_NAMES,
+  NOTIFICATION_CATEGORIES,
+  NOTIFICATION_PAGE_SIZE,
+  type NotificationCategory,
+  type NotificationRow,
+  type NotificationService,
+  type Preferences,
+  categoryOf,
+  createNotificationService,
+  emailWanted,
+} from './notifications';
+export { OUTBOX_EVENTS, type Outbox, type OutboxDeps, SWEEP_BATCH, createOutbox } from './outbox';
+export {
+  PROJECT_CATEGORIES,
+  PROJECT_LIMITS,
+  type ProjectAuditAction,
+  type ProjectCategory,
+  type ProjectDetail,
+  type ProjectFilters,
+  type ProjectListItem,
+  type ProjectService,
+  type ProjectServiceDeps,
+  type StatusFilter,
+  createProjectService,
+  likePattern,
+  parseStatusFilter,
+} from './projects';
 export {
   type AcceptOutcome,
   type AuditAction,
@@ -20,7 +80,7 @@ export {
   type WorkspaceSummary,
   createWorkspaceService,
 } from './service';
-export { RESERVED_SLUGS, SLUG_PATTERN, type SlugProblem, slugProblem, slugify } from './slug';
+export { RESERVED_SLUGS, SLUG_PATTERN, type SlugProblem, slugProblem, slugify, subdomainLabel } from './slug';
 export {
   type InvitationKey,
   deriveInvitationKey,

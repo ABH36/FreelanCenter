@@ -12,6 +12,7 @@ export function AppNav() {
       ? [
           { href: `/w/${slug}`, label: 'Overview', exact: true },
           { href: `/w/${slug}/projects`, label: 'Projects', exact: false },
+          { href: `/w/${slug}/notifications`, label: 'Notifications', exact: false },
           { href: `/w/${slug}/members`, label: 'Members', exact: false },
           { href: `/w/${slug}/settings`, label: 'Settings', exact: false },
         ]
