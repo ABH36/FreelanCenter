@@ -97,7 +97,8 @@ const MUTATIONS: Mutation[] = [
   },
   {
     name: 'admin console step-up check removed',
-    apply: `SET ROLE svc_definer;
+    // Replacing a function needs CREATE on the schema for its owner during the statement (as in the migrations).
+    apply: `GRANT CREATE ON SCHEMA app TO svc_definer; SET ROLE svc_definer;
             CREATE OR REPLACE FUNCTION app.admin_require(p_user_id uuid, p_session_id uuid) RETURNS void
             LANGUAGE plpgsql STABLE SET search_path = '' AS $fn$
             BEGIN
@@ -106,8 +107,8 @@ const MUTATIONS: Mutation[] = [
               END IF;
             END
             $fn$;
-            RESET ROLE`,
-    revert: `SET ROLE svc_definer;
+            RESET ROLE; REVOKE CREATE ON SCHEMA app FROM svc_definer`,
+    revert: `GRANT CREATE ON SCHEMA app TO svc_definer; SET ROLE svc_definer;
              CREATE OR REPLACE FUNCTION app.admin_require(p_user_id uuid, p_session_id uuid) RETURNS void
              LANGUAGE plpgsql STABLE SET search_path = '' AS $fn$
              BEGIN
@@ -119,7 +120,7 @@ const MUTATIONS: Mutation[] = [
                END IF;
              END
              $fn$;
-             RESET ROLE`,
+             RESET ROLE; REVOKE CREATE ON SCHEMA app FROM svc_definer`,
     mustFail: ['an admin without a step-up of this session is refused by every console function'],
   },
 ];
