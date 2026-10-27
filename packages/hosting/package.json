@@ -1,0 +1,25 @@
+{
+  "name": "@platform/hosting",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Host routing for tenant sites (module 12, P1 S7): host normalisation, the per-host resolution cache and its invalidation",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
+  },
+  "dependencies": {
+    "@platform/logger": "workspace:*",
+    "@platform/providers": "workspace:*"
+  },
+  "devDependencies": {
+    "@platform/db": "workspace:*",
+    "@types/node": "^22.0.0"
+  }
+}

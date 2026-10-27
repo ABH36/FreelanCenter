@@ -1,6 +1,6 @@
 /**
- * Server-only workspace runtime (P1 S5, S6): the app_user data layer, the job transport, the outbox and the
- * workspace, project, notification and audit services.
+ * Server-only workspace runtime (P1 S5, S6, S7): the app_user data layer, the job transport, the outbox, the
+ * workspace, project, notification and audit services, and the host-cache invalidation for apps/sites.
  * Built lazily on first use, like the auth runtime, so `next build` needs no secrets.
  */
 import 'server-only';
@@ -11,6 +11,7 @@ import { cache } from 'react';
 import { assertUrlRole, createTenantDatabase } from '@platform/db';
 import { type Jobs, createJobs, loadJobsConfig } from '@platform/jobs';
 import { getCorrelationIdFromHeaders, runWithContext } from '@platform/logger';
+import { type KeyValueStore, createKeyValueStore, loadKeyValueConfig } from '@platform/providers';
 import {
   type AuditService,
   type NotificationService,
@@ -18,6 +19,7 @@ import {
   type WorkspaceContext,
   type WorkspaceService,
   createAuditService,
+  createHostCacheInvalidationHandler,
   createInvitationEmailHandler,
   createNotificationEmailHandler,
   createNotificationService,
@@ -66,11 +68,25 @@ function build(): WorkspaceRuntime {
     appName: config.appName,
     logger,
   });
+  // S7: the same Upstash database apps/sites reads (Mumbai); required on deployments, optional locally. Built on
+  // first use, so a missing variable fails the invalidation job (dead letter, owner-visible), not every page.
+  let hostCache: KeyValueStore | null | undefined;
+  const hostCacheInvalidation = createHostCacheInvalidationHandler({
+    db,
+    cache: () =>
+      hostCache === undefined ? (hostCache = createKeyValueStore(loadKeyValueConfig())) : hostCache,
+    logger,
+  });
   // The sweep needs the emitter and the emitter's transport needs the sweep: bind it late.
   let sweep = async () => ({ dispatched: 0, failed: 0 });
   const jobs = createJobs(
     loadJobsConfig(),
-    { invitationEmail: handler, notificationEmail, outboxSweep: { sweep: () => sweep() } },
+    {
+      invitationEmail: handler,
+      notificationEmail,
+      outboxSweep: { sweep: () => sweep() },
+      hostCacheInvalidation,
+    },
     (task) => after(task),
   );
   // Dispatch after the response: a command never waits for Inngest; the sweep re-emits anything lost.

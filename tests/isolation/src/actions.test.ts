@@ -48,11 +48,13 @@ const service: WorkspaceService = createWorkspaceService({
   baseURL: 'http://localhost:3000',
 });
 
-// S6: mail is not under test here either; the outbox emits into the dropped inline transport.
+// S6: mail is not under test here either; the outbox emits into the dropped inline transport. S7: so does the
+// host-cache invalidation (without a handler its emits would fail and leave outbox rows pending for the sweep).
 const s6Jobs = createInlineJobs(
   {
     invitationEmail: handler,
     notificationEmail: { deliver: async () => 'skipped', deadLetter: async () => undefined },
+    hostCacheInvalidation: { invalidate: async () => ({ hosts: 0 }), deadLetter: async () => undefined },
   },
   () => {},
 );

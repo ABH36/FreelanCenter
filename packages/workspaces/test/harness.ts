@@ -1,15 +1,17 @@
 /**
  * Workspace service suite harness: the local Docker database through PgBouncer as `app_user` (tenant data) and
- * `app_auth` (creating identity users), a capture mail sink and the inline job transport whose deferred tasks
- * the tests run explicitly.
+ * `app_auth` (creating identity users), a capture mail sink, the host cache on the local Upstash emulator (S7) and the inline job
+ * transport whose deferred tasks the tests run explicitly.
  */
 import pg from 'pg';
 import { createTenantDatabase, uuidv7 } from '@platform/db';
 import { LOCAL_DATABASE_URLS } from '@platform/db/testing';
 import { createInlineJobs } from '@platform/jobs';
-import { createCaptureProvider } from '@platform/providers';
+import { LOCAL_UPSTASH } from '@platform/hosting/testing';
+import { createCaptureProvider, createUpstashStore } from '@platform/providers';
 import { createAuditService } from '../src/audit';
 import { createInvitationEmailHandler } from '../src/delivery';
+import { createHostCacheInvalidationHandler } from '../src/host-cache';
 import { createNotificationEmailHandler } from '../src/notification-delivery';
 import { createNotificationService } from '../src/notifications';
 import { createOutbox } from '../src/outbox';
@@ -39,8 +41,18 @@ export const notificationHandler = createNotificationEmailHandler({
   baseURL: BASE_URL,
   appName: 'Platform',
 });
+/**
+ * S7: the host-resolution cache apps/sites reads and the invalidation job deletes from, over the Upstash REST
+ * protocol (the stack's serverless-redis-http emulator).
+ */
+export const hostCache = createUpstashStore(LOCAL_UPSTASH);
+export const hostCacheHandler = createHostCacheInvalidationHandler({ db, cache: hostCache });
 export const jobs = createInlineJobs(
-  { invitationEmail: handler, notificationEmail: notificationHandler },
+  {
+    invitationEmail: handler,
+    notificationEmail: notificationHandler,
+    hostCacheInvalidation: hostCacheHandler,
+  },
   (task) => void tasks.push(task),
 );
 export const service = createWorkspaceService({ db, jobs: jobs.emitter, invitationKey, baseURL: BASE_URL });

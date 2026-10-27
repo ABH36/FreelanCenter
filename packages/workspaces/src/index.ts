@@ -1,6 +1,6 @@
 /**
  * @platform/workspaces - workspaces, membership, invitations (P1 S5), projects and their lifecycle, the audit
- * viewer, notifications and the outbox (P1 S6); modules 01/02/03/09. Server-only. Every exported command
+ * viewer, notifications and the outbox (P1 S6), the host-cache invalidation job (P1 S7); modules 01/02/03/09/12. Server-only. Every exported command
  * authorizes with `@platform/auth/rbac` before touching data.
  */
 export const PACKAGE_NAME = '@platform/workspaces' as const;
@@ -17,6 +17,7 @@ export {
   toCsv,
 } from './audit';
 export { INVITATION_MAIL_KIND, type DeliveryDeps, createInvitationEmailHandler } from './delivery';
+export { type HostCacheDeps, createHostCacheInvalidationHandler } from './host-cache';
 export { LAST_OWNER_SQLSTATE, WorkspaceError, type WorkspaceErrorCode } from './errors';
 export {
   PROJECT_STATUSES,

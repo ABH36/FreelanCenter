@@ -70,6 +70,22 @@ const MUTATIONS: Mutation[] = [
                ON DELETE RESTRICT ON UPDATE CASCADE`,
     mustFail: ['composite on workspace_id'],
   },
+  // P1 S7: the visitor role. Its only capability is app.resolve_host; a table grant or a second function is a leak.
+  {
+    name: 'visitor role granted a tenant table',
+    apply: 'GRANT SELECT (hostname, workspace_id) ON app.domains TO app_public',
+    revert: 'REVOKE SELECT (hostname, workspace_id) ON app.domains FROM app_public',
+    mustFail: ['app_public can read or write no product relation'],
+  },
+  {
+    name: 'visitor role granted a second definer function',
+    // Only the owner can change a function's ACL, and svc_definer owns the definers (migrator holds SET on it).
+    apply:
+      'SET ROLE svc_definer; GRANT EXECUTE ON FUNCTION app.allocate_platform_subdomain(uuid, text) TO app_public; RESET ROLE',
+    revert:
+      'SET ROLE svc_definer; REVOKE EXECUTE ON FUNCTION app.allocate_platform_subdomain(uuid, text) FROM app_public; RESET ROLE',
+    mustFail: ['app_public executes exactly app.resolve_host'],
+  },
 ];
 
 const PACKAGE_DIR = fileURLToPath(new URL('..', import.meta.url));

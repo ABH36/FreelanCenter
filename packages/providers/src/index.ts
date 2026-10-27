@@ -14,3 +14,14 @@ export {
   createCaptureProvider,
   createResendProvider,
 } from './email';
+export {
+  type KeyValueConfig,
+  type KeyValueStore,
+  type MemoryKeyValueStore,
+  type UpstashOptions,
+  KeyValueError,
+  createKeyValueStore,
+  createMemoryStore,
+  createUpstashStore,
+  loadKeyValueConfig,
+} from './kv';

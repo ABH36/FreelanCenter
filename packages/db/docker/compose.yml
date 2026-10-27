@@ -4,6 +4,10 @@
 #
 # Authentication is `trust` and both ports bind to 127.0.0.1 only, so no password exists in this repository.
 # The stack is for synthetic data only (DEVELOPMENT_ENVIRONMENT_POLICY.md).
+#
+# P1 S7: Redis behind serverless-redis-http (SRH), which speaks the Upstash REST API, so the host-resolution cache
+# is tested over the same protocol apps/sites uses against Upstash. Its token is a fixed local value (port bound
+# to 127.0.0.1, synthetic data), not a secret.
 name: platform-db
 
 services:
@@ -41,4 +45,32 @@ services:
       timeout: 3s
       retries: 60
       start_period: 120s
+      start_interval: 1s
+
+  redis:
+    image: redis:7.4-alpine@sha256:57e4255cc971b1c8d6f8a6ca283ac01bc3ecdd914273ef6bfaede87aaecd6541
+    command: ['redis-server', '--save', '', '--appendonly', 'no']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  upstash-rest:
+    image: hiett/serverless-redis-http@sha256:65128347949bca511e448fd7238780d624573d74c22b79155a7563db19e9b678
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      SRH_MODE: env
+      SRH_TOKEN: local-srh-token
+      SRH_CONNECTION_STRING: redis://redis:6379
+    ports:
+      - '127.0.0.1:58079:80'
+    healthcheck:
+      test: ['CMD', 'nc', '-z', '127.0.0.1', '80']
+      interval: 2s
+      timeout: 3s
+      retries: 60
+      start_period: 60s
       start_interval: 1s

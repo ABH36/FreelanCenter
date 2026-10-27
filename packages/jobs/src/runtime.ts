@@ -2,7 +2,8 @@
  * The only place that talks to Inngest (ADR-007 rule 3: events are emitted through typed, ids-only helpers;
  * ESLint forbids importing `inngest` anywhere else). Spike G proved every option used here: retry with backoff,
  * function idempotency on a domain id, per-workspace concurrency, `onFailure` as the dead-letter hook and
- * signed requests in cloud mode. S6 adds the notification e-mail and the outbox sweep (a cron function).
+ * signed requests in cloud mode. S6 adds the notification e-mail and the outbox sweep (a cron function); S7 the
+ * host-cache invalidation for apps/sites.
  */
 import { Inngest, NonRetriableError } from 'inngest';
 import { serve } from 'inngest/next';
@@ -11,8 +12,10 @@ import {
   EVENTS,
   type InvitationCreated,
   type NotificationEmailRequested,
+  type SiteHostsChanged,
   parseInvitationCreated,
   parseNotificationEmailRequested,
+  parseSiteHostsChanged,
 } from './events';
 
 export const APP_ID = 'platform-dashboard';
@@ -28,6 +31,17 @@ export const NOTIFICATION_EMAIL_FUNCTION = {
   id: 'notification-email-v1',
   name: 'notification.email.v1',
   retries: 3,
+  concurrencyPerWorkspace: 5,
+} as const;
+/**
+ * Drops the cached host resolutions of one project (FR-DOM-07). No idempotency key on purpose: every status
+ * change must invalidate again, and a repeated run only deletes keys that are already gone. A duplicate emit of
+ * the same outbox row is de-duplicated by its event id.
+ */
+export const HOST_CACHE_INVALIDATION_FUNCTION = {
+  id: 'site-host-cache-invalidate-v1',
+  name: 'sites.host_cache.invalidate.v1',
+  retries: 5,
   concurrencyPerWorkspace: 5,
 } as const;
 /** Re-emits outbox events whose emit after commit was lost (cross-module contracts; S5 decision D4). */
@@ -59,6 +73,12 @@ export interface NotificationEmailHandler {
   deadLetter(failure: DeadLetter<NotificationEmailRequested>): Promise<void>;
 }
 
+export interface HostCacheInvalidationHandler {
+  /** Deletes the cache entries of every host name the project has or had; returns how many host names. */
+  invalidate(ids: SiteHostsChanged): Promise<{ hosts: number }>;
+  deadLetter(failure: DeadLetter<SiteHostsChanged>): Promise<void>;
+}
+
 export interface OutboxSweeper {
   sweep(): Promise<{ dispatched: number; failed: number }>;
 }
@@ -68,12 +88,15 @@ export interface JobHandlers {
   /** Optional so a process that sends no notification e-mail (some test suites) need not wire one. */
   notificationEmail?: NotificationEmailHandler;
   outboxSweep?: OutboxSweeper;
+  hostCacheInvalidation?: HostCacheInvalidationHandler;
 }
 
 export interface JobEmitter {
   invitationCreated(ids: InvitationCreated): Promise<void>;
   /** `eventId` is the outbox row id: a repeated emit of the same row is de-duplicated by Inngest. */
   notificationEmailRequested(ids: NotificationEmailRequested, options: { eventId: string }): Promise<void>;
+  /** `eventId` is the outbox row id, as above. */
+  siteHostsChanged(ids: SiteHostsChanged, options: { eventId: string }): Promise<void>;
 }
 
 export type RouteHandler = (request: Request) => Promise<Response>;
@@ -178,6 +201,43 @@ export function createNotificationEmailFunction(client: Inngest, handler: Notifi
   );
 }
 
+export function createHostCacheInvalidationFunction(client: Inngest, handler: HostCacheInvalidationHandler) {
+  return client.createFunction(
+    {
+      id: HOST_CACHE_INVALIDATION_FUNCTION.id,
+      name: HOST_CACHE_INVALIDATION_FUNCTION.name,
+      triggers: [{ event: EVENTS.siteHostsChanged }],
+      retries: HOST_CACHE_INVALIDATION_FUNCTION.retries,
+      concurrency: [
+        { key: 'event.data.workspaceId', limit: HOST_CACHE_INVALIDATION_FUNCTION.concurrencyPerWorkspace },
+      ],
+      onFailure: async ({ event, error }) => {
+        let ids: SiteHostsChanged | null;
+        try {
+          ids = parseSiteHostsChanged(event.data.event.data);
+        } catch {
+          ids = null;
+        }
+        await handler.deadLetter({
+          ids,
+          functionId: HOST_CACHE_INVALIDATION_FUNCTION.id,
+          runId: String(event.data.run_id),
+          error: errorMessage(error),
+        });
+      },
+    },
+    async ({ event, step }) => {
+      let ids: SiteHostsChanged;
+      try {
+        ids = parseSiteHostsChanged(event.data);
+      } catch (error) {
+        throw new NonRetriableError(errorMessage(error));
+      }
+      return step.run('invalidate-host-cache', () => handler.invalidate(ids));
+    },
+  );
+}
+
 export function createOutboxSweepFunction(client: Inngest, sweeper: OutboxSweeper) {
   return client.createFunction(
     {
@@ -206,6 +266,9 @@ export function createInngestJobs(
       ? [createNotificationEmailFunction(client, handlers.notificationEmail)]
       : []),
     ...(handlers.outboxSweep ? [createOutboxSweepFunction(client, handlers.outboxSweep)] : []),
+    ...(handlers.hostCacheInvalidation
+      ? [createHostCacheInvalidationFunction(client, handlers.hostCacheInvalidation)]
+      : []),
   ];
   const route = serve({ client, functions, servePath: SERVE_PATH, serveOrigin: options.serveOrigin });
   return {
@@ -222,6 +285,10 @@ export function createInngestJobs(
       async notificationEmailRequested(ids, { eventId }) {
         const data = parseNotificationEmailRequested(ids);
         await client.send({ id: `outbox:${eventId}`, name: EVENTS.notificationEmailRequested, data });
+      },
+      async siteHostsChanged(ids, { eventId }) {
+        const data = parseSiteHostsChanged(ids);
+        await client.send({ id: `outbox:${eventId}`, name: EVENTS.siteHostsChanged, data });
       },
     },
     route: {
@@ -266,6 +333,23 @@ export function createInlineJobs(handlers: JobHandlers, defer: Defer): Jobs {
             await handler.deadLetter({
               ids: data,
               functionId: NOTIFICATION_EMAIL_FUNCTION.id,
+              runId: 'inline',
+              error: errorMessage(error),
+            });
+          }
+        });
+      },
+      async siteHostsChanged(ids) {
+        const data = parseSiteHostsChanged(ids);
+        const handler = handlers.hostCacheInvalidation;
+        if (!handler) throw new Error('no host-cache invalidation handler is configured');
+        defer(async () => {
+          try {
+            await handler.invalidate(data);
+          } catch (error) {
+            await handler.deadLetter({
+              ids: data,
+              functionId: HOST_CACHE_INVALIDATION_FUNCTION.id,
               runId: 'inline',
               error: errorMessage(error),
             });

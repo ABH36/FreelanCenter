@@ -2,7 +2,8 @@
  * The production job path end to end (ADR-007, P1 S5 invitation mail): our `createInngestJobs` serve handler,
  * synced to a local `inngest start` executor that signs every request (same executor as Inngest Cloud, Spike G).
  * Proves: delivery through a signed request, de-duplication of a repeated emit, retry after a failed attempt,
- * the dead-letter hook for a bad payload, and rejection of an unsigned call.
+ * the dead-letter hook for a bad payload, and rejection of an unsigned call. S6 adds the notification e-mail, S7
+ * the host-cache invalidation.
  */
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
@@ -12,6 +13,7 @@ import {
   type InvitationCreated,
   type NotificationEmailRequested,
   SERVE_PATH,
+  type SiteHostsChanged,
   createInngestClient,
   createInngestJobs,
 } from '../src';
@@ -22,6 +24,7 @@ const BASE = 'http://localhost:8298';
 const delivered: InvitationCreated[] = [];
 const deadLetters: DeadLetter[] = [];
 const notified: NotificationEmailRequested[] = [];
+const invalidated: SiteHostsChanged[] = [];
 /** Invitation ids whose first attempt must fail (retry test). */
 const failOnce = new Set<string>();
 
@@ -58,6 +61,14 @@ const jobs = createInngestJobs(
       async sweep() {
         return { dispatched: 0, failed: 0 };
       },
+    },
+    // S7: the host-cache invalidation for apps/sites.
+    hostCacheInvalidation: {
+      async invalidate(h) {
+        invalidated.push(h);
+        return { hosts: 1 };
+      },
+      async deadLetter() {},
     },
   },
   { serveOrigin: `http://host.docker.internal:${PORT}` },
@@ -174,5 +185,22 @@ describe('S6: notification e-mail through the signed executor', () => {
     await waitFor('delivery', () => notified.find((n) => n.notificationId === event.notificationId));
     await new Promise((r) => setTimeout(r, 5_000));
     expect(notified.filter((n) => n.notificationId === event.notificationId)).toEqual([event]);
+  });
+});
+
+describe('S7: host-cache invalidation through the signed executor', () => {
+  it('one outbox row emitted twice runs once; a second change of the same project runs again', async () => {
+    const event: SiteHostsChanged = { workspaceId: randomUUID(), projectId: randomUUID() };
+    const first = randomUUID();
+    await jobs.emitter.siteHostsChanged(event, { eventId: first });
+    await jobs.emitter.siteHostsChanged(event, { eventId: first });
+    await waitFor('invalidation', () => invalidated.find((h) => h.projectId === event.projectId));
+    await new Promise((r) => setTimeout(r, 5_000));
+    expect(invalidated.filter((h) => h.projectId === event.projectId)).toEqual([event]);
+    // No idempotency key on the function: every status change must invalidate again.
+    await jobs.emitter.siteHostsChanged(event, { eventId: randomUUID() });
+    await waitFor('second invalidation', () =>
+      invalidated.filter((h) => h.projectId === event.projectId).length === 2 ? true : undefined,
+    );
   });
 });
