@@ -35,6 +35,11 @@ Better Auth 1.7.12 + Prisma 7.10 (`adapter-pg`) through transaction-mode PgBounc
 - ~~Mounting inside `apps/dashboard`~~: done in P1 S4 (`apps/dashboard/app/api/auth/[...all]/route.ts`), smoke-tested through a running Next 16.4.2 server; the product auth suite (successor of the Spike F suite) asserts every mandatory setting and runs 3x in CI. Evidence: `docs/reports/PHASE_1_S4_DASHBOARD_AUTH.md`.
 - Session tokens are stored in plain text (F-3); accepted with the role split and expiry as controls.
 
+## P1 S8 addition (pending Owner approval with the S8 report)
+
+- **S8-1:** with a signed-in session, Better Auth 1.7.12's `/two-factor/verify-totp` and `/two-factor/verify-backup-code` apply no lockout and no attempt limit (only the `/two-factor/*` rate limit), so for a user who already has 2FA they are an online oracle for the current code. A `before` hook in `packages/auth/src/auth.ts` now refuses both over HTTP (403 `TWO_FACTOR_ALREADY_ENABLED`) when the session's user has 2FA on; enrolment (2FA not yet on) and the sign-in challenge (no session) are unchanged. Asserted in the product auth suite. Re-check on every Better Auth upgrade, like S4-6.
+- **Google sign-in skips the TOTP challenge** (the plugin's sign-in hook matches `/sign-in/email`, `/sign-in/username` and `/sign-in/phone-number` only). The admin console therefore asks for its own TOTP step-up per session (`verifySessionTotp`, a server-side `auth.api.verifyTOTP` call) with a database-enforced lockout. Payout and white-label MFA (P6/P7A) must use the same step-up rather than `requireMfa` alone.
+
 ## Consequences
 
 Owning auth means owning its security. The security review checklist in the plan covers token hashing, enumeration resistance, and lockout. Every Better Auth upgrade re-runs Spike F's suite (or its product successor) before merge.
