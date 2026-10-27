@@ -6,14 +6,14 @@
 
 Primary data and compute in **Mumbai (ap-south-1)** wherever the provider offers it.
 
-| Component                                         | Region                                                                                    | Verified?        |
-| ------------------------------------------------- | ----------------------------------------------------------------------------------------- | ---------------- |
-| Postgres                                          | Supabase `ap-south-1` (Neon has **no** Mumbai region - hence ADR-003)                     | Yes, vendor docs |
-| Vercel Functions (`apps/sites`, `apps/dashboard`) | `bom1` (Mumbai)                                                                           | Yes, vendor docs |
-| Upstash Redis                                     | ap-south-1 listed among Upstash regions (search summary; confirm primary-region creation) | Partial          |
-| Cloudflare R2                                     | No India location hint; delivery via CDN edge                                             | Not verified     |
-| Inngest, Sentry, Resend/Postmark, Razorpay        | Vendor-controlled; **cross-border processors to record**                                  | No               |
-| Anthropic API                                     | Processing outside India; prompts may contain client business data                        | Known            |
+| Component                                         | Region                                                                                                 | Verified?        |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ---------------- |
+| Postgres                                          | Supabase `ap-south-1` (Neon has **no** Mumbai region - hence ADR-003)                                  | Yes, vendor docs |
+| Vercel Functions (`apps/sites`, `apps/dashboard`) | `bom1` (Mumbai)                                                                                        | Yes, vendor docs |
+| Upstash Redis                                     | ap-south-1: database `freelancenter-dev` confirmed in AWS Mumbai (Owner, 2026-10-27; P1 S7 host cache) | Yes              |
+| Cloudflare R2                                     | No India location hint; delivery via CDN edge                                                          | Not verified     |
+| Inngest, Sentry, Resend/Postmark, Razorpay        | Vendor-controlled; **cross-border processors to record**                                               | No               |
+| Anthropic API                                     | Processing outside India; prompts may contain client business data                                     | Known            |
 
 ## Consequences
 
