@@ -213,4 +213,20 @@ describe('createPublicDatabase', () => {
     expect(() => createPublicDatabase({ connectionString: urls.app })).toThrow(/DATABASE_URL_PUBLIC/);
     expect(() => createPublicDatabase({ connectionString: urls.migrator })).toThrow(/app_public/);
   });
+
+  it('connecting has its own timeout (S7-10): an unreachable server fails after connectTimeoutMs, not the query timeout', async () => {
+    const blackhole = createPublicDatabase({
+      // TEST-NET-1 (RFC 5737): never routed, so the TCP connect hangs until the timeout.
+      connectionString: 'postgresql://app_public@192.0.2.1:5432/platform?sslmode=disable',
+      connectTimeoutMs: 300,
+      queryTimeoutMs: 60_000,
+    });
+    const started = performance.now();
+    try {
+      await expect(blackhole.resolveHost('a.sites.localhost')).rejects.toThrow(/timeout/i);
+      expect(performance.now() - started).toBeLessThan(5_000);
+    } finally {
+      await blackhole.close();
+    }
+  });
 });

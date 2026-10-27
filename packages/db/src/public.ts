@@ -21,6 +21,11 @@ export interface PublicDatabaseOptions {
   poolMax?: number;
   /** Per-query timeout in ms; a slow lookup fails rather than holding a visitor. Default 3 s. */
   queryTimeoutMs?: number;
+  /**
+   * Opening a new pooled connection (TCP, TLS, pooler auth). Default 10 s: a cold connection to the live pooler
+   * took over 3 s (finding S7-10), and failing the first visitor of an instance is worse than a slow answer.
+   */
+  connectTimeoutMs?: number;
   env?: Record<string, string | undefined>;
 }
 
@@ -35,12 +40,11 @@ const OUTCOMES = new Set<string>(['placeholder', 'maintenance', 'unknown']);
 
 export function createPublicDatabase(options: PublicDatabaseOptions): PublicDatabase {
   assertUrlRole('public', options.connectionString);
-  const timeout = options.queryTimeoutMs ?? 3_000;
   const pool = new pg.Pool({
     ...connectionConfig(options.connectionString, options.env),
     max: options.poolMax ?? 3,
-    query_timeout: timeout,
-    connectionTimeoutMillis: timeout,
+    query_timeout: options.queryTimeoutMs ?? 3_000,
+    connectionTimeoutMillis: options.connectTimeoutMs ?? 10_000,
   });
   // An idle client that loses its connection must not crash the process; the next query reconnects.
   pool.on('error', () => undefined);
