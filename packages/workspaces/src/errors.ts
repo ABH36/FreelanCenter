@@ -22,7 +22,9 @@ export type WorkspaceErrorCode =
   | 'NOT_LIVE_READY'
   | 'SUBDOMAINS_NOT_CONFIGURED'
   | 'SUBDOMAIN_UNAVAILABLE'
-  | 'IDEMPOTENCY_MISMATCH';
+  | 'IDEMPOTENCY_MISMATCH'
+  | 'MFA_CODE_INVALID'
+  | 'MFA_LOCKED';
 
 const MESSAGES: Record<WorkspaceErrorCode, string> = {
   NOT_FOUND: 'Not found.',
@@ -44,6 +46,8 @@ const MESSAGES: Record<WorkspaceErrorCode, string> = {
   SUBDOMAIN_UNAVAILABLE: 'No free address could be found for this project name. Try a different name.',
   IDEMPOTENCY_MISMATCH:
     'This form was already submitted with different values. Reload the page and try again.',
+  MFA_CODE_INVALID: 'That code is not valid. Enter the current code from your authenticator app.',
+  MFA_LOCKED: 'Too many wrong codes. Try again in 15 minutes.',
 };
 
 export class WorkspaceError extends Error {

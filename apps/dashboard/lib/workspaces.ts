@@ -15,6 +15,7 @@ import { type KeyValueStore, createKeyValueStore, loadKeyValueConfig } from '@pl
 import {
   type AuditService,
   type NotificationService,
+  type Outbox,
   type ProjectService,
   type WorkspaceContext,
   type WorkspaceService,
@@ -41,6 +42,8 @@ interface WorkspaceRuntime {
   notifications: NotificationService;
   audit: AuditService;
   jobs: Jobs;
+  /** S8: the admin console dispatches its suspension invalidations through the same outbox. */
+  outbox: Outbox;
   ready: Promise<void>;
 }
 
@@ -105,7 +108,7 @@ function build(): WorkspaceRuntime {
   const projects = createProjectService({ db, outbox, logger });
   const notifications = createNotificationService({ db, logger });
   const audit = createAuditService({ db, logger });
-  return { service, projects, notifications, audit, jobs, ready };
+  return { service, projects, notifications, audit, jobs, outbox, ready };
 }
 
 export function workspaceRuntime(): WorkspaceRuntime {
@@ -128,6 +131,7 @@ async function ready(): Promise<WorkspaceRuntime> {
 export const projectService = async (): Promise<ProjectService> => (await ready()).projects;
 export const notificationService = async (): Promise<NotificationService> => (await ready()).notifications;
 export const auditService = async (): Promise<AuditService> => (await ready()).audit;
+export const workspaceOutbox = async (): Promise<Outbox> => (await ready()).outbox;
 
 /** The signed-in, verified user's id, or a redirect to /sign-in. Never taken from client input. */
 export async function requireUserId(): Promise<string> {

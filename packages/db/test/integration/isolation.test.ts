@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type pg from 'pg';
 import { type TenantDatabase } from '../../src/client';
 import { InvalidScopeError } from '../../src/errors';
+import { createSessionRow, steppedUpAdmin } from '../../src/testing';
 import { uuidv7 } from '../../src/uuid';
 import {
   asDefiner,
@@ -307,33 +308,41 @@ describe('actor context and the membership bridge (Spike F result 18)', () => {
 describe('suspension and scheduled deletion block writes (FR-WS-04)', () => {
   let adminRole: pg.Pool;
   let migrator: pg.Pool;
-  let platformAdmin: string;
+  let platformAdmin: { userId: string; sessionId: string };
 
   beforeAll(async () => {
     adminRole = pool(urls.admin, 2);
     migrator = pool(urls.migrator, 1);
-    platformAdmin = await createUser(auth, { mfa: true });
-    await migrator.query('SELECT app.operator_grant_platform_admin($1, $2)', [
-      platformAdmin,
-      'integration test admin',
-    ]);
+    platformAdmin = await steppedUpAdmin({ auth, migrator, admin: adminRole });
   });
   afterAll(async () => {
     await Promise.all([adminRole.end(), migrator.end()]);
   });
 
-  const setStatus = (adminId: string, ws: string, status: string, reason = 'abuse report #1') =>
+  const setStatus = (
+    admin: { userId: string; sessionId: string },
+    ws: string,
+    status: string,
+    reason = 'abuse report #1',
+  ) =>
     adminRole.query<{ changed: boolean }>(
-      'SELECT app.admin_set_workspace_status($1, $2, $3, $4, $5) AS changed',
-      [adminId, ws, status, reason, 'corr-test'],
+      'SELECT changed FROM app.admin_set_workspace_status($1, $2, $3, $4, $5, $6)',
+      [admin.userId, admin.sessionId, ws, status, reason, 'corr-test'],
     );
 
   it('only an active platform admin with MFA can suspend, with a reason', async () => {
     const plainUser = await createUser(auth, { mfa: true });
     const adminWithoutMfa = await createUser(auth);
     await migrator.query('SELECT app.operator_grant_platform_admin($1, $2)', [adminWithoutMfa, 'no mfa yet']);
-    await expectPgError(setStatus(plainUser, B.scope.workspaceId, 'suspended'), '42501');
-    await expectPgError(setStatus(adminWithoutMfa, B.scope.workspaceId, 'suspended'), '42501');
+    const plain = { userId: plainUser, sessionId: await createSessionRow(auth, plainUser) };
+    const noMfa = { userId: adminWithoutMfa, sessionId: await createSessionRow(auth, adminWithoutMfa) };
+    await expectPgError(setStatus(plain, B.scope.workspaceId, 'suspended'), '42501');
+    await expectPgError(setStatus(noMfa, B.scope.workspaceId, 'suspended'), '42501');
+    // S8: the step-up of a session cannot be started without MFA either.
+    await expectPgError(
+      adminRole.query('SELECT app.admin_step_up_begin($1, $2, $3)', [noMfa.userId, noMfa.sessionId, 'x']),
+      '42501',
+    );
     await expectPgError(setStatus(platformAdmin, B.scope.workspaceId, 'suspended', ''), '22023');
     await expectPgError(setStatus(platformAdmin, uuidv7(), 'suspended'), 'P0002');
     // A revoked admin loses the capability.
@@ -366,7 +375,7 @@ describe('suspension and scheduled deletion block writes (FR-WS-04)', () => {
       expect(trail).toHaveLength(1);
       expect(trail[0]).toMatchObject({
         actorType: 'platform_admin',
-        actorId: platformAdmin,
+        actorId: platformAdmin.userId,
         correlationId: 'corr-test',
       });
     });

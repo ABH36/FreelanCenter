@@ -57,6 +57,19 @@ export const SERVER_ACTIONS: Record<string, ActionRegistration> = {
   },
   markAllNotificationsReadAction: { service: 'markAllNotificationsRead', selectors: ['workspaceId'] },
   saveNotificationPreferencesAction: { service: 'savePreferences', selectors: ['workspaceId'] },
+  // P1 S8: the admin console reaches every workspace by design, so the cross-tenant IDOR probe does not apply.
+  // Its authorization is the app_admin definer functions' own check, probed by ./admin.test.ts (tenant owner with
+  // MFA refused, admin without a step-up refused) and packages/db/test/integration/admin.test.ts.
+  adminStepUpAction: {
+    service: 'stepUp',
+    noSelector:
+      'takes only a TOTP code; the principal (user + session id) comes from the server-side session and the database refuses anyone who is not an active platform admin with MFA',
+  },
+  setWorkspaceStatusAction: {
+    service: 'setWorkspaceStatus',
+    noSelector:
+      'platform-admin action across workspaces by design; the workspace id is a target, not a tenant selector, and every call needs a stepped-up admin session (probed in admin.test.ts)',
+  },
 };
 
 /** Server-rendered routes that resolve a browser-supplied selector (not actions, probed the same way). */

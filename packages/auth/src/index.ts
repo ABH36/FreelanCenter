@@ -30,6 +30,7 @@ export {
   requireMfa,
   requireSession,
 } from './guards';
+export { verifySessionTotp } from './step-up';
 export {
   type AuthMail,
   type AuthMailKind,

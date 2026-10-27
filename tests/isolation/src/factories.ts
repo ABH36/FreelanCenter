@@ -263,6 +263,8 @@ export const NON_TENANT_RELATIONS: Record<string, string> = {
     'per-environment platform settings (sites_domain); no app_user grant or policy; operator function only',
   'app.platform_admins':
     'platform role grants; no app_user grant or policy; written by operator definer functions',
+  'app.admin_step_ups':
+    'admin console step-ups (P1 S8), bound to a platform admin and a session; no application role has a grant or policy; written and read only by the app_admin definer functions',
   'identity.users': 'Better Auth (app_auth only); a user spans workspaces through memberships',
   'identity.sessions': 'Better Auth (app_auth only)',
   'identity.accounts': 'Better Auth (app_auth only)',

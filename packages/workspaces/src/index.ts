@@ -1,9 +1,21 @@
 /**
  * @platform/workspaces - workspaces, membership, invitations (P1 S5), projects and their lifecycle, the audit
- * viewer, notifications and the outbox (P1 S6), the host-cache invalidation job (P1 S7); modules 01/02/03/09/12. Server-only. Every exported command
- * authorizes with `@platform/auth/rbac` before touching data.
+ * viewer, notifications and the outbox (P1 S6), the host-cache invalidation job (P1 S7), the admin console (P1 S8);
+ * modules 01/02/03/09/12. Server-only. Every exported command authorizes with `@platform/auth/rbac` before
+ * touching data; the admin service is authorized by the app_admin definer functions.
  */
 export const PACKAGE_NAME = '@platform/workspaces' as const;
+
+export {
+  ADMIN_PAGE_SIZE,
+  ADMIN_REASON,
+  type AdminPrincipal,
+  type AdminService,
+  type AdminServiceDeps,
+  type Page,
+  type TotpVerifier,
+  createAdminService,
+} from './admin';
 
 export {
   AUDIT_EXPORT_MAX_ROWS,

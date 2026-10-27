@@ -6,6 +6,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { toNextJsHandler } from 'better-auth/next-js';
 import { MfaRequiredError, requireMfa } from '../../src/guards';
+import { verifySessionTotp } from '../../src/step-up';
 import { TURNSTILE_TEST_KEYS } from '../../src/config';
 import {
   Browser,
@@ -338,6 +339,18 @@ describe('4. TOTP enrolment, challenge, lockout and the requireMfa guard (FR-AUT
     expect(auditRows({ actorId: id, action: 'auth.mfa.enabled' })).toHaveLength(1);
     const session = await auth.api.getSession({ headers: new Headers({ cookie: b.cookieHeader() }) });
     expect(requireMfa(session).user.id).toBe(id);
+  });
+
+  it('S8-1: once 2FA is on, the HTTP verify endpoints refuse a signed-in session; the server-side check works', async () => {
+    expect((await b.req('/two-factor/verify-totp', { body: { code: totp(secret) } })).status).toBe(403);
+    expect((await b.req('/two-factor/verify-backup-code', { body: { code: 'aaaaa-bbbbb' } })).status).toBe(
+      403,
+    );
+    const headers = new Headers({ cookie: b.cookieHeader() });
+    expect(await verifySessionTotp(auth, headers, totp(secret))).toBe(true);
+    expect(await verifySessionTotp(auth, headers, totp(secret) === '000000' ? '111111' : '000000')).toBe(
+      false,
+    );
   });
 
   it('password sign-in yields a challenge, not a session; a valid code completes it', async () => {

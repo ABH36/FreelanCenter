@@ -756,8 +756,17 @@ describe('notifications, preferences, outbox and dead letters (FR-NOT-01; S5 D4/
     fail = false;
     const eager = createOutbox({ db, jobs: flaky.emitter, sweepMinAgeSeconds: 0 });
     // Other suites leave rows of other workspaces in the shared local database (e.g. unknown test events, which the
-    // sweep counts as failed); this workspace's row is what is asserted.
-    expect((await eager.sweep()).dispatched).toBeGreaterThanOrEqual(1);
+    // sweep counts as failed); this workspace's row is what is asserted. The sweep takes the oldest 100 per run,
+    // so on a non-fresh database with more failing rows than that it needs several runs to reach this one (S8-6).
+    let dispatched = 0;
+    for (let run = 0; run < 25; run++) {
+      dispatched += (await eager.sweep()).dispatched;
+      const left = await db.withTenant(owner, (tx) =>
+        tx.outboxEvent.count({ where: { id: rows[0]!.id, dispatchedAt: null } }),
+      );
+      if (left === 0) break;
+    }
+    expect(dispatched).toBeGreaterThanOrEqual(1);
     while (tasks.length) await tasks.shift()!();
     expect(mail.sent.map((m) => m.to)).toEqual([ws.owner.email]);
     expect(await db.withTenant(owner, (tx) => tx.outboxEvent.count({ where: { dispatchedAt: null } }))).toBe(

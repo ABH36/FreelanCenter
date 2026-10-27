@@ -37,6 +37,12 @@ const NO_SYSTEM_SCOPE = {
 const VISITOR_ONLY =
   'SRS 5.3 item 1: the visitor path uses only @platform/db/public (app_public), never the tenant client, services or jobs.';
 
+// P1 S8: the app_admin client is reachable only from the admin service and the dashboard's admin runtime.
+const ADMIN_DB = [
+  ['@platform/db/admin'],
+  'SEC-17: @platform/db/admin (app_admin) is imported only by packages/workspaces/src/admin.ts (and its tests) and apps/dashboard/lib/admin.ts.',
+];
+
 const NO_APPS = [
   ['**/apps/**', '@platform/dashboard', '@platform/sites'],
   'packages must not import from apps (SRS 4.4).',
@@ -70,11 +76,21 @@ export const platformConfig = tseslint.config(
   {
     // Layering: packages never depend on apps.
     files: ['packages/**/*.{ts,tsx}'],
-    rules: restrict(NO_APPS, NO_INNGEST),
+    rules: restrict(NO_APPS, NO_INNGEST, ADMIN_DB),
   },
   {
     files: ['packages/jobs/**/*.{ts,tsx}'],
-    rules: restrict(NO_APPS),
+    rules: restrict(NO_APPS, ADMIN_DB),
+  },
+  {
+    // The data layer itself, its tests and the admin service.
+    files: [
+      'packages/db/**/*.ts',
+      'packages/workspaces/src/admin.ts',
+      'packages/workspaces/src/admin.unit.test.ts',
+      'packages/workspaces/test/**/*.ts',
+    ],
+    rules: restrict(NO_APPS, NO_INNGEST),
   },
   {
     // The job handlers may open a job scope.
@@ -125,7 +141,13 @@ export const platformConfig = tseslint.config(
                 'ADR-002: sites must not import dashboard code or dashboard auth (no shared sessions or cookies).',
             },
             {
-              group: ['@platform/db/testing', '@platform/workspaces', '@platform/jobs', '@prisma/*'],
+              group: [
+                '@platform/db/testing',
+                '@platform/db/admin',
+                '@platform/workspaces',
+                '@platform/jobs',
+                '@prisma/*',
+              ],
               message: VISITOR_ONLY,
             },
             { group: NO_INNGEST[0], message: NO_INNGEST[1] },
@@ -136,6 +158,17 @@ export const platformConfig = tseslint.config(
   },
   {
     files: ['apps/dashboard/**/*.{ts,tsx}'],
+    rules: restrict(
+      [
+        ['**/apps/sites/**', '**/../sites/**', '@platform/sites'],
+        'ADR-002: dashboard must not import sites code.',
+      ],
+      NO_INNGEST,
+      ADMIN_DB,
+    ),
+  },
+  {
+    files: ['apps/dashboard/lib/admin.ts'],
     rules: restrict(
       [
         ['**/apps/sites/**', '**/../sites/**', '@platform/sites'],

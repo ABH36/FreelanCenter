@@ -9,7 +9,7 @@
  */
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
-import { APIError, createAuthMiddleware, getIP } from 'better-auth/api';
+import { APIError, createAuthMiddleware, getIP, getSessionFromCtx } from 'better-auth/api';
 import { captcha } from 'better-auth/plugins/captcha';
 import { twoFactor } from 'better-auth/plugins/two-factor';
 import { uuidv7 } from '@platform/db';
@@ -181,6 +181,24 @@ export function createAuth(deps: AuthDeps) {
       }),
     ],
     hooks: {
+      // S8-1: with a signed-in session, Better Auth 1.7.12's verify-totp / verify-backup-code have no lockout and
+      // no attempt limit (only the 10/min rate limit), so for a user who already has 2FA they would be an
+      // online oracle for the current code, which also unlocks the admin console's step-up. Over HTTP they
+      // only serve enrolment (session, 2FA not yet on) and the sign-in challenge (no session). The admin
+      // step-up calls `auth.api.verifyTOTP` server-side (no request object) behind its own database lockout.
+      before: createAuthMiddleware(async (ctx) => {
+        if (!ctx.request || !MFA_VERIFY_PATHS.has(ctx.path ?? '')) return;
+        const session = await getSessionFromCtx(ctx);
+        if (
+          session?.user &&
+          (session.user as { twoFactorEnabled?: boolean | null }).twoFactorEnabled === true
+        ) {
+          throw new APIError('FORBIDDEN', {
+            message: 'Two-factor authentication is already enabled',
+            code: 'TWO_FACTOR_ALREADY_ENABLED',
+          });
+        }
+      }),
       after: createAuthMiddleware(async (ctx) => {
         const failed = ctx.context.returned instanceof APIError;
         const actor = ctx.context.session?.user.id ?? null;
