@@ -3,7 +3,10 @@ import { useState, type FormEvent } from 'react';
 import { authClient, authErrorMessage } from '@/lib/auth-client';
 import { Alert, AuthCard, Button, Field, TextLink } from '@/components/ui';
 
-/** Second step of a password sign-in for TOTP users (FR-AUTH-03). Locks after 5 wrong codes for 15 min. */
+/**
+ * Second step of a sign-in for TOTP users (FR-AUTH-03): after a password sign-in, after Google and after the
+ * e-mail-verification link (DG-22). Locks after 5 wrong codes for 15 min.
+ */
 export function TwoFactorForm() {
   const [mode, setMode] = useState<'totp' | 'backup'>('totp');
   const [error, setError] = useState('');
@@ -23,7 +26,7 @@ export function TwoFactorForm() {
       setPending(false);
       return setError(authErrorMessage(error));
     }
-    window.location.assign('/');
+    window.location.assign(returnTarget());
   }
 
   return (
@@ -69,4 +72,10 @@ export function TwoFactorForm() {
       </form>
     </AuthCard>
   );
+}
+
+/** Where to go after the code: the server puts a same-origin path in `callbackURL`; anything else means home. */
+function returnTarget(): string {
+  const target = new URLSearchParams(window.location.search).get('callbackURL');
+  return target && /^\/(?![/\\])/.test(target) ? target : '/';
 }

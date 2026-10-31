@@ -21,6 +21,7 @@ export type AuthAuditAction =
   | 'auth.mfa.enabled'
   | 'auth.mfa.disabled'
   | 'auth.mfa.challenge_failed'
+  | 'auth.mfa.challenge_issued'
   | 'auth.oauth.linked';
 
 export interface AuthAuditEvent {
