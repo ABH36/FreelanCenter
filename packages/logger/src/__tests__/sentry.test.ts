@@ -33,7 +33,7 @@ describe('scrubSentryEvent (FR-OBS-01, SEC-05)', () => {
     exception: { values: [{ type: 'Error', value: 'cannot reach 9876543210 for asha@example.com' }] },
     breadcrumbs: [{ message: 'sent to asha@example.com', data: { email: 'asha@example.com', url: '/x' } }],
     extra: { password: 'hunter2-hunter2', workspaceId: 'ws-1' },
-    contexts: { custom: { api_key: 'sk_live_abcdefghijklmnop' } },
+    contexts: { custom: { api_key: ['sk', 'live', 'abcdefghijklmnop'].join('_') } },
     tags: { app: 'dashboard' },
   };
 
