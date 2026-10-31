@@ -17,7 +17,7 @@ describe('Sentry with the platform options', () => {
     Sentry.init({
       ...sentryOptions('https://k@o1.ingest.de.sentry.io/1', 'test'),
       transport: () => ({
-        send: async (envelope) => {
+        send: async (envelope: unknown) => {
           sent.push(JSON.stringify(envelope));
           return {};
         },
