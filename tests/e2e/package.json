@@ -1,0 +1,21 @@
+{
+  "name": "@platform/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Phase 1 audit-checkpoint E2E (Playwright): sign-up to subdomain, second tenant denied through UI, API and app_user SQL",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@platform/db": "workspace:*",
+    "pg": "8.23.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/node": "^22.0.0",
+    "@types/pg": "8.23.1"
+  }
+}
