@@ -1,6 +1,6 @@
 # Phase 1 · DG-22: TOTP challenge at Google sign-in
 
-**Status:** Implemented and covered by automated tests; clean-worktree CI-equivalent run in section 6.1. **Approved by the Owner on 2026-10-31** (report and decisions D1-D5). Live Google round trip on a Preview: **not yet run** (section 6.2).
+**Status:** Implemented and covered by automated tests; clean-worktree CI-equivalent run in section 6.1. **Approved by the Owner on 2026-10-31** (report and decisions D1-D5). Live Google round trip on the PR #37 Preview: **passed** (section 6.2).
 **Date:** 2026-10-31 · **Branch:** `feat/dg22-google-totp-challenge` (from `main` 3cbc9e0, whose CI was green) · **Gap register:** DG-22 · **ADR:** 006 (DG-22 addition).
 
 ## 1. Requirements
@@ -92,7 +92,20 @@ Mutation checks on the new tests: removing the hook (matcher never matches) fail
 
 ### 6.2 Live run
 
-**Not yet run.** Needs the PR Preview (section 8): Google round trip for the Owner's account with 2FA on (challenge page, wrong code, correct code, return path), and for an account with 2FA off (no change); audit rows `auth.mfa.challenge_issued` / `auth.mfa.challenge_failed`.
+**Passed (2FA-on and 2FA-off accounts), 2026-10-31 on the PR #37 Preview (commit d8c1e60).** Setup (Owner-operated through the browser extension, the Owner pasting every secret): 11 dashboard and 4 sites Preview variables moved to the DG-22 branch (none left on the S8 branch), `BETTER_AUTH_URL` set to the DG-22 alias, both projects redeployed without build cache, both health checks 200, the new redirect URI added in the Google OAuth client (the S8 one kept), Inngest resynced to the DG-22 Preview with the protection-bypass parameter (7 functions; the first sync without it failed with "Unauthorized" because Vercel Authentication is on). Production variables were not touched.
+
+The Owner drove the steps in a browser: Google sign-in with the 2FA-on account led to `/two-factor` (no dashboard); a wrong code was refused; the correct code signed in and the return path worked. Audit rows read afterwards from the live database (read-only transaction as `svc_definer`; user id shortened, no address or code):
+
+| Time (UTC) | Row                                                         | Reading                                                              |
+| ---------- | ----------------------------------------------------------- | -------------------------------------------------------------------- |
+| 12:28:09   | `auth.session.created`, `auth.session.revoked`              | The held session of the callback, deleted in the same request (D3)   |
+| 12:28:09   | `auth.mfa.challenge_issued` (`via: oauth`, correlation id)  | The challenge was issued                                             |
+| 12:29:00   | `auth.mfa.challenge_failed` (`INVALID_CODE`, actor present) | The wrong code; the actor is the user from the challenge cookie (D5) |
+| 12:29:21   | `auth.session.created`                                      | The session exists only after the correct code, 21 s later           |
+
+No `auth.mfa.challenge_issued` appears for any other sign-in.
+
+**D, the 2FA-off account (2026-10-31, 12:43 UTC).** The Owner signed in with Google using a second account that has 2FA off (`two_factor_enabled` false, read-only check). The live audit shows one `auth.session.created` for that user at 12:43:48 and no `auth.mfa.challenge_issued`, no `auth.session.revoked`: it got its session directly, as before. The `auth.session.revoked` row of the first account at 12:43:21 was not investigated.
 
 ## 7. Better Auth upgrade re-check
 
@@ -100,9 +113,9 @@ Recorded in ADR-006 (DG-22 addition): whether the plugin now covers the callback
 
 ## 8. Open items and decisions for the Owner
 
-| Item                        | State                                                                                                                                                                                                                                    |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Approve DG-22 (this report) | **Approved by the Owner on 2026-10-31** (D1-D5)                                                                                                                                                                                          |
-| Live round trip             | After the PR opens: move the Preview variables and the Inngest sync to the new branch (message for the browser extension is prepared), then the Owner drives Google sign-in. No database migration, so no live migration approval needed |
-| Perf test                   | Environmental failure on this machine, same on `main`; live measurement stays an S9 item                                                                                                                                                 |
-| Gap register                | DG-22 stays open until approval and the live run                                                                                                                                                                                         |
+| Item                        | State                                                                                                             |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Approve DG-22 (this report) | **Approved by the Owner on 2026-10-31** (D1-D5)                                                                   |
+| Live round trip             | **Passed 2026-10-31** on the PR #37 Preview (section 6.2); no migration, so no live-migration approval was needed |
+| Perf test                   | Environmental failure on this machine, same on `main`; live measurement stays an S9 item                          |
+| Gap register                | DG-22 closes with the merge of PR #37                                                                             |
