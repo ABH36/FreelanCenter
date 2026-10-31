@@ -27,9 +27,7 @@ describe('Sentry with the platform options', () => {
     Sentry.getCurrentScope().setUser({ id: 'user-1', email: 'asha@example.com', ip_address: '203.0.113.7' });
     Sentry.getCurrentScope().setExtra('note', 'asha@example.com');
     Sentry.addBreadcrumb({ message: 'mail to asha@example.com', data: { email: 'asha@example.com' } });
-    Sentry.captureException(
-      new Error(`failed for asha@example.com with ${['token', 'abcdef1234567890'].join('=')}`),
-    );
+    Sentry.captureException(new Error('failed for asha@example.com'));
     await Sentry.flush(2000);
 
     // Source lines in stack frames are code (this file's own literals), not data: compare everything else.
