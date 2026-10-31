@@ -264,7 +264,14 @@ describe('functions', () => {
     );
     expect(rows.map((r) => r.proname).sort()).toEqual([
       'accept_invitation',
+      'admin_console_state',
+      'admin_get_workspace',
+      'admin_list_audit',
+      'admin_list_users',
+      'admin_list_workspaces',
       'admin_set_workspace_status',
+      'admin_step_up_begin',
+      'admin_step_up_finish',
       'allocate_platform_subdomain',
       'current_member_role',
       'invitation_preview',
@@ -303,7 +310,36 @@ describe('functions', () => {
       );
       return e.map((x) => x.rolname).sort();
     };
-    expect(await executors('admin_set_workspace_status')).toEqual(['app_admin']);
+    // S8: the admin console functions are app_admin's only functions; their helpers are nobody's.
+    for (const fn of [
+      'admin_console_state',
+      'admin_step_up_begin',
+      'admin_step_up_finish',
+      'admin_list_workspaces',
+      'admin_get_workspace',
+      'admin_list_users',
+      'admin_list_audit',
+      'admin_set_workspace_status',
+    ]) {
+      expect(await executors(fn), fn).toEqual(['app_admin']);
+    }
+    for (const fn of [
+      'admin_session_valid',
+      'admin_step_up_until',
+      'admin_step_up_locked_until',
+      'admin_require',
+      'admin_audit',
+      'mask_email',
+      'admin_query_kind',
+    ]) {
+      expect(await executors(fn), fn).toEqual([]);
+    }
+    const { rows: adminFns } = await admin.query(
+      `SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname IN ('app', 'identity') AND has_function_privilege('app_admin', p.oid, 'EXECUTE')`,
+    );
+    expect(adminFns.every((r) => String(r.proname).startsWith('admin_'))).toBe(true);
+    expect(adminFns).toHaveLength(8);
     expect(await executors('record_platform_audit')).toEqual(['app_auth']);
     expect(await executors('operator_grant_platform_admin')).toEqual(['migrator']);
     expect(await executors('operator_revoke_platform_admin')).toEqual(['migrator']);

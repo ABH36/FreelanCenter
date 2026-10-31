@@ -13,6 +13,7 @@ export {
   assertConnectionRole,
   createAuthPrismaClient,
   createTenantDatabase,
+  onceUntilSuccess,
 } from './client';
 export { connectionConfig } from './connection';
 export {

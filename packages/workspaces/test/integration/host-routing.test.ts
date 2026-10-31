@@ -6,9 +6,10 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
-import { uuidv7 } from '@platform/db';
+import { createAdminDatabase } from '@platform/db/admin';
 import { createPublicDatabase } from '@platform/db/public';
-import { LOCAL_DATABASE_URLS } from '@platform/db/testing';
+import { LOCAL_DATABASE_URLS, steppedUpAdmin } from '@platform/db/testing';
+import { createAdminService } from '../../src/admin';
 import { createHostResolver, hostCacheKey } from '@platform/hosting';
 import type { KeyValueStore } from '@platform/providers';
 import { createHostCacheInvalidationHandler } from '../../src/host-cache';
@@ -20,6 +21,7 @@ import {
   db,
   hostCache,
   hostCacheHandler,
+  outbox,
   projects,
   runJobs,
   unique,
@@ -31,23 +33,17 @@ const resolver = createHostResolver({ cache: hostCache, lookup: (h) => visitor.r
 const key = () => crypto.randomUUID();
 let adminRole: pg.Pool;
 let migrator: pg.Pool;
-let platformAdmin: string;
+let platformAdmin: { userId: string; sessionId: string };
+const adminDb = createAdminDatabase({ connectionString: LOCAL_DATABASE_URLS.admin, poolMax: 1 });
+const admin = createAdminService({ db: adminDb, outbox });
 
 beforeAll(async () => {
   adminRole = new pg.Pool({ connectionString: LOCAL_DATABASE_URLS.admin, max: 1 });
   migrator = new pg.Pool({ connectionString: LOCAL_DATABASE_URLS.migrator, max: 1 });
-  platformAdmin = uuidv7();
-  await auth.query(
-    `INSERT INTO identity.users (id, name, email, email_verified, two_factor_enabled) VALUES ($1, 'Admin', $2, true, true)`,
-    [platformAdmin, `${unique('admin')}@example.test`],
-  );
-  await migrator.query('SELECT app.operator_grant_platform_admin($1, $2)', [
-    platformAdmin,
-    'S7 host routing suite',
-  ]);
+  platformAdmin = await steppedUpAdmin({ auth, migrator, admin: adminRole });
 });
 afterAll(async () => {
-  await Promise.all([visitor.close(), adminRole.end(), migrator.end()]);
+  await Promise.all([visitor.close(), adminRole.end(), migrator.end(), adminDb.close()]);
   await closeAll();
 });
 
@@ -190,31 +186,72 @@ describe('dashboard changes reach apps/sites through the outbox and the host cac
     ).toBe(1);
   });
 
-  it('suspension (FR-WS-04): after invalidation every host of the workspace shows maintenance; unsuspend restores', async () => {
+  it('suspension (FR-WS-04, S7 D12): the admin action invalidates every project of the workspace at once; unsuspend restores', async () => {
     const ws = await workspaceWith([]);
-    const { id } = await projects.createProject(ws.owner.id, {
+    const ids: string[] = [];
+    for (const n of [1, 2, 3]) {
+      ids.push(
+        (
+          await projects.createProject(ws.owner.id, {
+            workspaceId: ws.id,
+            requestKey: key(),
+            name: unique(`Host Susp ${n}`),
+          })
+        ).id,
+      );
+    }
+    await runJobs();
+    const hosts = await Promise.all(ids.map((id) => hostOf(ws.owner.id, ws.id, id)));
+    // Warm the cache: every host now holds a 300 s placeholder entry.
+    for (const h of hosts) expect(await outcome(h)).toBe('placeholder');
+    for (const h of hosts) expect(await hostCache.get(hostCacheKey(h))).not.toBeNull();
+
+    expect(
+      await admin.setWorkspaceStatus(platformAdmin, {
+        workspaceId: ws.id,
+        status: 'suspended',
+        reason: 'S8 suite',
+      }),
+    ).toEqual({ changed: true });
+    await runJobs();
+    // Without waiting for the TTL: the per-project events deleted every cached entry, so the next request sees it.
+    for (const h of hosts) expect(await hostCache.get(hostCacheKey(h))).toBeNull();
+    for (const h of hosts) expect(await outcome(h)).toBe('maintenance');
+    const scope = (await db.resolveTenantScope(ws.owner.id, ws.id))!;
+    const rows = await db.withTenant(scope, (tx) =>
+      tx.outboxEvent.findMany({ where: { event: 'sites.hosts.changed.v1' }, orderBy: { createdAt: 'asc' } }),
+    );
+    // 3 from the creates, 3 from the suspension; ids only; all dispatched once.
+    expect(rows).toHaveLength(6);
+    expect(
+      rows
+        .slice(3)
+        .map((r) => (r.payload as { projectId: string }).projectId)
+        .sort(),
+    ).toEqual([...ids].sort());
+    expect(rows.every((r) => r.dispatchedAt !== null && r.attempts === 1)).toBe(true);
+    expect(Object.keys(rows[5]!.payload as object).sort()).toEqual(['projectId', 'workspaceId']);
+
+    // Repeating the same status changes nothing and emits nothing.
+    expect(
+      await admin.setWorkspaceStatus(platformAdmin, {
+        workspaceId: ws.id,
+        status: 'suspended',
+        reason: 'again',
+      }),
+    ).toEqual({ changed: false });
+    await admin.setWorkspaceStatus(platformAdmin, {
       workspaceId: ws.id,
-      requestKey: key(),
-      name: unique('Host Susp'),
+      status: 'active',
+      reason: 'S8 suite',
     });
     await runJobs();
-    const host = await hostOf(ws.owner.id, ws.id, id);
-    expect(await outcome(host)).toBe('placeholder');
-    const setStatus = (status: string) =>
-      adminRole.query('SELECT app.admin_set_workspace_status($1, $2, $3, $4, $5)', [
-        platformAdmin,
-        ws.id,
-        status,
-        'S7 suite',
-        'corr-s7',
-      ]);
-    await setStatus('suspended');
-    // The admin action (S8) emits the invalidation per project; here the handler is called directly.
-    await hostCacheHandler.invalidate({ workspaceId: ws.id, projectId: id });
-    expect(await outcome(host)).toBe('maintenance');
-    await setStatus('active');
-    await hostCacheHandler.invalidate({ workspaceId: ws.id, projectId: id });
-    expect(await outcome(host)).toBe('placeholder');
+    for (const h of hosts) expect(await outcome(h)).toBe('placeholder');
+    expect(
+      await db.withTenant(scope, (tx) =>
+        tx.outboxEvent.count({ where: { event: 'sites.hosts.changed.v1' } }),
+      ),
+    ).toBe(9);
   });
 
   it("the job reads host names through RLS: another workspace's project id yields nothing", async () => {

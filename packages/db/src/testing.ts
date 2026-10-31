@@ -39,3 +39,59 @@ export async function expectPgError(promise: Promise<unknown>, code: string): Pr
   }
   throw new Error(`expected SQLSTATE ${code}, but the statement succeeded`);
 }
+
+/** The part of a `pg.Pool` the fixtures below use. */
+interface Queryable {
+  query(sql: string, values?: unknown[]): Promise<{ rows: Array<Record<string, unknown>> }>;
+}
+
+/** A live Better Auth session row for `userId` (written as app_auth, like Better Auth itself). */
+export async function createSessionRow(
+  auth: Queryable,
+  userId: string,
+  expiresInSeconds = 3600,
+): Promise<string> {
+  const id = crypto.randomUUID();
+  await auth.query(
+    `INSERT INTO identity.sessions (id, user_id, token, expires_at, created_at, updated_at)
+     VALUES ($1, $2, $3, now() + make_interval(secs => $4), now(), now())`,
+    [id, userId, `test-${crypto.randomUUID()}`, expiresInSeconds],
+  );
+  return id;
+}
+
+/**
+ * P1 S8 fixture: a platform admin (granted through the operator function, as migrator) with TOTP enrolled, a live
+ * session and a verified console step-up, so `app_admin` functions accept `{ userId, sessionId }`.
+ */
+export async function steppedUpAdmin(pools: {
+  auth: Queryable;
+  migrator: Queryable;
+  admin: Queryable;
+}): Promise<{ userId: string; sessionId: string }> {
+  const userId = crypto.randomUUID();
+  await pools.auth.query(
+    `INSERT INTO identity.users (id, name, email, email_verified, two_factor_enabled)
+     VALUES ($1, 'Test Admin', $2, true, true)`,
+    [userId, `admin-${userId}@example.test`],
+  );
+  await pools.migrator.query('SELECT app.operator_grant_platform_admin($1, $2)', [userId, 'test admin']);
+  const sessionId = await createSessionRow(pools.auth, userId);
+  await stepUp(pools.admin, { userId, sessionId });
+  return { userId, sessionId };
+}
+
+/** Records a verified console step-up for an admin session (the code check itself is the dashboard's). */
+export async function stepUp(admin: Queryable, p: { userId: string; sessionId: string }): Promise<void> {
+  const { rows } = await admin.query('SELECT app.admin_step_up_begin($1, $2, $3) AS id', [
+    p.userId,
+    p.sessionId,
+    'test-step-up',
+  ]);
+  await admin.query('SELECT app.admin_step_up_finish($1, $2, $3, true, $4)', [
+    p.userId,
+    p.sessionId,
+    rows[0]!.id,
+    'test-step-up',
+  ]);
+}

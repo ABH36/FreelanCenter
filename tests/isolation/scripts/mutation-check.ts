@@ -86,6 +86,43 @@ const MUTATIONS: Mutation[] = [
       'SET ROLE svc_definer; REVOKE EXECUTE ON FUNCTION app.allocate_platform_subdomain(uuid, text) FROM app_public; RESET ROLE',
     mustFail: ['app_public executes exactly app.resolve_host'],
   },
+  // P1 S8: the admin role. A tenant role executing a console function, or the console without its step-up check.
+  {
+    name: 'tenant role granted an admin console function',
+    apply:
+      'SET ROLE svc_definer; GRANT EXECUTE ON FUNCTION app.admin_list_users(uuid, uuid, text, uuid, integer, text) TO app_user; RESET ROLE',
+    revert:
+      'SET ROLE svc_definer; REVOKE EXECUTE ON FUNCTION app.admin_list_users(uuid, uuid, text, uuid, integer, text) FROM app_user; RESET ROLE',
+    mustFail: ['app_user, app_auth and app_public execute no admin console function'],
+  },
+  {
+    name: 'admin console step-up check removed',
+    // Replacing a function needs CREATE on the schema for its owner during the statement (as in the migrations).
+    apply: `GRANT CREATE ON SCHEMA app TO svc_definer; SET ROLE svc_definer;
+            CREATE OR REPLACE FUNCTION app.admin_require(p_user_id uuid, p_session_id uuid) RETURNS void
+            LANGUAGE plpgsql STABLE SET search_path = '' AS $fn$
+            BEGIN
+              IF NOT app.admin_session_valid(p_user_id, p_session_id) THEN
+                RAISE EXCEPTION 'not an active platform admin with MFA on a live session' USING ERRCODE = '42501';
+              END IF;
+            END
+            $fn$;
+            RESET ROLE; REVOKE CREATE ON SCHEMA app FROM svc_definer`,
+    revert: `GRANT CREATE ON SCHEMA app TO svc_definer; SET ROLE svc_definer;
+             CREATE OR REPLACE FUNCTION app.admin_require(p_user_id uuid, p_session_id uuid) RETURNS void
+             LANGUAGE plpgsql STABLE SET search_path = '' AS $fn$
+             BEGIN
+               IF NOT app.admin_session_valid(p_user_id, p_session_id) THEN
+                 RAISE EXCEPTION 'not an active platform admin with MFA on a live session' USING ERRCODE = '42501';
+               END IF;
+               IF app.admin_step_up_until(p_user_id, p_session_id) IS NULL THEN
+                 RAISE EXCEPTION 'admin step-up required' USING ERRCODE = '42501';
+               END IF;
+             END
+             $fn$;
+             RESET ROLE; REVOKE CREATE ON SCHEMA app FROM svc_definer`,
+    mustFail: ['an admin without a step-up of this session is refused by every console function'],
+  },
 ];
 
 const PACKAGE_DIR = fileURLToPath(new URL('..', import.meta.url));

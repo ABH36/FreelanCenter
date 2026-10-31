@@ -216,14 +216,42 @@ enum AuditResult {
 /// Platform administrators (FR-AUTH-05 `PlatformAdmin`, FR-ADM-01). Granted by operators through a reviewed
 /// migration or runbook only: no application role can write this table.
 model PlatformAdmin {
-  userId    String    @id @map("user_id") @db.Uuid
-  grantedBy String?   @map("granted_by") @db.Uuid
+  userId    String        @id @map("user_id") @db.Uuid
+  grantedBy String?       @map("granted_by") @db.Uuid
   reason    String
-  grantedAt DateTime  @default(now()) @map("granted_at") @db.Timestamptz(6)
-  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
-  user      User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  grantedAt DateTime      @default(now()) @map("granted_at") @db.Timestamptz(6)
+  revokedAt DateTime?     @map("revoked_at") @db.Timestamptz(6)
+  user      User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  stepUps   AdminStepUp[]
 
   @@map("platform_admins")
+  @@schema("app")
+}
+
+enum AdminStepUpStatus {
+  pending
+  failed
+  verified
+
+  @@map("admin_step_up_status")
+  @@schema("app")
+}
+
+/// Admin console step-up (P1 S8, SEC-17): one TOTP attempt by a platform admin, bound to one Better Auth session.
+/// A verified row unlocks the console for that session until `expires_at`; pending and failed rows count towards
+/// the lockout. Written and read only by the admin definer functions: no application role has a grant.
+model AdminStepUp {
+  id         String            @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  userId     String            @map("user_id") @db.Uuid
+  sessionId  String            @map("session_id") @db.Uuid
+  status     AdminStepUpStatus @default(pending)
+  createdAt  DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  verifiedAt DateTime?         @map("verified_at") @db.Timestamptz(6)
+  expiresAt  DateTime?         @map("expires_at") @db.Timestamptz(6)
+  admin      PlatformAdmin     @relation(fields: [userId], references: [userId], onDelete: Restrict)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("admin_step_ups")
   @@schema("app")
 }
 

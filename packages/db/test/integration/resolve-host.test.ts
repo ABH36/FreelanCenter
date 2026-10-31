@@ -8,15 +8,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type pg from 'pg';
 import type { TenantDatabase, TenantScope } from '../../src/client';
 import { createPublicDatabase, type PublicDatabase } from '../../src/public';
-import {
-  createUser,
-  expectPgError,
-  pool,
-  seedWorkspace,
-  tenantDb,
-  urls,
-  type SeededWorkspace,
-} from './helpers';
+import { steppedUpAdmin } from '../../src/testing';
+import { expectPgError, pool, seedWorkspace, tenantDb, urls, type SeededWorkspace } from './helpers';
 
 let db: TenantDatabase;
 let auth: pg.Pool;
@@ -26,7 +19,7 @@ let migrator: pg.Pool;
 let visitor: PublicDatabase;
 let A: SeededWorkspace;
 let B: SeededWorkspace;
-let platformAdmin: string;
+let platformAdmin: { userId: string; sessionId: string };
 
 beforeAll(async () => {
   db = tenantDb();
@@ -37,11 +30,7 @@ beforeAll(async () => {
   visitor = createPublicDatabase({ connectionString: urls.public });
   A = await seedWorkspace(db, auth);
   B = await seedWorkspace(db, auth);
-  platformAdmin = await createUser(auth, { mfa: true });
-  await migrator.query('SELECT app.operator_grant_platform_admin($1, $2)', [
-    platformAdmin,
-    'S7 resolve_host test',
-  ]);
+  platformAdmin = await steppedUpAdmin({ auth, migrator, admin: adminRole });
 });
 afterAll(async () => {
   await Promise.all([
@@ -72,8 +61,9 @@ const setProjectStatus = (scope: TenantScope, projectId: string, status: string)
   );
 
 const setWorkspaceStatus = (workspaceId: string, status: 'active' | 'suspended') =>
-  adminRole.query('SELECT app.admin_set_workspace_status($1, $2, $3, $4, $5)', [
-    platformAdmin,
+  adminRole.query('SELECT * FROM app.admin_set_workspace_status($1, $2, $3, $4, $5, $6)', [
+    platformAdmin.userId,
+    platformAdmin.sessionId,
     workspaceId,
     status,
     'S7 resolve_host test',

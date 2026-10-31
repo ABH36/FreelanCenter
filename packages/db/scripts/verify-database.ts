@@ -119,11 +119,18 @@ const tenantTables = await withClient('bootstrap', async (op) => {
        FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
       WHERE n.nspname = 'app' AND p.prosecdef`,
   );
-  // P1 foundation (5) + P1 S5 (6) + P1 S6 (4) + P1 S7 (1). An unexpected definer is as much a finding as a
-  // missing one.
+  // P1 foundation (5) + P1 S5 (6) + P1 S6 (4) + P1 S7 (1) + P1 S8 (7). An unexpected definer is as much a
+  // finding as a missing one.
   const expectedDefiners = [
     'accept_invitation',
+    'admin_console_state',
+    'admin_get_workspace',
+    'admin_list_audit',
+    'admin_list_users',
+    'admin_list_workspaces',
     'admin_set_workspace_status',
+    'admin_step_up_begin',
+    'admin_step_up_finish',
     'allocate_platform_subdomain',
     'current_member_role',
     'invitation_preview',
@@ -164,6 +171,34 @@ const tenantTables = await withClient('bootstrap', async (op) => {
     'app_public can execute exactly app.resolve_host',
     JSON.stringify(publicFns.map((r) => r.proname)) === JSON.stringify(['resolve_host']),
     publicFns.map((r) => r.proname).join(', '),
+  );
+
+  // S8: the admin role executes exactly the console functions; the console's internal checks are executable by
+  // no application role (they run only inside those functions, as their owner).
+  const { rows: adminFns } = await op.query(
+    `SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname IN ('app', 'identity') AND has_function_privilege('app_admin', p.oid, 'EXECUTE')
+      ORDER BY 1`,
+  );
+  const expectedAdminFns = expectedDefiners.filter((f) => f.startsWith('admin_'));
+  check(
+    `app_admin can execute exactly the ${expectedAdminFns.length} admin console functions`,
+    JSON.stringify(adminFns.map((r) => r.proname)) === JSON.stringify(expectedAdminFns),
+    adminFns.map((r) => r.proname).join(', '),
+  );
+  const { rows: helperExec } = await op.query(
+    `SELECT p.proname, r.rolname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace,
+            pg_roles r
+      WHERE n.nspname = 'app'
+        AND p.proname IN ('admin_session_valid', 'admin_step_up_until', 'admin_step_up_locked_until',
+                          'admin_require', 'admin_audit', 'mask_email', 'admin_query_kind')
+        AND r.rolname IN ('app_user', 'app_auth', 'app_public', 'app_admin', 'migrator')
+        AND has_function_privilege(r.rolname, p.oid, 'EXECUTE')`,
+  );
+  check(
+    'admin console helpers are executable by no application role',
+    helperExec.length === 0,
+    JSON.stringify(helperExec),
   );
 
   const { rows: inPublic } = await op.query(
@@ -250,6 +285,15 @@ await withClient('public', async (c) => {
 
 await withClient('admin', async (c) => {
   check('app_admin is denied direct table access', await denied(c, 'SELECT 1 FROM app.workspaces LIMIT 1'));
+  check('app_admin is denied the step-up table', await denied(c, 'SELECT 1 FROM app.admin_step_ups LIMIT 1'));
+  // Read-only: ids that cannot be an admin's session are refused before anything is written.
+  check(
+    'the admin console refuses a caller without a stepped-up admin session',
+    await denied(
+      c,
+      "SELECT * FROM app.admin_list_workspaces('00000000-0000-7000-8000-000000000000', '00000000-0000-7000-8000-000000000000', NULL, NULL, NULL, 1, NULL)",
+    ),
+  );
   check(
     'app_admin cannot grant platform admins',
     await denied(c, "SELECT app.operator_grant_platform_admin('00000000-0000-7000-8000-000000000000', 'x')"),
