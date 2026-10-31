@@ -40,3 +40,12 @@ export {
   sanitizeBindings,
   createLogger,
 } from './logger';
+
+export {
+  type SentryDsnCheck,
+  type ScrubbableEvent,
+  SENTRY_DATA_COLLECTION,
+  checkSentryDsn,
+  scrubSentryEvent,
+  sentryOptions,
+} from './sentry';

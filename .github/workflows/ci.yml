@@ -60,7 +60,7 @@ jobs:
 
   # SEC-01/SEC-02 merge gate: roles, migrations, RLS and tenant isolation against real Postgres 17 behind
   # PgBouncer in transaction mode (packages/db/docker). Runs twice on the same database to prove the suite
-  # does not depend on a fresh volume. Required status check on `main` (P1 slice 2). Phase 1 later adds Playwright E2E.
+  # does not depend on a fresh volume. Required status check on `main` (P1 slice 2). The Playwright E2E runs in the separate `e2e` job (P1 S9).
   db-integration:
     name: Database roles, RLS and tenant isolation
     runs-on: ubuntu-latest
@@ -123,6 +123,42 @@ jobs:
         with:
           name: isolation-report
           path: tests/isolation/results/
+          if-no-files-found: warn
+      - name: Database logs on failure
+        if: failure()
+        run: docker compose -f packages/db/docker/compose.yml logs --no-color --tail 300
+
+  # SRS 12 P1 acceptance (P1 S9): the audit-checkpoint journey in a real browser against both apps (development
+  # servers, because the capture inbox that holds the verification mail is a 404 in a production build) on the
+  # local Docker stack. It calls Cloudflare's Turnstile with the official test keys (script + siteverify). Not a
+  # required check until it has been green on the S9 PR (Owner decision); trace and screenshots upload on failure.
+  e2e:
+    name: E2E audit checkpoint (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @platform/db generate
+      - run: pnpm --filter @platform/db db:setup
+      - run: pnpm --filter @platform/e2e exec playwright install --with-deps chromium
+      - name: Phase 1 acceptance journey
+        run: pnpm --filter @platform/e2e test:e2e
+        env:
+          CI: 'true'
+      - name: Playwright report, traces and screenshots
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: e2e-report
+          path: |
+            tests/e2e/report/
+            tests/e2e/results/
           if-no-files-found: warn
       - name: Database logs on failure
         if: failure()

@@ -10,5 +10,12 @@ Cross-cutting tests that do not belong to a single package (SRS section 4.4):
   pnpm --filter @platform/isolation-tests test:mutation    # proves the suite catches seven isolation bugs
   ```
 
-- **E2E** (Playwright): the audit-checkpoint scenario of each phase (Phase 1 slice 9).
+- **E2E** (`tests/e2e`, Playwright, Phase 1 slice 9): the audit-checkpoint scenario of each phase. Phase 1: sign-up, e-mail verification, workspace, project, subdomain; a second tenant denied through the UI, the API and `app_user` SQL. Local runs need the Docker stack, and refuse any non-local database.
+
+  ```sh
+  pnpm --filter @platform/db db:setup
+  pnpm --filter @platform/e2e exec playwright install chromium   # once
+  pnpm --filter @platform/e2e test:e2e
+  ```
+
 - **Load** (k6): the public site path and the AI queue (Phases 4 and 8).

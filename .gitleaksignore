@@ -2,3 +2,8 @@
 # 8aee873: an unsigned, JWT-shaped test fixture ('{"alg":"RS256"}.{"email":"victim@example.test"}.sig') in the
 # S4-6 id_token regression test; not a credential. The next commit builds it at run time instead.
 8aee87372ddb174025e1cab7766abe2f16fc1066:packages/auth/test/integration/auth.test.ts:generic-api-key:446
+
+# P1 S9: synthetic redaction fixtures in the first S9 commits (45cc234, e303eee); the values are no longer present.
+45cc234f02212a19282ceb0ef3628687492ba097:apps/sites/lib/sentry.test.ts:generic-api-key:30
+45cc234f02212a19282ceb0ef3628687492ba097:packages/logger/src/__tests__/sentry.test.ts:stripe-access-token:36
+e303eeea6fd5f32bbe9c4e1a21aadbcbd0a6e563:apps/sites/lib/sentry.test.ts:generic-api-key:31

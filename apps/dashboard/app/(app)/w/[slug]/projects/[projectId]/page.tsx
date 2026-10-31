@@ -52,7 +52,14 @@ export default async function ProjectPage({
           <StatusBadge status={project.status} />
         </div>
         <p className="mt-1 text-sm text-slate-600">
-          Address: {sub ? <span className="font-mono">{sub.hostname}</span> : 'none'}
+          Address:{' '}
+          {sub ? (
+            <span className="font-mono" data-testid="project-address">
+              {sub.hostname}
+            </span>
+          ) : (
+            'none'
+          )}
           {sub && sub.status !== 'active' ? ` (${sub.status})` : ''}
           {project.duplicatedFrom ? (
             <>

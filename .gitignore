@@ -38,3 +38,7 @@ spikes/spike-e-images/assets/
 # isolation-suite reports (uploaded as CI artefacts, not committed)
 tests/isolation/results/
 **/test/perf/report.json
+
+# Playwright output (tests/e2e)
+tests/e2e/results/
+tests/e2e/report/
