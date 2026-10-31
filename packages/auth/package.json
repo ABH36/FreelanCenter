@@ -18,11 +18,11 @@
     "@platform/db": "workspace:*",
     "@platform/logger": "workspace:*",
     "@platform/providers": "workspace:*",
-    "better-auth": "1.7.12"
+    "better-auth": "1.7.14"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/pg": "8.23.1",
-    "pg": "8.23.0"
+    "pg": "8.23.1"
   }
 }
