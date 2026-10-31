@@ -20,6 +20,6 @@
   },
   "devDependencies": {
     "@platform/db": "workspace:*",
-    "@types/node": "^22.0.0"
+    "@types/node": "^26.6.5"
   }
 }
