@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { WorkspaceError } from '@platform/workspaces';
 import { Alert } from '@/components/ui';
 import { adminService, requireAdmin } from '@/lib/admin';
+import { withRequestContext } from '@/lib/workspaces';
 import { type Search, buttonClass, inputClass, nextPage, one, when } from '../admin-ui';
 
 export const metadata: Metadata = { title: 'Workspaces · Admin' };
@@ -16,11 +17,14 @@ export default async function AdminWorkspacesPage({ searchParams }: { searchPara
   let result: Awaited<ReturnType<typeof service.listWorkspaces>> | null = null;
   let error: string | null = null;
   try {
-    result = await service.listWorkspaces(principal, {
-      query: filters.q,
-      status: filters.status,
-      cursor: one(sp.cursor),
-    });
+    // In a request context, so the audit row of a search carries its correlation id.
+    result = await withRequestContext(() =>
+      service.listWorkspaces(principal, {
+        query: filters.q,
+        status: filters.status,
+        cursor: one(sp.cursor),
+      }),
+    );
   } catch (e) {
     if (!(e instanceof WorkspaceError)) throw e;
     error = Object.values(e.fieldErrors)[0] ?? e.message;

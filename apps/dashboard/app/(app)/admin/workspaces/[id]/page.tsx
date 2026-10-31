@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Panel } from '@/components/ui';
 import { adminService, requireAdmin } from '@/lib/admin';
+import { withRequestContext } from '@/lib/workspaces';
 import { when } from '../../admin-ui';
 import { StatusForm } from './status-form';
 
@@ -14,7 +15,10 @@ export const metadata: Metadata = { title: 'Workspace · Admin' };
  */
 export default async function AdminWorkspacePage({ params }: { params: Promise<{ id: string }> }) {
   const principal = await requireAdmin();
-  const ws = await (await adminService()).getWorkspace(principal, (await params).id);
+  const { id } = await params;
+  const service = await adminService();
+  // In a request context, so the audit row of the view carries its correlation id.
+  const ws = await withRequestContext(() => service.getWorkspace(principal, id));
   if (!ws) notFound();
   const suspended = ws.status === 'suspended';
 

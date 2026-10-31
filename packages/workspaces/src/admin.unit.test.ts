@@ -5,6 +5,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import type { AdminDatabase } from '@platform/db/admin';
+import { runWithContext } from '@platform/logger';
 import { createAdminService } from './admin';
 import { WorkspaceError } from './errors';
 import type { Outbox } from './outbox';
@@ -113,6 +114,20 @@ describe('step-up', () => {
         setup({ listUsers: vi.fn(async () => Promise.reject(pgError('22023'))) }).admin.listUsers(P),
       ),
     ).toBe('INVALID_INPUT');
+  });
+});
+
+describe('correlation id', () => {
+  it('audited reads and commands pass the request context id to the database', async () => {
+    const { db, admin } = setup();
+    await runWithContext({ correlationId: 'corr-s8', app: 'dashboard' }, async () => {
+      await admin.listWorkspaces(P, { query: 'acme' });
+      await admin.listUsers(P, { query: 'a@example.test' });
+      await admin.getWorkspace(P, WS);
+    });
+    expect(vi.mocked(db.listWorkspaces).mock.calls[0]![2]).toBe('corr-s8');
+    expect(vi.mocked(db.listUsers).mock.calls[0]![2]).toBe('corr-s8');
+    expect(vi.mocked(db.getWorkspace).mock.calls[0]![2]).toBe('corr-s8');
   });
 });
 
