@@ -7,7 +7,7 @@ import { after } from 'next/server';
 import { headers } from 'next/headers';
 import { cache } from 'react';
 import { type Auth, type AuthPrismaClient, createAuth, loadAuthConfig } from '@platform/auth';
-import { assertConnectionRole, assertUrlRole, createAuthPrismaClient } from '@platform/db';
+import { assertConnectionRole, assertUrlRole, createAuthPrismaClient, onceUntilSuccess } from '@platform/db';
 import { createLogger } from '@platform/logger';
 import {
   type CaptureEmailProvider,
@@ -25,7 +25,7 @@ interface AuthRuntime {
   config: ReturnType<typeof loadAuthConfig>;
   /** Local development only: mail captured in memory and shown at /dev/mailbox. */
   mailbox: CaptureEmailProvider | null;
-  ready: Promise<void>;
+  ready: () => Promise<void>;
 }
 
 const globalForAuth = globalThis as unknown as { __platformAuth?: AuthRuntime };
@@ -56,9 +56,12 @@ function build(): AuthRuntime {
     // Mail leaves after the response, so response time does not reveal whether an account exists.
     defer: (task) => after(task),
   });
-  // One role check per process: the auth route must never run as a tenant, owner or BYPASSRLS role.
-  const ready = assertConnectionRole(prisma, 'app_auth');
-  ready.catch((error: unknown) => logger.fatal('auth.db.role_check_failed', error));
+  // One role check per process: the auth route must never run as a tenant, owner or BYPASSRLS role. A failed
+  // check is retried by the next request (S8-9).
+  const ready = onceUntilSuccess(
+    () => assertConnectionRole(prisma, 'app_auth'),
+    (error) => logger.fatal('auth.db.role_check_failed', error),
+  );
   return { auth, email, config, mailbox, ready };
 }
 
@@ -70,7 +73,7 @@ export function authRuntime(): AuthRuntime {
 
 export async function getAuth(): Promise<Auth> {
   const runtime = authRuntime();
-  await runtime.ready;
+  await runtime.ready();
   return runtime.auth;
 }
 

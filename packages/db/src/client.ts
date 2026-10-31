@@ -127,6 +127,24 @@ export async function assertConnectionRole(
   if (row.su || row.bypass) throw new UnsafeRoleError(`role ${row.usr} must not be SUPERUSER or BYPASSRLS`);
 }
 
+/**
+ * A once-per-process start-up check that remembers success only. A failure is reported and forgotten, so the next
+ * caller runs the check again: a transient failure must not break the instance until it is recycled (S8-9, a
+ * serverless function frozen in the middle of its first connection). A wrong role still fails every call.
+ */
+export function onceUntilSuccess(
+  check: () => Promise<void>,
+  onFailure?: (error: unknown) => void,
+): () => Promise<void> {
+  let passed: Promise<void> | null = null;
+  return () =>
+    (passed ??= check().catch((error: unknown) => {
+      passed = null;
+      onFailure?.(error);
+      throw error;
+    }));
+}
+
 /** The `app_user` data-access layer. One instance per process. */
 export function createTenantDatabase(options: TenantDatabaseOptions): TenantDatabase {
   const poolMax = options.poolMax ?? DEFAULTS.poolMax;

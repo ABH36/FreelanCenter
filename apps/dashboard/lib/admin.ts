@@ -14,13 +14,14 @@ import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { cache } from 'react';
 import { verifySessionTotp } from '@platform/auth';
+import { onceUntilSuccess } from '@platform/db';
 import { type AdminConsoleState, createAdminDatabase } from '@platform/db/admin';
 import { type AdminPrincipal, type AdminService, createAdminService } from '@platform/workspaces';
 import { getAuth, getSession, logger } from './auth';
 import { workspaceOutbox } from './workspaces';
 
 interface AdminRuntime {
-  service: Promise<AdminService>;
+  service: () => Promise<AdminService>;
 }
 
 const globalForAdmin = globalThis as unknown as { __platformAdmin?: AdminRuntime };
@@ -29,18 +30,23 @@ function build(): AdminRuntime {
   const url = process.env.DATABASE_URL_ADMIN;
   if (!url) throw new Error('DATABASE_URL_ADMIN is not set');
   const db = createAdminDatabase({ connectionString: url });
-  const service = (async () => {
-    // One role check per process: the console must never run as an owner, tenant or BYPASSRLS role.
-    await db.verifyRole();
-    return createAdminService({ db, outbox: await workspaceOutbox(), logger });
-  })();
-  service.catch((error: unknown) => logger.fatal('admin.db.role_check_failed', error));
-  return { service };
+  // One role check per process: the console must never run as an owner, tenant or BYPASSRLS role. A failed check
+  // is retried by the next request (S8-9).
+  const ready = onceUntilSuccess(
+    () => db.verifyRole(),
+    (error) => logger.fatal('admin.db.role_check_failed', error),
+  );
+  return {
+    service: async () => {
+      await ready();
+      return createAdminService({ db, outbox: await workspaceOutbox(), logger });
+    },
+  };
 }
 
 export function adminService(): Promise<AdminService> {
   globalForAdmin.__platformAdmin ??= build();
-  return globalForAdmin.__platformAdmin.service;
+  return globalForAdmin.__platformAdmin.service();
 }
 
 export interface AdminContext {

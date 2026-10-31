@@ -8,7 +8,7 @@ import { cookies, headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { cache } from 'react';
-import { assertUrlRole, createTenantDatabase } from '@platform/db';
+import { assertUrlRole, createTenantDatabase, onceUntilSuccess } from '@platform/db';
 import { type Jobs, createJobs, loadJobsConfig } from '@platform/jobs';
 import { getCorrelationIdFromHeaders, runWithContext } from '@platform/logger';
 import { type KeyValueStore, createKeyValueStore, loadKeyValueConfig } from '@platform/providers';
@@ -44,7 +44,7 @@ interface WorkspaceRuntime {
   jobs: Jobs;
   /** S8: the admin console dispatches its suspension invalidations through the same outbox. */
   outbox: Outbox;
-  ready: Promise<void>;
+  ready: () => Promise<void>;
 }
 
 const globalForWorkspaces = globalThis as unknown as { __platformWorkspaces?: WorkspaceRuntime };
@@ -102,9 +102,12 @@ function build(): WorkspaceRuntime {
     baseURL: config.baseURL,
     logger,
   });
-  // One role check per process: tenant queries must never run as an owner or BYPASSRLS role.
-  const ready = db.verifyRole('app_user');
-  ready.catch((error: unknown) => logger.fatal('workspaces.db.role_check_failed', error));
+  // One role check per process: tenant queries must never run as an owner or BYPASSRLS role. A failed check is
+  // retried by the next request (S8-9).
+  const ready = onceUntilSuccess(
+    () => db.verifyRole('app_user'),
+    (error) => logger.fatal('workspaces.db.role_check_failed', error),
+  );
   const projects = createProjectService({ db, outbox, logger });
   const notifications = createNotificationService({ db, logger });
   const audit = createAuditService({ db, logger });
@@ -118,13 +121,13 @@ export function workspaceRuntime(): WorkspaceRuntime {
 
 export async function workspaces(): Promise<WorkspaceService> {
   const runtime = workspaceRuntime();
-  await runtime.ready;
+  await runtime.ready();
   return runtime.service;
 }
 
 async function ready(): Promise<WorkspaceRuntime> {
   const runtime = workspaceRuntime();
-  await runtime.ready;
+  await runtime.ready();
   return runtime;
 }
 

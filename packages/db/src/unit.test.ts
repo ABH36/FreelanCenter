@@ -1,11 +1,45 @@
 import { X509Certificate, createHash, createHmac, pbkdf2Sync } from 'node:crypto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { onceUntilSuccess } from './client';
 import { PINNED_CAS, connectionConfig } from './connection';
 import { assertUrlRole, isLocalHost, parseDotEnv, passwordOf, resolveDatabaseUrl, roleOf } from './env';
 import { DbBusyError } from './errors';
 import { TransactionLimiter } from './limiter';
 import { scramSha256Verifier } from './scram';
 import { isUuid, uuidv7 } from './uuid';
+
+describe('onceUntilSuccess (S8-9)', () => {
+  it('runs the check lazily and only once after a success, also for concurrent callers', async () => {
+    const check = vi.fn(async () => undefined);
+    const ready = onceUntilSuccess(check);
+    expect(check).not.toHaveBeenCalled();
+    await Promise.all([ready(), ready()]);
+    await ready();
+    expect(check).toHaveBeenCalledTimes(1);
+  });
+
+  it('a failure is reported and forgotten: the next call runs the check again', async () => {
+    const failures: unknown[] = [];
+    const down = new Error('EAUTHTIMEOUT');
+    const check = vi.fn<() => Promise<void>>().mockRejectedValueOnce(down).mockResolvedValue(undefined);
+    const ready = onceUntilSuccess(check, (e) => failures.push(e));
+    await expect(ready()).rejects.toBe(down);
+    expect(failures).toEqual([down]);
+    await expect(ready()).resolves.toBeUndefined();
+    await ready();
+    expect(check).toHaveBeenCalledTimes(2);
+  });
+
+  it('a permanent failure (a wrong role) fails every call', async () => {
+    const check = vi.fn(async () => {
+      throw new Error('database connection must use role app_user');
+    });
+    const ready = onceUntilSuccess(check);
+    await expect(ready()).rejects.toThrow('app_user');
+    await expect(ready()).rejects.toThrow('app_user');
+    expect(check).toHaveBeenCalledTimes(2);
+  });
+});
 
 describe('uuidv7', () => {
   it('produces RFC 9562 version-7 ids that embed the timestamp', () => {
