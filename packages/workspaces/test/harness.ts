@@ -3,9 +3,12 @@
  * `app_auth` (creating identity users), a capture mail sink, the host cache on the local Upstash emulator (S7) and the inline job
  * transport whose deferred tasks the tests run explicitly.
  */
+import { readFileSync } from 'node:fs';
 import pg from 'pg';
 import { createTenantDatabase, uuidv7 } from '@platform/db';
 import { LOCAL_DATABASE_URLS } from '@platform/db/testing';
+import { connectionConfig } from '../../db/src/connection';
+import { parseDotEnv } from '../../db/src/env';
 import { createInlineJobs } from '@platform/jobs';
 import { LOCAL_UPSTASH } from '@platform/hosting/testing';
 import { createCaptureProvider, createUpstashStore } from '@platform/providers';
@@ -22,8 +25,28 @@ import { deriveInvitationKey } from '../src/token';
 export const BASE_URL = 'http://localhost:3000';
 export const RUN = `${Date.now().toString(36)}${process.pid.toString(36)}`;
 
-export const db = createTenantDatabase({ connectionString: LOCAL_DATABASE_URLS.app, poolMax: 8 });
-export const auth = new pg.Pool({ connectionString: LOCAL_DATABASE_URLS.auth, max: 3 });
+/**
+ * `PERF_TARGET=env` (NFR-PERF-04 live measurement, P1 S9) points the two pools at the deployed database named in
+ * the repository `.env.local`. Opt-in and for `test:perf` only: the rest of the suite is local by design.
+ */
+const live = process.env.PERF_TARGET === 'env';
+const liveEnv = live
+  ? { ...parseDotEnv(readFileSync(new URL('../../../.env.local', import.meta.url), 'utf8')), ...process.env }
+  : {};
+export const db = live
+  ? createTenantDatabase({
+      connectionString: liveEnv.DATABASE_URL!,
+      env: liveEnv,
+      poolMax: 8,
+      maxQueue: 1_000,
+      queueTimeoutMs: 120_000,
+    })
+  : createTenantDatabase({ connectionString: LOCAL_DATABASE_URLS.app, poolMax: 8 });
+export const auth = new pg.Pool(
+  live
+    ? { ...connectionConfig(liveEnv.DATABASE_URL_AUTH!, liveEnv), max: 3 }
+    : { connectionString: LOCAL_DATABASE_URLS.auth, max: 3 },
+);
 export const mail = createCaptureProvider();
 export const invitationKey = deriveInvitationKey('workspace-suite-local-only-secret-0123456789');
 

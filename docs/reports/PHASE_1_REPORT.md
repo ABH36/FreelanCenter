@@ -1,6 +1,6 @@
 # Phase 1 report: Multi-Tenant Core (slice 9, phase exit)
 
-**Status:** Slices S1-S8 and DG-22 are merged on `main` (last: PR #37, `71f9c54`, post-merge CI green). S9 (this report) is built on `feat/p1-s9-phase-exit` and awaits Owner approval; nothing in it is merged. This report is the input for the ChatGPT/Architect audit of Phase 1.
+**Status:** Slices S1-S8 and DG-22 are merged on `main` (last: PR #37, `71f9c54`, post-merge CI green). S9 (this report) is built on `feat/p1-s9-phase-exit` (PR #38). **The Owner approved this report, the live migration and one live NFR-PERF-04 measurement on 2026-10-31.** The migration is applied live (section 7); the PR is not merged yet. This report is the input for the ChatGPT/Architect audit of Phase 1.
 **Date:** 2026-10-31 · **Plan:** `docs/IMPLEMENTATION_PLAN.md`, Phase 1 slice plan, row S9 · **SRS:** section 12, Phase 1 acceptance and audit checklist.
 
 ## 1. Acceptance and requirements
@@ -37,7 +37,7 @@ Status vocabulary follows `docs/governance/DOCUMENTATION_INDEX.md`: _implemented
 | FR-OBS-01                    | DG-03, S9                            | Redacting structured logger with correlation ids; Sentry server-side with scrubbing (section 2.2)           | **Partial.** Metrics, OpenTelemetry tracing, uptime checks and alert runbooks are not built in P1; Sentry is code-complete but has no account yet (DG-23) |
 | SEC-01, SEC-02, SEC-10       | S1, S2, S5                           | RLS forced, roles, isolation suite as a required check, IDOR harness                                        | Implemented                                                                                                                                               |
 | SEC-03                       | S7                                   | Headers test on both apps; strict CSP on tenant host pages                                                  | Implemented (full per-surface CSP with the builder, P3)                                                                                                   |
-| NFR-PERF-04                  | S6                                   | p95 harness `test:perf` (10 concurrent clients, 500 ms budget)                                              | **Not met on this machine, see 6.2**                                                                                                                      |
+| NFR-PERF-04                  | S6                                   | p95 harness `test:perf` (10 concurrent clients, 500 ms budget)                                              | **Not met, locally or live (6.2)**                                                                                                                        |
 
 Also exercised in P1 and listed in the plan: SEC-09 (Turnstile, test keys; production widget DG-16), SEC-11 (single-use tokens, no-referrer), SEC-17 (admin MFA and audit), SEC-21 (processor list, section 5).
 
@@ -59,7 +59,7 @@ Also exercised in P1 and listed in the plan: SEC-09 (Turnstile, test keys; produ
 
 ### 2.3 Outbox sweep order (S8-6)
 
-Migration `20261031120000_p1_s9_outbox_sweep_order` replaces `app.outbox_pending` (same signature, guards and grants) with `ORDER BY o.attempts, o.created_at`, so rows that keep failing no longer hold healthy rows back. New integration test `outbox-sweep-order.test.ts` (order, 20-attempt skip, minimum age, limit). **Live migration not applied; it needs a separate Owner approval** (section 4).
+Migration `20261031120000_p1_s9_outbox_sweep_order` replaces `app.outbox_pending` (same signature, guards and grants) with `ORDER BY o.attempts, o.created_at`, so rows that keep failing no longer hold healthy rows back. New integration test `outbox-sweep-order.test.ts` (order, 20-attempt skip, minimum age, limit). **Applied live on 2026-10-31 with the Owner's approval** (section 7).
 
 ## 3. Findings during the slice
 
@@ -117,25 +117,44 @@ Clean worktree `../s9-wt` at `45cc234`, then `29a9d44` for the one-line test fix
 
 Not run: the `secrets` (gitleaks, Docker image) CI job, which runs on the PR; the E2E on a cold Linux CI runner; the live Supabase suite (no live change in S9).
 
-### 6.2 NFR-PERF-04 (p95 <= 500 ms, 10 concurrent clients)
+### 6.2 NFR-PERF-04 (p95 <= 500 ms, 10 concurrent clients): not met
 
-The perf test fails on this machine (2-core/4-thread i5-7200U, Docker with other containers running). Same test on `main` (`71f9c54`) in the same worktree and session: `listProjects` p95 545, `createProject` 814; on S9: 640 and 1127 (two runs, 827 and 640 for `listProjects`). Run-to-run variance on this machine is larger than the difference, and S9 changes none of the ten measured operations (the only SQL change is `outbox_pending`, which the sweep calls). DG-22 recorded the same failure on `main`. **So NFR-PERF-04 has no passing measurement in this phase.** The honest options are a measurement on CI or on a Preview deployment against Supabase, or accepting the local figure as non-representative. I recommend one live measurement; it needs your approval because it creates synthetic data on the live database.
+**Local (Docker stack on this machine, 2-core/4-thread i5-7200U with other containers running).** `test:perf` fails. Same test on `main` (`71f9c54`), same worktree and session: `listProjects` p95 545, `createProject` 814; on S9: 640 and 1127 (two runs, 827 and 640 for `listProjects`). Run-to-run variance is larger than the difference, and S9 changes none of the ten measured operations. DG-22 recorded the same failure on `main`.
+
+**Live (Owner-approved, 2026-10-31, one run).** The same harness (`PERF_TARGET=env`, an opt-in switch added to `packages/workspaces/test/harness.ts`; default stays local) against the Supabase `ap-south-1` transaction pooler as `app_user`/`app_auth`, run from the developer laptop, 1000 seeded projects, 10 clients x 20 rounds, jobs inline, host cache on the local emulator. A plain `select 1` round trip from the laptop to the pooler: p50 22 ms, p95 27 ms.
+
+| Operation                | p50 ms | p95 ms | Within 500 |
+| ------------------------ | ------ | ------ | ---------- |
+| listProjects             | 355    | 549    | no         |
+| listProjects (search)    | 360    | 463    | yes        |
+| listProjects (filter)    | 349    | 440    | yes        |
+| listProjects (next page) | 356    | 442    | yes        |
+| getProject               | 373    | 456    | yes        |
+| transitionProject        | 529    | 675    | no         |
+| createProject            | 657    | 827    | no         |
+| unreadCount              | 540    | 665    | no         |
+| listNotifications        | 398    | 525    | no         |
+| listAuditLog             | 342    | 429    | yes        |
+
+**Reading.** 5 of 10 operations are within budget, 5 are not. This is an upper bound for a Vercel deployment (laptop, not `bom1`; each operation is several round trips, so 22 ms per trip is part of it), but it is not a pass, and the local figures show the budget is also missed next to the database. The p50 of 340-660 ms with 10 clients says the cost is in the transaction shape (scope check plus data transaction, `set_config`, several statements), not in a tail. **NFR-PERF-04 therefore has no passing measurement in Phase 1.** Proposed follow-up (not in S9): profile one operation (`unreadCount`, a count, at p50 540 ms is the clearest outlier), fold the scope check into the data transaction, and re-measure from a Vercel `bom1` function.
+
+**Synthetic data left on the live database** (append-only/no DELETE for `app_user`, so it stays until `retention.sweep`, P8): one workspace named "Suite Workspace" with a `suite-...` slug, 3 users `ws-...@example.test`, about 1,200 projects with platform subdomains under the live `sites_domain`, their outbox rows and audit rows. The sites production alias is still pinned to the 16 Oct deployment (DG-20), so none of these hosts is served. The workspace can be suspended from the admin console if you want it offline.
 
 ## 7. Compatibility, migration and rollback
 
-One forward-only migration (function replace, no table change; `schema.prisma` unchanged, `db:drift` clean). No API, event or job change. New optional variables: `SENTRY_DSN_DASHBOARD`, `SENTRY_DSN_SITES` (already named in `.env.example`). Rollback: a new migration restoring `ORDER BY o.created_at`. Application rollback is a revert; Sentry is inert without its variables.
+One forward-only migration (function replace, no table change; `schema.prisma` unchanged, `db:drift` clean). **Applied live 2026-10-31 (Owner-approved):** read-only pre-check as `migrator` (remote host, no BYPASSRLS, S1-S8 applied, S9 absent, function still in the S6 order, owned by `svc_definer`); `prisma migrate deploy` applied `20261031120000_p1_s9_outbox_sweep_order`; migrate status up to date; live database vs `schema.prisma`: no difference; `db:verify --target env` 28/28; `test:live` 6 passed, 1 skipped. No API, event or job change. New optional variables: `SENTRY_DSN_DASHBOARD`, `SENTRY_DSN_SITES` (already named in `.env.example`). Rollback: a new migration restoring `ORDER BY o.created_at`. Application rollback is a revert; Sentry is inert without its variables.
 
 ## 8. Open items and decisions for the Owner
 
-| Item                                | Needed from / state                                                                                                                               |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Approve S9 (this report)            | Owner. After approval: push, PR, wait for CI incl. the `e2e` job                                                                                  |
-| Live migration `20261031120000_...` | **Separate Owner approval.** Read-only pre-check, `prisma migrate deploy`, `db:verify --target env`. Until then the live sweep keeps the S6 order |
-| `e2e` as a required check           | Owner adds it to the `main` protection once green on the PR                                                                                       |
-| NFR-PERF-04 measurement             | Owner: approve one live measurement, or accept as non-representative (6.2)                                                                        |
-| Sentry (DG-23)                      | Owner creates the EU project and sets the two DSN variables in Vercel; then a live event proof                                                    |
-| Sites rate limit (RL-1, DG-23)      | Owner adds a Vercel Firewall rule on the sites project                                                                                            |
-| DG-20 / DG-21                       | Unchanged: sites production variables and Promote; `DATABASE_URL_ADMIN` in Production                                                             |
-| DG-10 / DG-16                       | Unchanged: real e-mail domain; production Turnstile widget                                                                                        |
-| FR-OBS-01 remainder                 | Metrics, OpenTelemetry, uptime checks, alert runbooks are not in P1; confirm they move to P2/P3 or P8                                             |
-| Phase 1 audit                       | ChatGPT/Architect audit of this report; Phase 1 is "approved with conditions" only after it                                                       |
+| Item                                | Needed from / state                                                                                                                                            |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Approve S9 (this report)            | Owner. After approval: push, PR, wait for CI incl. the `e2e` job                                                                                               |
+| Live migration `20261031120000_...` | **Done 2026-10-31, Owner-approved** (section 7)                                                                                                                |
+| `e2e` as a required check           | Owner adds it to the `main` protection once green on the PR                                                                                                    |
+| NFR-PERF-04                         | **Not met** locally or live (6.2). Owner: decide the follow-up (profile, fold the scope check, re-measure from `bom1`) and whether it blocks the Phase 1 audit |
+| Sentry (DG-23)                      | Owner creates the EU project and sets the two DSN variables in Vercel; then a live event proof                                                                 |
+| Sites rate limit (RL-1, DG-23)      | Owner adds a Vercel Firewall rule on the sites project                                                                                                         |
+| DG-20 / DG-21                       | Unchanged: sites production variables and Promote; `DATABASE_URL_ADMIN` in Production                                                                          |
+| DG-10 / DG-16                       | Unchanged: real e-mail domain; production Turnstile widget                                                                                                     |
+| FR-OBS-01 remainder                 | Metrics, OpenTelemetry, uptime checks, alert runbooks are not in P1; confirm they move to P2/P3 or P8                                                          |
+| Phase 1 audit                       | ChatGPT/Architect audit of this report; Phase 1 is "approved with conditions" only after it                                                                    |
