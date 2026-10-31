@@ -37,7 +37,7 @@ Status vocabulary follows `docs/governance/DOCUMENTATION_INDEX.md`: _implemented
 | FR-OBS-01                    | DG-03, S9                            | Redacting structured logger with correlation ids; Sentry server-side with scrubbing (section 2.2)           | **Partial.** Metrics, OpenTelemetry tracing, uptime checks and alert runbooks are not built in P1; Sentry is code-complete but has no account yet (DG-23) |
 | SEC-01, SEC-02, SEC-10       | S1, S2, S5                           | RLS forced, roles, isolation suite as a required check, IDOR harness                                        | Implemented                                                                                                                                               |
 | SEC-03                       | S7                                   | Headers test on both apps; strict CSP on tenant host pages                                                  | Implemented (full per-surface CSP with the builder, P3)                                                                                                   |
-| NFR-PERF-04                  | S6                                   | p95 harness `test:perf` (10 concurrent clients, 500 ms budget)                                              | **Not met, locally or live (6.2)**                                                                                                                        |
+| NFR-PERF-04                  | S6                                   | p95 harness `test:perf` (10 concurrent clients, 500 ms budget)                                              | **Met on a hosted runner (85 ms worst p95); laptop figures not representative; in-region deployed measurement outstanding (6.2)**                         |
 
 Also exercised in P1 and listed in the plan: SEC-09 (Turnstile, test keys; production widget DG-16), SEC-11 (single-use tokens, no-referrer), SEC-17 (admin MFA and audit), SEC-21 (processor list, section 5).
 
@@ -76,18 +76,18 @@ Migration `20261031120000_p1_s9_outbox_sweep_order` replaces `app.outbox_pending
 
 ## 4. Rate-limit review (SRS 12 audit checklist)
 
-| Control                           | Where                                              | Limit                                                | Verdict                                                                                                                                   |
-| --------------------------------- | -------------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Sign-in, sign-up                  | Better Auth `RATE_LIMIT_RULES`, DB storage, per IP | 5 / min each; sign-up also Turnstile                 | Pinned by `config.test`. Shared NAT can block honest users: accepted                                                                      |
-| Password reset, verification      | same                                               | 3 / min (request, resend), 5 / min (reset), 10 / min | OK; request and resend also Turnstile                                                                                                     |
-| TOTP                              | `/two-factor/*` 10 / min + account lockout         | 5 failures / 15 min                                  | OK (S8-1 closes the signed-in oracle)                                                                                                     |
-| Admin step-up                     | database                                           | 5 failed or abandoned / 15 min per admin             | OK (8 parallel attempts yield exactly 5)                                                                                                  |
-| Other auth endpoints              | Better Auth default                                | 100 / min per IP                                     | OK                                                                                                                                        |
-| Invitations, workspaces, projects | service layer                                      | 50 / day, 5 / day, 100 / day per workspace or user   | OK against abuse; not a burst limiter                                                                                                     |
-| `/api/inngest`                    | Vercel Firewall rule (DG-17)                       | 300 / 60 s per IP, signed requests                   | OK                                                                                                                                        |
-| **RL-1 apps/sites**               | none in the app                                    | negative cache 60 s, strict host normalisation       | **Gap:** random host names from one source cost one `resolve_host` each. Needs a Vercel Firewall rule on the sites project (Owner, DG-23) |
-| **RL-2 dashboard reads**          | none per user                                      | -                                                    | Accepted for P1: authenticated, page size ≤ 100; revisit with the first public API (P4+)                                                  |
-| **RL-3 client IP**                | trusted header `x-vercel-forwarded-for` on Vercel  | -                                                    | Correct on Vercel; any new host must set `AUTH_CLIENT_IP_HEADER` (config refuses defaults it cannot trust)                                |
+| Control                           | Where                                              | Limit                                                | Verdict                                                                                                    |
+| --------------------------------- | -------------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Sign-in, sign-up                  | Better Auth `RATE_LIMIT_RULES`, DB storage, per IP | 5 / min each; sign-up also Turnstile                 | Pinned by `config.test`. Shared NAT can block honest users: accepted                                       |
+| Password reset, verification      | same                                               | 3 / min (request, resend), 5 / min (reset), 10 / min | OK; request and resend also Turnstile                                                                      |
+| TOTP                              | `/two-factor/*` 10 / min + account lockout         | 5 failures / 15 min                                  | OK (S8-1 closes the signed-in oracle)                                                                      |
+| Admin step-up                     | database                                           | 5 failed or abandoned / 15 min per admin             | OK (8 parallel attempts yield exactly 5)                                                                   |
+| Other auth endpoints              | Better Auth default                                | 100 / min per IP                                     | OK                                                                                                         |
+| Invitations, workspaces, projects | service layer                                      | 50 / day, 5 / day, 100 / day per workspace or user   | OK against abuse; not a burst limiter                                                                      |
+| `/api/inngest`                    | Vercel Firewall rule (DG-17)                       | 300 / 60 s per IP, signed requests                   | OK                                                                                                         |
+| **RL-1 apps/sites**               | none in the app                                    | negative cache 60 s, strict host normalisation       | **Closed 2026-10-31:** Vercel Firewall rule, 600 requests / 60 s per IP (DG-23).                           |
+| **RL-2 dashboard reads**          | none per user                                      | -                                                    | Accepted for P1: authenticated, page size ≤ 100; revisit with the first public API (P4+)                   |
+| **RL-3 client IP**                | trusted header `x-vercel-forwarded-for` on Vercel  | -                                                    | Correct on Vercel; any new host must set `AUTH_CLIENT_IP_HEADER` (config refuses defaults it cannot trust) |
 
 ## 5. Security, privacy and threat-model review
 
@@ -113,11 +113,11 @@ Clean worktree `../s9-wt` at `45cc234`, then `29a9d44` for the one-line test fix
 | Product auth suite x3                                                              | 191 tests each                                                                 |
 | Workspaces / jobs (signed Inngest executor) / hosting                              | 124 / 7 / 21 tests                                                             |
 | **E2E**                                                                            | **6 passed (3.5 min)**                                                         |
-| `test:perf`                                                                        | **fail, see 6.2**                                                              |
+| `test:perf`                                                                        | fail on the laptop (6.2); passes on a hosted runner, worst p95 85 ms           |
 
 Not run: the `secrets` (gitleaks, Docker image) CI job, which runs on the PR; the E2E on a cold Linux CI runner; the live Supabase suite (no live change in S9).
 
-### 6.2 NFR-PERF-04 (p95 <= 500 ms, 10 concurrent clients): not met
+### 6.2 NFR-PERF-04 (p95 <= 500 ms, 10 concurrent clients): met on a hosted runner, not on the developer laptop
 
 **Local (Docker stack on this machine, 2-core/4-thread i5-7200U with other containers running).** `test:perf` fails. Same test on `main` (`71f9c54`), same worktree and session: `listProjects` p95 545, `createProject` 814; on S9: 640 and 1127 (two runs, 827 and 640 for `listProjects`). Run-to-run variance is larger than the difference, and S9 changes none of the ten measured operations. DG-22 recorded the same failure on `main`.
 
@@ -136,7 +136,24 @@ Not run: the `secrets` (gitleaks, Docker image) CI job, which runs on the PR; th
 | listNotifications        | 398    | 525    | no         |
 | listAuditLog             | 342    | 429    | yes        |
 
-**Reading.** 5 of 10 operations are within budget, 5 are not. This is an upper bound for a Vercel deployment (laptop, not `bom1`; each operation is several round trips, so 22 ms per trip is part of it), but it is not a pass, and the local figures show the budget is also missed next to the database. The p50 of 340-660 ms with 10 clients says the cost is in the transaction shape (scope check plus data transaction, `set_config`, several statements), not in a tail. **NFR-PERF-04 therefore has no passing measurement in Phase 1.** Proposed follow-up (not in S9): profile one operation (`unreadCount`, a count, at p50 540 ms is the clearest outlier), fold the scope check into the data transaction, and re-measure from a Vercel `bom1` function.
+**Diagnosis (S10, 2026-10-31).** With one client the same operations take p50 26-59 ms and p95 47-125 ms on the laptop. With 10 clients the p50 rises about tenfold, i.e. the operations run effectively one after another: one Node process on a 2-core 2.5 GHz laptop (sharing the CPU with Postgres, PgBouncer and other containers) is CPU-saturated, which is what the harness measures. It is not a tail problem and not network (22 ms round trip).
+
+**Hosted runner (PR #40, new informational CI job `perf`, GitHub `ubuntu-latest`, local Docker database, no network, same harness: 1000 projects, 10 clients x 20 rounds).** The test passes:
+
+| Operation                | p50 ms | p95 ms |
+| ------------------------ | ------ | ------ |
+| listProjects             | 31     | 47     |
+| listProjects (search)    | 33     | 49     |
+| listProjects (filter)    | 31     | 42     |
+| listProjects (next page) | 29     | 34     |
+| getProject               | 28     | 44     |
+| transitionProject        | 50     | 74     |
+| createProject            | 68     | 85     |
+| unreadCount              | 49     | 66     |
+| listNotifications        | 30     | 42     |
+| listAuditLog             | 30     | 40     |
+
+**Conclusion.** The service layer meets NFR-PERF-04 with a wide margin (worst p95 85 ms against 500 ms) on ordinary hardware; the laptop and laptop-to-Mumbai figures above were measuring the laptop. I considered folding the scope check into the data transaction (about a third fewer statements) and **did not do it**: with this margin there is no measured benefit, and it would change the `TenantScope` proof that SEC-01 rests on. It stays an option if a deployed measurement ever shows a miss. The CI job now gives a reproducible number on every PR. **Still outstanding for full evidence:** a measurement inside the deployed region (Vercel `bom1` function to the Supabase pooler); the expected cost is these CPU figures plus a few in-region round trips per operation, but that is an expectation, not a measurement. It moves to Phase 2 with the first real dashboard traffic (Vercel Observability on the dashboard project).
 
 **Synthetic data left on the live database** (append-only/no DELETE for `app_user`, so it stays until `retention.sweep`, P8): one workspace named "Suite Workspace" with a `suite-...` slug, 3 users `ws-...@example.test`, about 1,200 projects with platform subdomains under the live `sites_domain`, their outbox rows and audit rows. The sites production alias is still pinned to the 16 Oct deployment (DG-20), so none of these hosts is served. The workspace can be suspended from the admin console if you want it offline.
 
@@ -146,15 +163,15 @@ One forward-only migration (function replace, no table change; `schema.prisma` u
 
 ## 8. Open items and decisions for the Owner
 
-| Item                                | Needed from / state                                                                                                                                            |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Approve S9 (this report)            | Owner. After approval: push, PR, wait for CI incl. the `e2e` job                                                                                               |
-| Live migration `20261031120000_...` | **Done 2026-10-31, Owner-approved** (section 7)                                                                                                                |
-| `e2e` as a required check           | Owner adds it to the `main` protection once green on the PR                                                                                                    |
-| NFR-PERF-04                         | **Not met** locally or live (6.2). Owner: decide the follow-up (profile, fold the scope check, re-measure from `bom1`) and whether it blocks the Phase 1 audit |
-| Sentry (DG-23)                      | Owner creates the EU project and sets the two DSN variables in Vercel; then a live event proof                                                                 |
-| Sites rate limit (RL-1, DG-23)      | Owner adds a Vercel Firewall rule on the sites project                                                                                                         |
-| DG-20 / DG-21                       | Unchanged: sites production variables and Promote; `DATABASE_URL_ADMIN` in Production                                                                          |
-| DG-10 / DG-16                       | Unchanged: real e-mail domain; production Turnstile widget                                                                                                     |
-| FR-OBS-01 remainder                 | Metrics, OpenTelemetry, uptime checks, alert runbooks are not in P1; confirm they move to P2/P3 or P8                                                          |
-| Phase 1 audit                       | ChatGPT/Architect audit of this report; Phase 1 is "approved with conditions" only after it                                                                    |
+| Item                                | Needed from / state                                                                                                                                                            |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Approve S9 (this report)            | **Approved and merged 2026-10-31** (PR #38, `d769cf0`)                                                                                                                         |
+| Live migration `20261031120000_...` | **Done 2026-10-31, Owner-approved** (section 7)                                                                                                                                |
+| `e2e` as a required check           | **Done 2026-10-31** (added to the `main` protection: db-integration, verify, e2e)                                                                                              |
+| NFR-PERF-04                         | Met on a hosted runner (6.2). Open: one in-region measurement from a deployed `bom1` function, with the first real dashboard traffic (P2)                                      |
+| Sentry (DG-23)                      | Owner creates the EU project and sets the two DSN variables in Vercel; then a live event proof                                                                                 |
+| Sites rate limit (RL-1, DG-23)      | **Done 2026-10-31:** Vercel Firewall rule "Rate limit sites per IP" (600 requests / 60 s per IP) published on the sites project                                                |
+| DG-20 / DG-21                       | **Done 2026-10-31 (Owner-approved):** production variables set, both projects redeployed, sites production alias promoted (health 200, unknown host 404); see the gap register |
+| DG-10 / DG-16                       | Unchanged: real e-mail domain; production Turnstile widget                                                                                                                     |
+| FR-OBS-01 remainder                 | Metrics, OpenTelemetry, uptime checks, alert runbooks are not in P1; confirm they move to P2/P3 or P8                                                                          |
+| Phase 1 audit                       | ChatGPT/Architect audit of this report; Phase 1 is "approved with conditions" only after it                                                                                    |
