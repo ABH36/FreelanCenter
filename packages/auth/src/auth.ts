@@ -18,6 +18,11 @@ import type { EmailProvider } from '@platform/providers';
 import { type AuditWriter, type AuthAuditEvent, type RawQueryClient, createAuditWriter } from './audit';
 import type { AuthConfig } from './config';
 import { type Defer, createAuthMailer, inlineDefer } from './mail';
+import {
+  createsSessionOutsidePluginHook,
+  holdSessionForTotp,
+  pendingChallengeUserId,
+} from './sign-in-challenge';
 
 /** The `app_auth` Prisma client (`createAuthPrismaClient` from @platform/db). */
 export type AuthPrismaClient = Parameters<typeof prismaAdapter>[0] &
@@ -200,6 +205,21 @@ export function createAuth(deps: AuthDeps) {
         }
       }),
       after: createAuthMiddleware(async (ctx) => {
+        // DG-22 / S8-2: Google and the e-mail-verification auto sign-in must not hand a 2FA user a session without
+        // a code. Runs first; when it applies it replaces the response, so nothing below sees a session.
+        if (createsSessionOutsidePluginHook(ctx.path)) {
+          const held = await holdSessionForTotp(ctx, config.baseURL, async (userId) => {
+            await audit.record({
+              action: 'auth.mfa.challenge_issued',
+              result: 'success',
+              actorUserId: userId,
+              targetId: userId,
+              metadata: { via: ctx.path?.startsWith('/callback/') ? 'oauth' : (ctx.path ?? 'unknown') },
+              ...requestMeta(ctx as unknown as HookContext),
+            });
+          });
+          if (held) return held;
+        }
         const failed = ctx.context.returned instanceof APIError;
         const actor = ctx.context.session?.user.id ?? null;
         const meta = requestMeta(ctx as unknown as HookContext);
@@ -222,7 +242,8 @@ export function createAuth(deps: AuthDeps) {
               await audit.record({
                 action: 'auth.mfa.challenge_failed',
                 result: 'failure',
-                actorUserId: actor,
+                // Pending sign-in challenge: no session yet, so the user comes from the signed challenge cookie.
+                actorUserId: actor ?? (await pendingChallengeUserId(ctx)),
                 metadata: { code, method: ctx.path.endsWith('totp') ? 'totp' : 'backup_code' },
                 ...meta,
               });

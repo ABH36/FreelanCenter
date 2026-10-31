@@ -143,7 +143,7 @@ From the status change in the database to the new page on the sites side: **abou
 
 **Not run live:** a signed-in non-admin opening `/admin` (404). It is covered by `adminContext` and the database suites (`is_admin` false, every function 42501).
 
-**Observed, by design.** Suspend asks for confirmation and reactivate does not (`StatusForm`): only the action that takes sites offline is destructive. A wrong code writes two rows: `auth.mfa.challenge_failed` from the auth hook and `admin.step_up.failed`. Saving a status re-renders the page, so a change is followed by one `admin.workspace.viewed` row. Google sign-in shows no TOTP challenge (S8-2); only the step-up of the console asks for a code.
+**Observed, by design.** Suspend asks for confirmation and reactivate does not (`StatusForm`): only the action that takes sites offline is destructive. A wrong code writes two rows: `auth.mfa.challenge_failed` from the auth hook and `admin.step_up.failed`. Saving a status re-renders the page, so a change is followed by one `admin.workspace.viewed` row. Google sign-in shows no TOTP challenge (S8-2; closed afterwards by DG-22, `PHASE_1_DG22_GOOGLE_TOTP.md`); only the step-up of the console asks for a code.
 
 ## 7. Mutation check
 

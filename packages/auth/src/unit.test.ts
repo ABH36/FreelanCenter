@@ -140,3 +140,30 @@ describe('auth mail', () => {
     expect(errors).toHaveLength(1);
   });
 });
+
+describe('sign-in challenge helpers (DG-22)', () => {
+  const base = 'https://app.example.test';
+
+  it('only the paths that bypass the plugin hook are matched', async () => {
+    const { createsSessionOutsidePluginHook: matches } = await import('./sign-in-challenge');
+    expect(['/callback/:id', '/callback/google', '/sign-in/social', '/verify-email'].every(matches)).toBe(
+      true,
+    );
+    expect(
+      ['/sign-in/email', '/two-factor/verify-totp', '/get-session', '/sign-up/email', undefined].some(
+        matches,
+      ),
+    ).toBe(false);
+  });
+
+  it('safeReturnTo keeps same-origin paths and sends everything else home', async () => {
+    const { safeReturnTo } = await import('./sign-in-challenge');
+    expect(safeReturnTo(`${base}/w/acme?tab=sites`, base)).toBe('/w/acme?tab=sites');
+    expect(safeReturnTo('/after', base)).toBe('/after');
+    expect(safeReturnTo('https://evil.example/x', base)).toBe('/');
+    expect(safeReturnTo('//evil.example/x', base)).toBe('/');
+    expect(safeReturnTo('/two-factor?callbackURL=/', base)).toBe('/');
+    expect(safeReturnTo(null, base)).toBe('/');
+    expect(safeReturnTo('http://[bad', base)).toBe('/');
+  });
+});

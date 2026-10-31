@@ -1,6 +1,6 @@
 # 01 — Identity, Tenancy and Access
 
-**Status:** Partially implemented (P1). Authentication (FR-AUTH-01..04, -07) landed in P1 S4: `packages/auth`, dashboard pages, product auth suite; evidence `docs/reports/PHASE_1_S4_DASHBOARD_AUTH.md`. Workspaces, membership, RBAC (`authorize()` + tested SRS 7 matrix) and invitations (FR-AUTH-05, -06, -08, FR-WS-01..03, SEC-10) landed in P1 S5: `packages/workspaces`, `@platform/auth/rbac`, migration `p1_s5_workspaces_rbac`, dashboard `/w/<slug>` routes and `/invite/<token>`; evidence `docs/reports/PHASE_1_S5_WORKSPACES_RBAC.md` (implemented, pending phase audit). **SRS:** FR-AUTH-01..08, FR-WS-01..05, SEC-01..07. **Owner:** Platform team.
+**Status:** Partially implemented (P1). Authentication (FR-AUTH-01..04, -07) landed in P1 S4: `packages/auth`, dashboard pages, product auth suite; evidence `docs/reports/PHASE_1_S4_DASHBOARD_AUTH.md`. Workspaces, membership, RBAC (`authorize()` + tested SRS 7 matrix) and invitations (FR-AUTH-05, -06, -08, FR-WS-01..03, SEC-10) landed in P1 S5: `packages/workspaces`, `@platform/auth/rbac`, migration `p1_s5_workspaces_rbac`, dashboard `/w/<slug>` routes and `/invite/<token>`; evidence `docs/reports/PHASE_1_S5_WORKSPACES_RBAC.md` (implemented, pending phase audit). A TOTP challenge after Google sign-in and after the e-mail-verification auto sign-in (DG-22, ADR-006 addition; `packages/auth/src/sign-in-challenge.ts`) is built and awaiting Owner approval and its live round trip: `docs/reports/PHASE_1_DG22_GOOGLE_TOTP.md`. **SRS:** FR-AUTH-01..08, FR-WS-01..05, SEC-01..07. **Owner:** Platform team.
 
 ## Outcome and scope
 
@@ -27,6 +27,7 @@ Auth failure responses must not reveal whether an account exists. Login, reset, 
 - Secure httpOnly/SameSite cookies; session rotation and “log out all devices”.
 - Password-reset and magic tokens: random, short-lived, single-use, hashed at rest.
 - MFA is mandatory before enabling payout or white-label functions.
+- A user with 2FA on gets no session from any sign-in path (password, Google, e-mail-verification link) until a valid TOTP or backup code; the session is held behind the plugin's challenge state (ADR-006, DG-22).
 - Authorization is checked at service/API boundaries; UI hiding is not authorization.
 - Duplicate callback/invite acceptance must be safe and idempotent.
 
