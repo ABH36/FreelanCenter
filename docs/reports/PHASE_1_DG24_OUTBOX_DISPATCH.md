@@ -28,11 +28,11 @@ Suspending the 1,200-project perf workspace through the admin console committed 
 
 ### 3.1 Decisions for review
 
-| ID  | Decision                                                                                                                                                                                                                                                                                                       |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D1  | Chunk size 100 per request and per mark step: well inside Inngest's request limits, about 12 requests for 1,200 projects, and a request that ends early leaves at most one chunk undispatched                                                                                                                  |
-| D2  | **Not done:** one event per workspace expanded by the job (the other idea in DG-24). It would change the S8 function, the event contract and need a live migration, for a gain batching already gives (12 requests instead of 1,200). Revisit if a single workspace ever reaches tens of thousands of projects |
-| D3  | The 1,200 rows of the suspended perf workspace stay as they are; they are cleared by the first sweep that runs with this code (Production sweep needs Inngest, DG-10). I did not touch live data in this slice                                                                                                 |
+| ID  | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | Chunk size 100 per request and per mark step: well inside Inngest's request limits, about 12 requests for 1,200 projects, and a request that ends early leaves at most one chunk undispatched                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| D2  | **Not done:** one event per workspace expanded by the job (the other idea in DG-24). It would change the S8 function, the event contract and need a live migration, for a gain batching already gives (12 requests instead of 1,200). Revisit if a single workspace ever reaches tens of thousands of projects                                                                                                                                                                                                                                                                                                                                                                                           |
+| D3  | **Live proof, done 2026-11-01 (Owner delegated the decision).** The 1,200 pending rows of the suspended perf workspace were dispatched through the production path (`outbox.dispatch` with all 1,200 ids) against the live database with this code, from a temporary test (deleted afterwards, not committed). Result: chunks of at most 100, nothing pending afterwards (read back as `svc_definer`: 3,000 outbox rows for that workspace, 0 undispatched, max attempts 1). The cache and jobs were the local emulator and inline transport, so no live Upstash key or Inngest event was touched; the live writes were only the `dispatched_at`/`attempts` marks on that synthetic workspace's own rows |
 
 ## 4. Security and failure-path review
 
@@ -48,7 +48,7 @@ Suspending the 1,200-project perf workspace through the admin console committed 
 
 **CI-equivalent run (2026-11-01, clean worktree `../dg24-wt` at `2a80e62`):** format, sync-plan, lint, typecheck, unit tests, traceability diff, build, `pnpm audit --high`, bootstrap (twice), migrate, configure, drift, `db:verify`: pass. `@platform/db` integration with coverage 101 (twice), isolation 189, mutation check, auth suite 191 x3, workspaces 126 (was 124), jobs 8 (was 7), hosting 21, E2E 6/6: pass. `test:perf` fails on this laptop as before (CPU-bound single Node process; the hosted-runner `perf` job in CI passes, see `PHASE_1_REPORT.md` 6.2); this slice does not touch the measured operations.
 
-Not run: a live suspension of a large workspace with the new code (D3); the Production Inngest transport (DG-10).
+Live: the 1,200-row dispatch of D3. Not run: a fresh live suspension of a large workspace; the Production Inngest transport (DG-10).
 
 ## 6. Compatibility, migration and rollback
 
@@ -56,8 +56,8 @@ No migration, no schema or contract change; `JobEmitter` gained one method (all 
 
 ## 7. Open items and decisions for the Owner
 
-| Item                                                         | State                                                                                                                          |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| Approve DG-24 (report)                                       | Owner (D1-D3)                                                                                                                  |
-| Clear the 1,200 pending rows of the suspended perf workspace | Optional, needs your OK: run the sweep once against the live database with this code, or wait for the Production sweep (DG-10) |
-| Gap register                                                 | DG-24 closes with the merge of the PR                                                                                          |
+| Item                                                         | State                                 |
+| ------------------------------------------------------------ | ------------------------------------- |
+| Approve DG-24 (report)                                       | Owner (D1-D3)                         |
+| Clear the 1,200 pending rows of the suspended perf workspace | **Done 2026-11-01** (D3)              |
+| Gap register                                                 | DG-24 closes with the merge of the PR |
