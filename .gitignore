@@ -42,3 +42,6 @@ tests/isolation/results/
 # Playwright output (tests/e2e)
 tests/e2e/results/
 tests/e2e/report/
+
+# Vercel CLI project links (P1 S9 follow-up)
+.vercel/

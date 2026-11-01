@@ -163,3 +163,36 @@ jobs:
       - name: Database logs on failure
         if: failure()
         run: docker compose -f packages/db/docker/compose.yml logs --no-color --tail 300
+
+  # NFR-PERF-04 (P1 S10): the dashboard service p95 harness on a hosted runner (4 vCPU), where the local database
+  # costs no network. Informational, not a required check: it prints the table and uploads report.json so the
+  # Phase 1 audit has a reproducible number that is not a developer laptop. `continue-on-error` keeps a budget
+  # miss from blocking unrelated PRs; the result is in the job summary.
+  perf:
+    name: NFR-PERF-04 dashboard p95 (informational)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @platform/db generate
+      - run: pnpm --filter @platform/db db:setup
+      - name: Measure
+        run: pnpm --filter @platform/workspaces test:perf
+      - name: Summary and report
+        if: always()
+        run: |
+          echo '### NFR-PERF-04 (p95 ms, budget 500)' >> "$GITHUB_STEP_SUMMARY"
+          node -e "const r=require('./packages/workspaces/test/perf/report.json');const o=r.report;for(const [k,v] of Object.entries(o))console.log('- '+k+': p50 '+v.p50+' / p95 '+v.p95)" >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: perf-report
+          path: packages/workspaces/test/perf/report.json
+          if-no-files-found: warn
