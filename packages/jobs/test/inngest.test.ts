@@ -203,4 +203,19 @@ describe('S7: host-cache invalidation through the signed executor', () => {
       invalidated.filter((h) => h.projectId === event.projectId).length === 2 ? true : undefined,
     );
   });
+
+  it('DG-24: a batch of 20 events in one call is delivered once each, even when re-sent', async () => {
+    const workspaceId = randomUUID();
+    const items = Array.from({ length: 20 }, () => ({
+      ids: { workspaceId, projectId: randomUUID() } satisfies SiteHostsChanged,
+      eventId: randomUUID(),
+    }));
+    await jobs.emitter.siteHostsChangedMany(items);
+    await jobs.emitter.siteHostsChangedMany(items);
+    const mine = () => invalidated.filter((h) => h.workspaceId === workspaceId);
+    await waitFor('batch invalidation', () => (mine().length >= 20 ? true : undefined));
+    await new Promise((r) => setTimeout(r, 5_000));
+    expect(mine()).toHaveLength(20);
+    expect(new Set(mine().map((h) => h.projectId)).size).toBe(20);
+  });
 });

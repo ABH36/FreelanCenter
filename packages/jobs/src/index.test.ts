@@ -249,4 +249,46 @@ describe('S7: host-cache invalidation', () => {
     );
     await expect(without.emitter.siteHostsChanged(H, { eventId: 'y' })).rejects.toThrow(/no host-cache/);
   });
+
+  it('inline many: one deferred task runs the events one at a time (DG-24)', async () => {
+    const tasks: Array<() => Promise<void>> = [];
+    let running = 0;
+    let peak = 0;
+    const seen: string[] = [];
+    const hostCacheInvalidation = {
+      invalidate: vi.fn(async (ids: typeof H) => {
+        running += 1;
+        peak = Math.max(peak, running);
+        await new Promise((r) => setTimeout(r, 1));
+        seen.push(ids.projectId);
+        running -= 1;
+        if (seen.length === 2) throw new Error('cache down');
+        return { hosts: 1 };
+      }),
+      deadLetter: vi.fn(async () => {}),
+    };
+    const jobs = createInlineJobs(
+      { invitationEmail: { deliver: vi.fn(), deadLetter: vi.fn() }, hostCacheInvalidation },
+      (t) => void tasks.push(t),
+    );
+    const items = Array.from({ length: 5 }, (_, i) => ({
+      ids: { workspaceId: H.workspaceId, projectId: crypto.randomUUID() },
+      eventId: 'e' + i,
+    }));
+    await jobs.emitter.siteHostsChangedMany(items);
+    expect(tasks).toHaveLength(1);
+    expect(hostCacheInvalidation.invalidate).not.toHaveBeenCalled();
+    await tasks[0]!();
+    expect(seen).toEqual(items.map((i) => i.ids.projectId));
+    expect(peak).toBe(1);
+    // A failing event is dead-lettered and the rest still run.
+    expect(hostCacheInvalidation.deadLetter).toHaveBeenCalledTimes(1);
+    await jobs.emitter.siteHostsChangedMany([]);
+    expect(tasks).toHaveLength(1);
+    // A malformed payload fails the whole call before anything is queued.
+    await expect(
+      jobs.emitter.siteHostsChangedMany([{ ids: { workspaceId: 'x', projectId: 'y' }, eventId: 'bad' }]),
+    ).rejects.toThrow();
+    expect(tasks).toHaveLength(1);
+  });
 });
