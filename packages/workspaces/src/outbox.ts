@@ -17,6 +17,8 @@ export const OUTBOX_EVENTS = {
 } as const;
 
 export const SWEEP_BATCH = 100;
+/** Host-change events sent per request and marked dispatched per step (DG-24). */
+export const DISPATCH_CHUNK = 100;
 /** An undispatched row younger than this is still being dispatched by its request. */
 export const SWEEP_MIN_AGE_SECONDS = 60;
 
@@ -45,9 +47,40 @@ export function createOutbox(deps: OutboxDeps) {
     }
   }
 
+  /** Marks emitted rows dispatched and counts a failure on each row that was not (the sweep retries those). */
+  async function settle(
+    workspaceId: string,
+    done: readonly string[],
+    failures: ReadonlyArray<{ id: string; error: string }>,
+  ): Promise<void> {
+    if (done.length === 0 && failures.length === 0) return;
+    await db
+      .withJobTenant(workspaceId, async (tx) => {
+        if (done.length) {
+          await tx.outboxEvent.updateMany({
+            where: { id: { in: [...done] }, dispatchedAt: null },
+            data: { dispatchedAt: new Date(), attempts: { increment: 1 } },
+          });
+        }
+        for (const f of failures) {
+          await tx.outboxEvent.updateMany({
+            where: { id: f.id, dispatchedAt: null },
+            data: { attempts: { increment: 1 }, lastError: f.error },
+          });
+        }
+      })
+      .catch((e: unknown) => logger?.error('outbox.mark_failed', e, { workspaceId }));
+  }
+
+  const failureOf = (error: unknown): string =>
+    redactString(error instanceof Error ? error.message : String(error)).slice(0, 500);
+
   /**
-   * Emits the given rows of one workspace (those still undispatched) and marks the emitted ones dispatched: one
-   * read, one update, plus one update per failure (counted on the row, left for the sweep).
+   * Emits the given rows of one workspace (those still undispatched) and marks the emitted ones dispatched.
+   * Host-change events (one per project, so a suspension of a large workspace writes thousands) go out in
+   * batches of DISPATCH_CHUNK per request, each batch marked dispatched as soon as it is sent: the work is
+   * bounded per step, progress survives a request that ends early, and what is left is picked up by the sweep
+   * (DG-24). Other events are emitted one at a time.
    */
   async function dispatchBatch(
     workspaceId: string,
@@ -57,41 +90,55 @@ export function createOutbox(deps: OutboxDeps) {
       tx.outboxEvent.findMany({
         where: { id: { in: [...ids] }, dispatchedAt: null },
         select: { id: true, event: true, payload: true },
+        orderBy: { createdAt: 'asc' },
       }),
     );
+    let ok = 0;
+    let failed = 0;
+
+    const hostRows = rows.filter((r) => r.event === OUTBOX_EVENTS.siteHostsChanged);
+    for (let i = 0; i < hostRows.length; i += DISPATCH_CHUNK) {
+      const chunk = hostRows.slice(i, i + DISPATCH_CHUNK);
+      const items: Array<{ id: string; ids: ReturnType<typeof parseSiteHostsChanged> }> = [];
+      const failures: Array<{ id: string; error: string }> = [];
+      for (const row of chunk) {
+        try {
+          items.push({ id: row.id, ids: parseSiteHostsChanged(row.payload) });
+        } catch (error) {
+          logger?.warn('outbox.emit_failed', { workspaceId, outboxId: row.id, event: row.event });
+          failures.push({ id: row.id, error: failureOf(error) });
+        }
+      }
+      let done: string[] = [];
+      try {
+        await jobs.siteHostsChangedMany(items.map((it) => ({ ids: it.ids, eventId: it.id })));
+        done = items.map((it) => it.id);
+      } catch (error) {
+        logger?.warn('outbox.emit_failed', {
+          workspaceId,
+          event: OUTBOX_EVENTS.siteHostsChanged,
+          count: items.length,
+        });
+        for (const it of items) failures.push({ id: it.id, error: failureOf(error) });
+      }
+      await settle(workspaceId, done, failures);
+      ok += done.length;
+      failed += failures.length;
+    }
+
     const done: string[] = [];
     const failures: Array<{ id: string; error: string }> = [];
-    for (const row of rows) {
+    for (const row of rows.filter((r) => r.event !== OUTBOX_EVENTS.siteHostsChanged)) {
       try {
         await emit(row.event, row.payload, row.id);
         done.push(row.id);
       } catch (error) {
         logger?.warn('outbox.emit_failed', { workspaceId, outboxId: row.id, event: row.event });
-        failures.push({
-          id: row.id,
-          error: redactString(error instanceof Error ? error.message : String(error)).slice(0, 500),
-        });
+        failures.push({ id: row.id, error: failureOf(error) });
       }
     }
-    if (done.length || failures.length) {
-      await db
-        .withJobTenant(workspaceId, async (tx) => {
-          if (done.length) {
-            await tx.outboxEvent.updateMany({
-              where: { id: { in: done }, dispatchedAt: null },
-              data: { dispatchedAt: new Date(), attempts: { increment: 1 } },
-            });
-          }
-          for (const f of failures) {
-            await tx.outboxEvent.updateMany({
-              where: { id: f.id, dispatchedAt: null },
-              data: { attempts: { increment: 1 }, lastError: f.error },
-            });
-          }
-        })
-        .catch((e: unknown) => logger?.error('outbox.mark_failed', e, { workspaceId }));
-    }
-    return { ok: rows.length - failures.length, failed: failures.length };
+    await settle(workspaceId, done, failures);
+    return { ok: ok + done.length, failed: failed + failures.length };
   }
 
   async function dispatchNow(workspaceId: string, ids: readonly string[]): Promise<void> {

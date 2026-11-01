@@ -97,6 +97,13 @@ export interface JobEmitter {
   notificationEmailRequested(ids: NotificationEmailRequested, options: { eventId: string }): Promise<void>;
   /** `eventId` is the outbox row id, as above. */
   siteHostsChanged(ids: SiteHostsChanged, options: { eventId: string }): Promise<void>;
+  /**
+   * Many `siteHostsChanged` events in one call (DG-24): a suspension writes one event per project, and sending
+   * them one request at a time cannot finish inside a request's lifetime for a large workspace. The Inngest
+   * transport sends them as one batched request; the inline transport runs them one after another in a single
+   * deferred task. The caller chooses the batch size (the outbox uses 100).
+   */
+  siteHostsChangedMany(items: ReadonlyArray<{ ids: SiteHostsChanged; eventId: string }>): Promise<void>;
 }
 
 export type RouteHandler = (request: Request) => Promise<Response>;
@@ -290,6 +297,16 @@ export function createInngestJobs(
         const data = parseSiteHostsChanged(ids);
         await client.send({ id: `outbox:${eventId}`, name: EVENTS.siteHostsChanged, data });
       },
+      async siteHostsChangedMany(items) {
+        if (items.length === 0) return;
+        // Parse everything first: one malformed payload fails the call before anything is sent.
+        const events = items.map(({ ids, eventId }) => ({
+          id: `outbox:${eventId}`,
+          name: EVENTS.siteHostsChanged,
+          data: parseSiteHostsChanged(ids),
+        }));
+        await client.send(events);
+      },
     },
     route: {
       GET: route.GET as RouteHandler,
@@ -353,6 +370,27 @@ export function createInlineJobs(handlers: JobHandlers, defer: Defer): Jobs {
               runId: 'inline',
               error: errorMessage(error),
             });
+          }
+        });
+      },
+      async siteHostsChangedMany(items) {
+        if (items.length === 0) return;
+        const handler = handlers.hostCacheInvalidation;
+        if (!handler) throw new Error('no host-cache invalidation handler is configured');
+        const batch = items.map(({ ids }) => parseSiteHostsChanged(ids));
+        // One task, one event at a time: a large suspension must not turn into one concurrent task per project.
+        defer(async () => {
+          for (const data of batch) {
+            try {
+              await handler.invalidate(data);
+            } catch (error) {
+              await handler.deadLetter({
+                ids: data,
+                functionId: HOST_CACHE_INVALIDATION_FUNCTION.id,
+                runId: 'inline',
+                error: errorMessage(error),
+              });
+            }
           }
         });
       },
