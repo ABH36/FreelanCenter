@@ -47,7 +47,16 @@ Templates are data validated by the same closed schema as any creator package (A
 
 ## 6. CI-equivalent run
 
-(filled in after the clean-worktree run)
+Clean worktree at `538be8a`, `pnpm install --frozen-lockfile`, steps in the order of the `verify` and `audit` jobs of `.github/workflows/ci.yml`. Every step passed on the first run:
+
+| Step                                                               | Result                                                          |
+| ------------------------------------------------------------------ | --------------------------------------------------------------- |
+| format:check, sync-plan:check, lint                                | pass                                                            |
+| typecheck                                                          | pass, 17/17 tasks                                               |
+| `pnpm test`                                                        | pass, 15/15 tasks (includes templates 25, blocks 70, schema 44) |
+| traceability regenerate and diff, build (3/3), `pnpm audit --high` | pass                                                            |
+
+**Not run:** the database jobs (`db-integration`, isolation, integration suites, `e2e`, `perf`) and `secrets` (gitleaks, Docker). S5a changes no database, migration, auth or workspace code; CI runs them on the PR.
 
 ## 7. Compatibility, migration, rollback
 
