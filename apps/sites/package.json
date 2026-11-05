@@ -14,6 +14,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@platform/blocks": "workspace:*",
     "@platform/db": "workspace:*",
     "@platform/hosting": "workspace:*",
     "@platform/logger": "workspace:*",

@@ -5,8 +5,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parseSiteConfig } from '@platform/schema';
-import { renderSections, type BlockErrorInfo } from './index';
-import { allDefaultSections, baseConfig, ctxFor, html } from './test-helpers';
+import { renderSections, serialize, type BlockErrorInfo } from './index';
+import { allDefaultSections, baseConfig, ctxFor, html, normalizeHtml } from './test-helpers';
 
 function rng(seed: number) {
   let s = seed >>> 0;
@@ -77,6 +77,9 @@ describe('fuzz: schema-valid configs render safely', () => {
           .join('');
       }).not.toThrow();
       rendered += out.length > 0 ? 1 : 0;
+      // The production serialiser must agree with react-dom/server on every accepted config.
+      const sections = renderSections(cfg.pages[0]?.sections ?? [], ctx).nodes;
+      expect(normalizeHtml(sections.map((n) => serialize(n.node)).join(''))).toBe(normalizeHtml(out));
       // A config the schema accepted must never make a block fail.
       expect(errors, JSON.stringify(errors)).toEqual([]);
       // Tag context only: hostile *text* (escaped) may legitimately contain words like onerror= or javascript:.

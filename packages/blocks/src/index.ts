@@ -7,6 +7,9 @@ export const PACKAGE_NAME = '@platform/blocks' as const;
 
 export * from './context';
 export * from './cta';
+export * from './document';
+export * from './seo';
+export { serialize } from './serialize';
 export * from './chrome';
 export * from './error-boundary';
 export { Icon, ICON_NAMES } from './icons';

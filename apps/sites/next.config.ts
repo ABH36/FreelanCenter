@@ -4,7 +4,7 @@ import { SECURITY_HEADERS } from './lib/security-headers';
 const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  transpilePackages: ['@platform/ui', '@platform/schema'],
+  transpilePackages: ['@platform/ui', '@platform/schema', '@platform/blocks'],
   async headers() {
     // SEC-03 baseline on every path; the host pages add a strict per-response CSP (lib/pages.ts).
     return [

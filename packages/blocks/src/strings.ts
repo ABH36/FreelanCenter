@@ -39,6 +39,9 @@ const en = {
   floatingWhatsapp: 'Chat on WhatsApp',
   floatingCall: 'Call us',
   blockUnavailable: 'This section could not be displayed.',
+  notFoundTitle: 'Page not found',
+  notFoundText: 'The page you are looking for does not exist or has moved.',
+  backHome: 'Back to the home page',
 } as const;
 
 export type StringKey = keyof typeof en;
@@ -77,6 +80,9 @@ const hi: Record<StringKey, string> = {
   floatingWhatsapp: 'WhatsApp पर चैट करें',
   floatingCall: 'हमें कॉल करें',
   blockUnavailable: 'यह सेक्शन दिखाया नहीं जा सका।',
+  notFoundTitle: 'पेज नहीं मिला',
+  notFoundText: 'आप जो पेज ढूँढ रहे हैं वह मौजूद नहीं है या हटा दिया गया है।',
+  backHome: 'होम पेज पर वापस जाएँ',
 };
 
 export const STRINGS: Record<Locale, Record<StringKey, string>> = { en, hi };

@@ -10,3 +10,4 @@ DEVELOPMENT_PLAN.md
 docs/traceability.md
 spikes/**/results/*.json
 packages/schema/json-schema/
+packages/blocks/src/css-bundle.ts

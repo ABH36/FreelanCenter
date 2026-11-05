@@ -72,3 +72,19 @@ export function allDefaultSections(): Section[] {
 }
 
 export const html = (node: ReactNode) => renderToStaticMarkup(<>{node}</>);
+
+/** Canonical form for comparing two HTML strings that differ only in attribute order/case, void-tag style and quote entities. */
+export function normalizeHtml(markup: string): string {
+  return markup
+    .replace(
+      /<([a-zA-Z][a-zA-Z0-9]*)((?:\s+[^\s=>/]+(?:="[^"]*")?)*)\s*\/?>/g,
+      (_m, tag: string, attrs: string) => {
+        const list = [...attrs.matchAll(/\s+([^\s=>/]+)(?:="([^"]*)")?/g)]
+          .map((a) => `${(a[1] ?? '').toLowerCase()}="${a[2] ?? ''}"`)
+          .sort();
+        return `<${tag.toLowerCase()}${list.length ? ` ${list.join(' ')}` : ''}>`;
+      },
+    )
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;|&#39;/g, "'");
+}
