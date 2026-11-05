@@ -1,15 +1,15 @@
-# Phase 2, slice 5b: template tables, catalogue and seed (live migration pending)
+# Phase 2, slice 5b: template tables, catalogue and seed
 
-**Status:** built on `feat/p2-s5b-template-tables`, approved by the Owner 2026-11-05 (code, tests, report). **The migration is NOT applied live;** the live migration and the live seed need the Owner's separate approval. **Date:** 2026-11-05 · **Plan:** `docs/IMPLEMENTATION_PLAN.md`, Phase 2 data model (`Template`, `TemplateVersion`) · **Module:** `docs/modules/04-template-engine-renderer.md` · **Depends on:** S5a (PR #48).
+**Status:** merged (PR #49, `461e3c5`). **Applied live on 2026-11-05 with the Owner's approval (migration and seed, section 9).** **Date:** 2026-11-05 · **Plan:** `docs/IMPLEMENTATION_PLAN.md`, Phase 2 data model (`Template`, `TemplateVersion`) · **Module:** `docs/modules/04-template-engine-renderer.md` · **Depends on:** S5a (PR #48).
 
 ## 1. Requirements
 
-| Requirement                                                        | State after S5b                                                                                                                                                                                                                  |
-| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Plan: `Template`, `TemplateVersion` (built-ins platform-owned)     | Implemented on the local stack: two tables, immutable versions, platform built-ins (`workspace_id` NULL) and private workspace templates, catalogue functions, seed command. **Not live until the Owner approves the migration** |
-| FR-TPL-01 / FR-TPL-10 (templates stored as validated data)         | The three reference templates are loadable from the database through the catalogue; the seed file is generated from the S5a definitions with the real `templateSchema`                                                           |
-| ADR-004 (no creator code), SEC-16 (marketplace safety, groundwork) | Tenants cannot create platform or marketplace templates; versions are immutable; content is bounded JSON; marketplace visibility is reserved for P6 and is not writable by tenants                                               |
-| SEC-01/02 (RLS, isolation suite as merge gate)                     | Both tables are in the isolation matrix and IDOR harness (216 tests); the mutation check has two new mutations (13/13 killed)                                                                                                    |
+| Requirement                                                        | State after S5b                                                                                                                                                                    |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Plan: `Template`, `TemplateVersion` (built-ins platform-owned)     | Implemented and **live** (section 9): two tables, immutable versions, platform built-ins (`workspace_id` NULL) and private workspace templates, catalogue functions, seed command  |
+| FR-TPL-01 / FR-TPL-10 (templates stored as validated data)         | The three reference templates are loadable from the database through the catalogue; the seed file is generated from the S5a definitions with the real `templateSchema`             |
+| ADR-004 (no creator code), SEC-16 (marketplace safety, groundwork) | Tenants cannot create platform or marketplace templates; versions are immutable; content is bounded JSON; marketplace visibility is reserved for P6 and is not writable by tenants |
+| SEC-01/02 (RLS, isolation suite as merge gate)                     | Both tables are in the isolation matrix and IDOR harness (216 tests); the mutation check has two new mutations (13/13 killed)                                                      |
 
 Nothing is marked "verified".
 
@@ -70,9 +70,9 @@ Clean worktree, `pnpm install --frozen-lockfile`, steps in the order of `.github
 
 **Not run:** the `secrets` job (gitleaks, Docker image), the Playwright `e2e` job and the `perf` job (S5b changes no app or service code; CI runs them on the PR), the live Supabase suite (no live change).
 
-## 7. Live migration plan (requires the Owner's separate approval)
+## 7. Live migration plan (approved and executed, see section 9)
 
-Nothing below has been run against the live Supabase database. Proposed procedure, same shape as the approved P1 S9 migration:
+Procedure, same shape as the approved P1 S9 migration (executed as written):
 
 1. **Read-only pre-check** as `migrator` on the live database: remote host, no BYPASSRLS, S1 to S9 migrations applied, `20261105120000_p2_s5b_templates` absent, `app.templates` absent.
 2. **Apply:** `prisma migrate deploy` with `DB_TARGET=env` (forward-only; creates two enums, two tables, five trigger/guard functions, four definer functions, policies and grants; no change to existing tables, no data change).
@@ -85,3 +85,22 @@ Nothing below has been run against the live Supabase database. Proposed procedur
 
 1. **S5b approved** (code, tests, report). This is not an approval to touch the live database.
 2. **Live migration and live seed: not yet approved.** After the PR is merged I will show the read-only pre-check output on the live database and ask for approval of the migration and, separately, of the seed.
+
+## 9. Live application (2026-11-05, Owner-approved: "A. Live migration, B. Live seed")
+
+Run from the developer machine against the Supabase `ap-south-1` project, as `migrator` (non-superuser, no BYPASSRLS). No secret was printed or stored; the scripts print counts, names and booleans only.
+
+| Step                                         | Result                                                                                                                                                                                                                                                                                    |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Read-only pre-check (read-only transaction)  | remote host; `migrator` not superuser, no BYPASSRLS; 6 migrations (S1 to S9) all finished and none rolled back; `app.templates`, `app.template_versions`, the four functions and the two enums **absent**; `migrator` can `SET ROLE svc_definer`                                          |
+| `prisma migrate deploy` (`DB_TARGET=env`)    | applied `20261105120000_p2_s5b_templates`                                                                                                                                                                                                                                                 |
+| `prisma migrate status`                      | database schema is up to date (7 migrations)                                                                                                                                                                                                                                              |
+| Live database vs `schema.prisma`             | no difference detected                                                                                                                                                                                                                                                                    |
+| `db:verify --target env`                     | **31 passed, 0 failed** (includes: `app_public` executes exactly the resolver and the two catalogue functions, can list the catalogue, cannot publish)                                                                                                                                    |
+| `test:live`                                  | 2 files: 6 passed, 1 skipped (same as the S9 live run)                                                                                                                                                                                                                                    |
+| `db:seed-templates --target env --dry-run`   | 3 templates verified, nothing sent                                                                                                                                                                                                                                                        |
+| `db:seed-templates --target env`             | `gym-bold`, `taxi-quick`, `wedding-royal`: version 1 written                                                                                                                                                                                                                              |
+| Same command again                           | all three **unchanged** (idempotent)                                                                                                                                                                                                                                                      |
+| Read-back as `app_public` (the visitor role) | the catalogue lists the three at version 1; for each, the stored config and manifest are byte-for-byte the seed file's (canonical JSON) and the content hash matches; the visitor **cannot** call the operator publish function and **cannot** read `app.templates` directly (both 42501) |
+
+Nothing else on the live database changed: no existing table, role, policy or data was touched. The sites production deployment is unaffected (it still serves the placeholder; the preview route that reads the catalogue is S6).
