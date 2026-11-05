@@ -42,6 +42,7 @@ const en = {
   notFoundTitle: 'Page not found',
   notFoundText: 'The page you are looking for does not exist or has moved.',
   backHome: 'Back to the home page',
+  previewBanner: 'Preview of the "{name}" template: demo content, not a live website.',
 } as const;
 
 export type StringKey = keyof typeof en;
@@ -83,6 +84,7 @@ const hi: Record<StringKey, string> = {
   notFoundTitle: 'पेज नहीं मिला',
   notFoundText: 'आप जो पेज ढूँढ रहे हैं वह मौजूद नहीं है या हटा दिया गया है।',
   backHome: 'होम पेज पर वापस जाएँ',
+  previewBanner: '"{name}" टेम्पलेट का प्रीव्यू: डेमो सामग्री, लाइव वेबसाइट नहीं।',
 };
 
 export const STRINGS: Record<Locale, Record<StringKey, string>> = { en, hi };

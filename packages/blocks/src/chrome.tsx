@@ -2,7 +2,7 @@
  * Site chrome: header with navigation, footer and the floating contact buttons (FR-TPL-02). They are driven by the
  * config's `navigation` and `footer`, not by sections, so a page cannot lose its navigation by deleting a section.
  */
-import { resolveCta, resolveHref } from './cta';
+import { resolveCta, resolveHref, withBase } from './cta';
 import type { RenderContext } from './context';
 import { Icon } from './icons';
 import { CtaButton, Link } from './parts';
@@ -78,7 +78,7 @@ export function Header({
 }) {
   const { business, navigation, locale } = ctx;
   const items = navigation.items
-    .map((item) => ({ item, link: resolveHref(item.target) }))
+    .map((item) => ({ item, link: resolveHref(item.target, ctx.basePath) }))
     .filter(
       (
         x,
@@ -87,18 +87,19 @@ export function Header({
         link: NonNullable<ReturnType<typeof resolveHref>>;
       } => x.link !== null,
     );
+  const here = withBase(currentPath, ctx.basePath);
   const links = (
     <>
       {items.map(({ item, link }, i) => (
         <li key={i}>
           <Link href={link.href} external={link.external} className="pb-nav__link">
-            <span aria-current={link.href === currentPath ? 'page' : undefined}>{item.label}</span>
+            <span aria-current={link.href === here ? 'page' : undefined}>{item.label}</span>
           </Link>
         </li>
       ))}
     </>
   );
-  const cta = navigation.cta && resolveCta(navigation.cta, business);
+  const cta = navigation.cta && resolveCta(navigation.cta, business, ctx.basePath);
   // The logo replaces the written name only once its file exists; until then (and for assets that fail to resolve)
   // the business name is shown, so the header is never empty.
   const logoSrc = business.logo ? ctx.assetUrl(business.logo.assetId, 400) : null;
@@ -108,7 +109,7 @@ export function Header({
         {t(locale, 'skipToContent')}
       </a>
       <div className="pb-container pb-header__bar">
-        <a className="pb-brand" href="/">
+        <a className="pb-brand" href={ctx.basePath || '/'}>
           {logoSrc && business.logo ? (
             <img
               className="pb-logo"
@@ -180,7 +181,7 @@ export function Footer({ ctx, variant }: { ctx: RenderContext; variant?: 'simple
         <nav aria-label={t(locale, 'footerNavigation')}>
           <ul>
             {navigation.items.map((item, i) => {
-              const link = resolveHref(item.target);
+              const link = resolveHref(item.target, ctx.basePath);
               return link ? (
                 <li key={i}>
                   <Link href={link.href} external={link.external}>

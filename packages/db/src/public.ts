@@ -15,6 +15,21 @@ export type HostOutcome = 'placeholder' | 'maintenance' | 'unknown';
 export type HostRow =
   { outcome: 'placeholder' | 'maintenance'; workspaceId: string; projectId: string } | { outcome: 'unknown' };
 
+/** One published catalogue template with its content (P2 S5b: `app.get_catalog_template`). */
+export interface CatalogTemplate {
+  templateId: string;
+  slug: string;
+  name: string;
+  category: string;
+  visibility: string;
+  version: number;
+  schemaVersion: string;
+  /** The stored SiteConfig. Untrusted until `parseSiteConfig` has seen it. */
+  config: unknown;
+  manifest: unknown;
+  contentHash: string;
+}
+
 export interface PublicDatabaseOptions {
   connectionString: string;
   /** Client-side pool size (Spike B B-3: explicit). Default 3: one host lookup per cache miss. */
@@ -31,6 +46,11 @@ export interface PublicDatabaseOptions {
 
 export interface PublicDatabase {
   resolveHost(hostname: string): Promise<HostRow>;
+  /**
+   * A published platform or marketplace template (latest version, or the one asked for), or null for anything else:
+   * unknown, draft, archived, private or deleted look the same. Used by the preview route (FR-TPL-09).
+   */
+  getCatalogTemplate(templateId: string, version?: number): Promise<CatalogTemplate | null>;
   /** Fails unless the connection role is app_public without SUPERUSER or BYPASSRLS. */
   verifyRole(): Promise<void>;
   close(): Promise<void>;
@@ -66,6 +86,35 @@ export function createPublicDatabase(options: PublicDatabaseOptions): PublicData
         outcome: row.outcome as 'placeholder' | 'maintenance',
         workspaceId: row.workspace_id,
         projectId: row.project_id,
+      };
+    },
+
+    async getCatalogTemplate(templateId, version) {
+      const { rows } = await pool.query<{
+        template_id: string;
+        slug: string;
+        name: string;
+        category: string;
+        visibility: string;
+        version: number;
+        schema_version: string;
+        config: unknown;
+        manifest: unknown;
+        content_hash: string;
+      }>('SELECT * FROM app.get_catalog_template($1::uuid, $2::integer)', [templateId, version ?? null]);
+      const row = rows[0];
+      if (!row) return null;
+      return {
+        templateId: row.template_id,
+        slug: row.slug,
+        name: row.name,
+        category: row.category,
+        visibility: row.visibility,
+        version: row.version,
+        schemaVersion: row.schema_version,
+        config: row.config,
+        manifest: row.manifest,
+        contentHash: row.content_hash,
       };
     },
 

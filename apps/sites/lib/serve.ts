@@ -8,7 +8,9 @@ import type { HostResolver } from '@platform/hosting';
 import type { Logger } from '@platform/logger';
 import { buildRobots, buildSitemap, renderDocument } from '@platform/blocks';
 import { parseSiteConfig } from '@platform/schema';
+import { normalizeHost } from '@platform/hosting';
 import { type PageKind, pageResponse } from './pages';
+import { type PreviewDeps, servePreview } from './preview';
 import { documentResponse, textResponse } from './site-response';
 import type { SiteContent, SiteSource } from './site-source';
 
@@ -85,12 +87,25 @@ function serveSite(
 
 export async function serveHost(
   request: Request,
-  deps: { resolver: () => Promise<HostResolver>; logger: Logger; source?: SiteSource },
+  deps: {
+    resolver: () => Promise<HostResolver>;
+    logger: Logger;
+    source?: SiteSource;
+    /** Preview links (FR-TPL-09); `null` when not configured, in which case the preview host is just an unknown host. */
+    preview?: () => Promise<PreviewDeps | null>;
+  },
 ): Promise<Response> {
   const correlationId = getCorrelationIdFromHeaders(request.headers);
   const head = request.method === 'HEAD';
   return runWithContext({ correlationId, app: 'sites' }, async () => {
     try {
+      const previewDeps = deps.preview ? await deps.preview() : null;
+      if (previewDeps) {
+        const requested = normalizeHost(request.headers.get('host'));
+        if (requested === previewDeps.host) {
+          return await servePreview(request, requested, previewDeps, { head, correlationId });
+        }
+      }
       const resolver = await deps.resolver();
       const { resolution, source, hostname } = await resolver.resolve(request.headers.get('host'));
       if (resolution.outcome !== 'unknown') {

@@ -28,6 +28,8 @@ export interface RenderContext {
   readonly footer: SiteConfig['footer'];
   readonly motionPreset: MotionPreset;
   readonly locale: Locale;
+  /** Where the site is served under its host: empty normally, `/p/<token>` for a preview. Prefixes every in-site link. */
+  readonly basePath: string;
   /** `public` renders nothing for a broken block; `preview` and `draft` show a visible placeholder. */
   readonly mode: RenderMode;
   /** Resolves an asset id to a URL on our asset domain, or `null` while the asset is not available (placeholder). */
@@ -50,6 +52,7 @@ export function createContext(
     footer: config.footer,
     motionPreset: config.theme.motion.preset,
     locale: config.business.language,
+    basePath: '',
     mode: 'public',
     assetUrl: () => null,
     leadForm: null,

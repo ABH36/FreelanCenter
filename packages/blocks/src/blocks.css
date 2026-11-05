@@ -534,18 +534,29 @@
 }
 
 /* Header, navigation, footer */
+/* Hidden until focused, with the visually-hidden technique: independent of what sits above the header (a banner). */
 .pb-skip {
   position: absolute;
   left: 0.5rem;
-  top: -4rem;
+  top: 0.5rem;
   z-index: 100;
-  padding: 0.6rem 1rem;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  padding: 0;
   background: var(--color-background);
   color: var(--color-text);
-  border: 2px solid var(--color-text);
+  border: 0;
 }
 .pb-skip:focus {
-  top: 0.5rem;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip-path: none;
+  padding: 0.6rem 1rem;
+  border: 2px solid var(--color-text);
 }
 .pb-header {
   position: sticky;
@@ -725,4 +736,13 @@
   .pb-header {
     display: none;
   }
+}
+
+/* Notice above the header (preview links: demo content, not a live website) */
+.pb-banner {
+  padding: 0.5rem 1.25rem;
+  background: var(--color-text);
+  color: var(--color-background);
+  font-size: var(--text-sm);
+  text-align: center;
 }

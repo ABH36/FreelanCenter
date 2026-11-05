@@ -61,7 +61,13 @@ function baseHeaders(contentType: string, c: Common, csp: string, indexable: boo
 
 export function documentResponse(
   doc: Extract<DocumentResult, { kind: 'page' }>,
-  options: Common & { assetOrigin?: string | null; leadForm?: boolean; secure: boolean },
+  options: Common & {
+    assetOrigin?: string | null;
+    leadForm?: boolean;
+    secure: boolean;
+    /** Extra response headers (previews: `referrer-policy: no-referrer`, so the token never leaves in a Referer). */
+    extraHeaders?: Record<string, string>;
+  },
 ): Response {
   const csp = contentSecurityPolicy({
     inlineStyles: doc.inlineStyles,
@@ -69,10 +75,9 @@ export function documentResponse(
     leadForm: options.leadForm ?? false,
     secure: options.secure,
   });
-  return new Response(options.head ? null : doc.html, {
-    status: doc.status,
-    headers: baseHeaders('text/html; charset=utf-8', options, csp, doc.indexable),
-  });
+  const headers = baseHeaders('text/html; charset=utf-8', options, csp, doc.indexable);
+  for (const [k, v] of Object.entries(options.extraHeaders ?? {})) headers.set(k, v);
+  return new Response(options.head ? null : doc.html, { status: doc.status, headers });
 }
 
 /** sitemap.xml and robots.txt: plain documents that load nothing. */

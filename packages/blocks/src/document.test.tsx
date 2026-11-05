@@ -292,3 +292,105 @@ describe('failure paths: never throws, never leaks', () => {
     expect(clip('😀😀😀😀', 3)).toBe('😀😀…');
   });
 });
+
+describe('base path and banner (preview links live under /p/<token>)', () => {
+  const BASE = '/p/v1.abc_DEF-123.sig';
+  const homeSections = [
+    {
+      id: 'hero1',
+      type: 'hero',
+      variant: 'centered',
+      visible: true,
+      props: {
+        headline: 'Hello',
+        primaryCta: { label: 'About us', action: 'link', target: '/about' },
+        secondaryCta: { label: 'Services', action: 'scroll', target: '#svc' },
+      },
+    },
+    { id: 'svc', type: 'services', variant: 'list', visible: true, props: { items: [{ title: 'One' }] } },
+    {
+      id: 'story',
+      type: 'about',
+      variant: 'text-only',
+      visible: true,
+      props: {
+        heading: 'About',
+        body: [
+          { type: 'link', text: 'our rates', href: '/about' },
+          { type: 'link', text: 'outside', href: 'https://example.com' },
+        ],
+      },
+    },
+  ];
+  const twoPages = () =>
+    config([], {
+      pages: [
+        { id: 'home', path: '/', title: 'Home', sections: homeSections },
+        { id: 'about', path: '/about', title: 'About', sections: [] },
+      ],
+      navigation: {
+        items: [
+          { label: 'Home', target: '/' },
+          { label: 'About', target: '/about' },
+          { label: 'Top', target: '/#svc' },
+        ],
+        cta: { label: 'Call', action: 'tel' },
+      },
+    });
+
+  it('prefixes every in-site link (brand, menu, buttons, rich text, footer) and nothing else', () => {
+    const r = ok(
+      render(twoPages(), '/', {
+        mode: 'preview',
+        basePath: BASE,
+        banner: 'Preview of Gym Bold. Demo content.',
+      }),
+    );
+    const hrefs = [...r.html.matchAll(/href="([^"]*)"/g)].map((m) => m[1] as string);
+    const internal = hrefs.filter((h) => h.startsWith('/') && !h.startsWith('/fonts/'));
+    expect(internal.length).toBeGreaterThan(6);
+    for (const h of internal) expect(h === BASE || h.startsWith(`${BASE}/`), h).toBe(true);
+    expect(hrefs).toContain(BASE);
+    expect(hrefs).toContain(`${BASE}/about`);
+    expect(hrefs).toContain(`${BASE}/#svc`);
+    expect(hrefs).toContain('#svc');
+    expect(hrefs).toContain('#main');
+    expect(hrefs).toContain('https://example.com');
+  });
+
+  it('marks the current page in the menu under a base path', () => {
+    const r = ok(render(twoPages(), '/about', { mode: 'preview', basePath: BASE }));
+    expect(r.html).toContain('aria-current="page">About</span>');
+  });
+
+  it('the 404 page links home inside the base path, and the banner is escaped text above the header', () => {
+    const r = ok(
+      render(twoPages(), '/missing', { mode: 'preview', basePath: BASE, banner: 'Preview "Gym" <b>x</b>' }),
+    );
+    expect(r.status).toBe(404);
+    expect(r.html).toContain(`<a class="pb-btn pb-btn--primary" href="${BASE}">`);
+    expect(r.html).toContain('<div class="pb-banner" role="note">Preview "Gym" &lt;b&gt;x&lt;/b&gt;</div>');
+    expect(r.html.indexOf('pb-banner')).toBeLessThan(r.html.indexOf('<header'));
+  });
+
+  it('without a base path or a banner nothing changes; a malformed base path is refused', () => {
+    const plain = ok(render(twoPages(), '/'));
+    expect(plain.html).not.toContain('class="pb-banner"');
+    expect(plain.html).toContain('<a class="pb-brand" href="/">');
+    for (const basePath of [
+      'p/x',
+      '/',
+      '//evil.com',
+      '/p/x y',
+      '/p/<x>',
+      '/a/b/c/d',
+      '/p/x"onmouseover=',
+      '/..%2f',
+    ]) {
+      expect(
+        renderDocument({ config: twoPages(), path: '/', origin: ORIGIN, mode: 'preview', basePath }).kind,
+        basePath,
+      ).toBe('error');
+    }
+  });
+});

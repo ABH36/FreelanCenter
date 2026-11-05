@@ -8,7 +8,7 @@
  * DATABASE_URL_PUBLIC (app_public, which can only call `app.resolve_host`) and the Upstash REST token.
  */
 import 'server-only';
-import { createPublicDatabase } from '@platform/db/public';
+import { type PublicDatabase, createPublicDatabase } from '@platform/db/public';
 import { type HostResolver, createHostResolver } from '@platform/hosting';
 import { createLogger } from '@platform/logger';
 import { createKeyValueStore, loadKeyValueConfig } from '@platform/providers';
@@ -17,6 +17,8 @@ export const logger = createLogger({ app: 'sites' });
 
 interface SitesRuntime {
   resolver: HostResolver;
+  /** The read-only template catalogue (app.get_catalog_template as app_public). */
+  catalog: PublicDatabase['getCatalogTemplate'];
   ready: Promise<void>;
 }
 
@@ -34,7 +36,11 @@ function build(): SitesRuntime {
   // One role check per process: the visitor path must never run as a tenant, owner or BYPASSRLS role. A failed
   // check (wrong role, or the database unreachable at start-up) drops this runtime, so the next request retries
   // instead of the instance answering 503 until it is recycled.
-  const runtime: SitesRuntime = { resolver, ready: db.verifyRole() };
+  const runtime: SitesRuntime = {
+    resolver,
+    catalog: (id, version) => db.getCatalogTemplate(id, version),
+    ready: db.verifyRole(),
+  };
   runtime.ready.catch((error: unknown) => {
     logger.fatal('sites.db.role_check_failed', error);
     if (globalForSites.__platformSites === runtime) globalForSites.__platformSites = undefined;

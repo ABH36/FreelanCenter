@@ -8,7 +8,8 @@
  */
 import { createHash } from 'node:crypto';
 
-export type PageKind = 'placeholder' | 'maintenance' | 'not_found' | 'unavailable';
+export type PageKind =
+  'placeholder' | 'maintenance' | 'not_found' | 'unavailable' | 'preview_invalid' | 'preview_expired';
 
 const STYLE =
   'html{color-scheme:light dark}body{margin:0;min-height:100vh;display:grid;place-items:center;' +
@@ -57,6 +58,18 @@ const PAGES: Record<PageKind, PageSpec> = {
     heading: 'There is no website at this address',
     message: 'Check the address and try again.',
   },
+  preview_invalid: {
+    status: 404,
+    title: 'Preview not found',
+    heading: 'This preview link is not valid',
+    message: 'Check the link you were sent, or ask the sender for a new one.',
+  },
+  preview_expired: {
+    status: 410,
+    title: 'Preview expired',
+    heading: 'This preview link has expired',
+    message: 'Ask the sender for a new link.',
+  },
   unavailable: {
     status: 503,
     title: 'Temporarily unavailable',
@@ -91,6 +104,8 @@ export function pageResponse(
     'x-robots-tag': 'noindex, nofollow',
   });
   if (spec.retryAfter) headers.set('retry-after', String(spec.retryAfter));
+  // A preview link carries its token in the URL: nothing it links to may receive it in a Referer.
+  if (kind.startsWith('preview_')) headers.set('referrer-policy', 'no-referrer');
   if (options.correlationId) headers.set('x-correlation-id', options.correlationId);
   return new Response(options.head ? null : DOCUMENTS[kind], { status: spec.status, headers });
 }

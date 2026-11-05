@@ -149,7 +149,12 @@ describe('next.config security headers (SEC-03)', () => {
       source: '/fonts/:file*',
       headers: [{ key: 'Cache-Control', value: 'public, max-age=2592000, stale-while-revalidate=86400' }],
     });
-    expect(rules).toHaveLength(2);
+    // Preview links keep their token out of every Referer (the rule after the baseline wins).
+    expect(rules[2]).toEqual({
+      source: '/p/:path*',
+      headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }],
+    });
+    expect(rules).toHaveLength(3);
     const byKey = Object.fromEntries(SECURITY_HEADERS.map((h) => [h.key, h.value]));
     expect(byKey).toMatchObject({
       'X-Content-Type-Options': 'nosniff',

@@ -14,13 +14,25 @@ export interface ResolvedLink {
 
 const digits = (v: string | undefined) => (v ?? '').replace(/[^0-9]/g, '');
 
-export function resolveHref(target: string): { readonly href: string; readonly external: boolean } | null {
-  if (PATH.test(target) || ANCHOR.test(target)) return { href: target, external: false };
+/**
+ * Prefixes an in-site link with the base path the site is served under (a preview lives at `/p/<token>`); an anchor on
+ * the current page, and anything that is not an in-site path, is left alone.
+ */
+export function withBase(target: string, basePath = ''): string {
+  if (basePath === '' || target.startsWith('#')) return target;
+  return target === '/' ? basePath : `${basePath}${target}`;
+}
+
+export function resolveHref(
+  target: string,
+  basePath = '',
+): { readonly href: string; readonly external: boolean } | null {
+  if (PATH.test(target) || ANCHOR.test(target)) return { href: withBase(target, basePath), external: false };
   if (isSafeUrl(target)) return { href: target, external: target.startsWith('https:') };
   return null;
 }
 
-export function resolveCta(cta: Cta, business: SiteConfig['business']): ResolvedLink | null {
+export function resolveCta(cta: Cta, business: SiteConfig['business'], basePath = ''): ResolvedLink | null {
   switch (cta.action) {
     case 'whatsapp': {
       const n = digits(business.whatsapp);
@@ -39,7 +51,7 @@ export function resolveCta(cta: Cta, business: SiteConfig['business']): Resolved
         : null;
     case 'link':
     case 'scroll': {
-      const r = cta.target ? resolveHref(cta.target) : null;
+      const r = cta.target ? resolveHref(cta.target, basePath) : null;
       return r ? { ...r, label: cta.label } : null;
     }
   }
