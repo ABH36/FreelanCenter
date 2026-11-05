@@ -93,4 +93,6 @@ DG-27 (dashboard production); per-link preview revocation (not built; links expi
 
 ## 9. Tests and CI-equivalent run
 
-Filled in after the clean-worktree run (see the final section of the PR description).
+Clean worktree at `5467497`, `pnpm install --frozen-lockfile`. Steps run: format:check, sync-plan:check, lint (18/18), typecheck (18/18), traceability regenerated with no diff, `pnpm audit --audit-level high` (exit 0; 2 low and 6 moderate transitive advisories, none from the new dev dependencies), build (3/3; the existing Edge-runtime logger warnings only), `pnpm test` (15/15 tasks: schema 44, ui 25, blocks 74, templates 28, hosting 27, sites 49, auth 150, workspaces 71, logger 39, jobs 22, db 24, providers 13, dashboard 3, ai 1), axe 6/6, Lighthouse (second full run: gym-bold 97, taxi-quick 99, wedding-royal 100 performance; 100/96/100 accessibility minus wedding 96; SEO and best practices 100), visual check in the Linux image 6/6.
+
+**Not re-run locally for S7:** the `db-integration` and `e2e` jobs. S7 changes no database, auth or route code (only the link colour in CSS and the theme compiler); both run in CI on the PR and must be green before merge.
