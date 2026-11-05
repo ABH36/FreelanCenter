@@ -1,6 +1,6 @@
 # Phase 2, slice 2: theme variables, font policy, animation presets
 
-**Status:** built on `feat/p2-s2-theme-fonts-motion`, awaiting Owner approval. **Date:** 2026-11-05 · **Plan:** `docs/IMPLEMENTATION_PLAN.md`, Phase 2 task 3 (Q19) · **Module:** `docs/modules/04-template-engine-renderer.md` · **Depends on:** S1 (merged, PR #43).
+**Status:** built on `feat/p2-s2-theme-fonts-motion`, approved by the Owner 2026-11-05. **Date:** 2026-11-05 · **Plan:** `docs/IMPLEMENTATION_PLAN.md`, Phase 2 task 3 (Q19) · **Module:** `docs/modules/04-template-engine-renderer.md` · **Depends on:** S1 (merged, PR #43).
 
 ## 1. Requirements
 
@@ -79,8 +79,8 @@ Clean worktree at `1cc4009`, `pnpm install --frozen-lockfile`, steps in the orde
 
 New code and dependencies only. **No database change, migration, API, event or live action.** The new build step needs `@fontsource/*` installed (it is, via the lockfile). Rollback is a revert.
 
-## 9. Open items
+## 9. Owner decisions (2026-11-05)
 
-1. Approve S2.
-2. S2-5: fallback-font metrics deferred to S7 unless Lighthouse shows CLS above budget.
-3. Weights are 400 and 700 only. If the Owner's template designs need a medium (500/600) weight, it is a policy change plus about +20 KB per font.
+1. **S2 approved.**
+2. **S2-5 accepted:** fallback-font metrics only if S7 Lighthouse shows CLS above budget.
+3. **Weights (Owner delegated to the engineer):** keep 400 and 700 only. Reason: CSS weights 500 and 600 resolve to the nearest loaded face (400 and 700), so designs still render; it keeps the Latin preload at or below 46.9 KB; Lato has no 600; a medium weight costs about +20 KB per font and is a policy change to revisit only if S7 or a template review shows a real need.
