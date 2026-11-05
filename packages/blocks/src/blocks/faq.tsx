@@ -31,7 +31,7 @@ export const faq: BlockDefinition<PropsOf<'faq'>> = {
       },
     ],
   }),
-  render({ props, id }) {
+  render({ props, id, ctx }) {
     // Native <details>: works without script, is keyboard accessible and announced correctly by screen readers.
     return (
       <div className="pb-container pb-narrow">
@@ -41,7 +41,7 @@ export const faq: BlockDefinition<PropsOf<'faq'>> = {
             <details key={i} className="pb-faq__item">
               <summary>{item.question}</summary>
               <p>
-                <Rich value={item.answer} />
+                <Rich value={item.answer} basePath={ctx.basePath} />
               </p>
             </details>
           ))}

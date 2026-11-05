@@ -120,3 +120,33 @@ describe('applySeed against the database', () => {
     expect(rows[0].content_hash).toBe(gym.contentHash);
   });
 });
+
+describe('PublicDatabase.getCatalogTemplate (the preview route reads this)', () => {
+  it('returns a published built-in with its content, a requested version, and null for anything else', async () => {
+    const { createPublicDatabase } = await import('../../src/public');
+    const pub = createPublicDatabase({ connectionString: urls.public });
+    try {
+      const { rows } = await visitor.query(
+        `SELECT template_id FROM app.list_catalog_templates() WHERE slug = 'taxi-quick'`,
+      );
+      const id = rows[0].template_id as string;
+      const latest = await pub.getCatalogTemplate(id);
+      expect(latest).toMatchObject({
+        templateId: id,
+        slug: 'taxi-quick',
+        category: 'taxi',
+        visibility: 'platform',
+        version: 1,
+        schemaVersion: '1.0',
+      });
+      expect(canonicalJson(latest!.config)).toBe(
+        canonicalJson(verifySeed(real()).templates.find((t) => t.slug === 'taxi-quick')!.config),
+      );
+      expect((await pub.getCatalogTemplate(id, 1))?.version).toBe(1);
+      expect(await pub.getCatalogTemplate(id, 99)).toBeNull();
+      expect(await pub.getCatalogTemplate('00000000-0000-7000-8000-000000000000')).toBeNull();
+    } finally {
+      await pub.close();
+    }
+  });
+});

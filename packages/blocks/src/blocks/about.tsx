@@ -44,7 +44,7 @@ export const about: BlockDefinition<PropsOf<'about'>> = {
             {props.heading}
           </h2>
           <p className="pb-prose">
-            <Rich value={props.body} />
+            <Rich value={props.body} basePath={ctx.basePath} />
           </p>
           {props.highlights?.length ? (
             <ul className="pb-checks">

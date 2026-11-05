@@ -1,6 +1,6 @@
 # 04 — Template Engine and Renderer
 
-**Status:** In progress (P2). S1-S4 and S5a merged (#43-#48); S5b (template tables, catalogue, seed) built, live migration pending the Owner's approval; S6 preview and S7 phase exit planned. Nothing is marked verified. **SRS:** FR-TPL-01..11.
+**Status:** In progress (P2). S1-S5b merged (#43-#50; S5b is live); S6 preview/pitch links built, pending approval; S6b (dashboard page), S7 phase exit planned. Nothing is marked verified. **SRS:** FR-TPL-01..11.
 
 ## Outcome
 
@@ -25,7 +25,7 @@ Theme tokens compile to CSS variables; no runtime stylesheet rebuilding. Rendere
 
 - Reject unknown block types, unsafe URLs, unsupported fonts and malformed config.
 - Version migrations are deterministic, tested and reversible or refuse safely.
-- Preview links are public but expiring and `noindex`; no tenant secret is embedded.
+- Preview links (FR-TPL-09, P2 S6) are public but expiring and `noindex`; no tenant secret is embedded. Form: `https://<PREVIEW_HOST>/p/<token>[/<page>]`, a signed claim set (template id, optional version, optional prospect name, issued and expiry time, at most 30 days; HMAC-SHA256, rotation with a previous secret), served only on the dedicated preview host, with demo content from the catalogue, a visible "demo content" banner, `Referrer-Policy: no-referrer` and every in-site link kept inside the link. Mint with `pnpm --filter @platform/db db:preview-link` (dashboard page: S6b).
 - Render only a resolved immutable version in public live/staging paths.
 
 ## Evidence / handoff

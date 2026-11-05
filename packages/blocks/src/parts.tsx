@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import type { AssetRef, Cta, RichText } from '@platform/schema';
 import { IMAGE_WIDTHS, type RenderContext } from './context';
 import { t } from './strings';
-import { resolveCta } from './cta';
+import { resolveCta, resolveHref } from './cta';
 
 const REL = 'noopener noreferrer';
 
@@ -43,7 +43,7 @@ export function CtaButton({
   variant?: 'primary' | 'secondary';
 }) {
   if (!cta) return null;
-  const link = resolveCta(cta, ctx.business);
+  const link = resolveCta(cta, ctx.business, ctx.basePath);
   if (!link) return null;
   return (
     <Link href={link.href} external={link.external} className={`pb-btn pb-btn--${variant}`}>
@@ -54,22 +54,15 @@ export function CtaButton({
 }
 
 /** Restricted inline rich text rendered as elements, never as markup. */
-export function Rich({ value }: { value: RichText }) {
+export function Rich({ value, basePath = '' }: { value: RichText; basePath?: string }) {
   return (
     <>
       {value.map((node, i) => {
         if (node.type === 'br') return <br key={i} />;
         if (node.type === 'link') {
-          const href = node.href;
-          const external = href.startsWith('https:');
-          const safe =
-            href.startsWith('/') ||
-            href.startsWith('#') ||
-            external ||
-            href.startsWith('tel:') ||
-            href.startsWith('mailto:');
-          return safe ? (
-            <Link key={i} href={href} external={external}>
+          const link = resolveHref(node.href, basePath);
+          return link ? (
+            <Link key={i} href={link.href} external={link.external}>
               {node.text}
             </Link>
           ) : (

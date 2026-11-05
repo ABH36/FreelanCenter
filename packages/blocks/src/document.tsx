@@ -42,6 +42,13 @@ export interface DocumentInput {
   /** Force `noindex` (staging, suspended, review). Non-public modes are always noindex. */
   readonly noindex?: boolean;
   readonly fontBase?: string;
+  /**
+   * Where the site is served under its host, for example `/p/<token>` for a preview. Every in-site link is prefixed
+   * with it; `path` is still the path inside the site.
+   */
+  readonly basePath?: string;
+  /** A notice above the header (previews: "demo content, not a live website"). Plain text, escaped on output. */
+  readonly banner?: string;
 }
 
 export type DocumentResult =
@@ -57,6 +64,7 @@ export type DocumentResult =
   | { readonly kind: 'error' };
 
 const ORIGIN = /^https?:\/\/[a-z0-9.-]+(:\d{1,5})?$/;
+const BASE_PATH = /^(\/[A-Za-z0-9._~-]{1,200}){1,3}$/;
 
 /** Limit by characters (not bytes), never splitting a surrogate pair. */
 export function clip(value: string, max: number): string {
@@ -107,14 +115,23 @@ function shell(input: { config: SiteConfig; lang: string; head: string; body: st
   return { html, inlineStyles };
 }
 
-function page(children: ReactNode, ctx: RenderContext, currentPath: string, mainChildren: ReactNode): string {
+function page(
+  ctx: RenderContext,
+  currentPath: string,
+  mainChildren: ReactNode,
+  banner: string | undefined,
+): string {
   return serialize(
     <div className="pb-root">
+      {banner ? (
+        <div className="pb-banner" role="note">
+          {banner}
+        </div>
+      ) : null}
       <Header ctx={ctx} currentPath={currentPath} />
       <main id="main">{mainChildren}</main>
       <Footer ctx={ctx} />
       <FloatingActions ctx={ctx} />
-      {children}
     </div>,
   );
 }
@@ -122,6 +139,7 @@ function page(children: ReactNode, ctx: RenderContext, currentPath: string, main
 export function renderDocument(input: DocumentInput): DocumentResult {
   try {
     if (!ORIGIN.test(input.origin)) return { kind: 'error' };
+    if (input.basePath !== undefined && !BASE_PATH.test(input.basePath)) return { kind: 'error' };
     const parsed = parseSiteConfig(input.config);
     if (!parsed.ok) return { kind: 'invalid', issues: parsed.issues };
     const config = parsed.config;
@@ -130,6 +148,7 @@ export function renderDocument(input: DocumentInput): DocumentResult {
     const found = config.pages.find((p) => p.path === path);
     const ctx = createContext(config, {
       mode: input.mode,
+      basePath: input.basePath ?? '',
       ...(input.assetUrl ? { assetUrl: input.assetUrl } : {}),
       ...(input.leadForm !== undefined ? { leadForm: input.leadForm } : {}),
       ...(input.platformBadge !== undefined ? { platformBadge: input.platformBadge } : {}),
@@ -147,18 +166,18 @@ export function renderDocument(input: DocumentInput): DocumentResult {
 
     if (!found) {
       const body = page(
-        null,
         ctx,
         path,
         <section className="pb-section pb-py-xl">
           <div className="pb-container pb-narrow">
             <h1 className="pb-h1">{t(lang, 'notFoundTitle')}</h1>
             <p className="pb-lead">{t(lang, 'notFoundText')}</p>
-            <a className="pb-btn pb-btn--primary" href="/">
+            <a className="pb-btn pb-btn--primary" href={ctx.basePath || '/'}>
               {t(lang, 'backHome')}
             </a>
           </div>
         </section>,
+        input.banner,
       );
       const head =
         `<title>${escapeHtml(`${t(lang, 'notFoundTitle')} | ${clip(business.name, 50)}`)}</title>` +
@@ -175,7 +194,6 @@ export function renderDocument(input: DocumentInput): DocumentResult {
       input.registry ? { registry: input.registry } : {},
     );
     const body = page(
-      null,
       ctx,
       path,
       <>
@@ -184,6 +202,7 @@ export function renderDocument(input: DocumentInput): DocumentResult {
           <Fragment key={n.id}>{n.node}</Fragment>
         ))}
       </>,
+      input.banner,
     );
 
     const isHome = found.path === '/';
