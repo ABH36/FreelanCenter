@@ -211,3 +211,58 @@ describe('block catalog consistency', () => {
     expect(hasBlockVariant('constructor', 'x')).toBe(false);
   });
 });
+
+describe('section anchors (found in P2 S3: scroll CTAs and one-page navigation)', () => {
+  const ok = (raw: unknown) => expect(parseSiteConfig(raw).ok).toBe(true);
+  it('accepts anchors in navigation that point at a real section', () => {
+    ok(mutated((c) => (c.navigation.items[1].target = '/#s3')));
+    ok(mutated((c) => (c.navigation.items[1].target = '#s3')));
+    ok(mutated((c) => c.navigation.items.push({ label: 'Services', target: '/#s2' })));
+  });
+  it('rejects dangling or malformed anchors', () => {
+    rejects(
+      mutated((c) => (c.navigation.items[1].target = '/#nope')),
+      'navigation',
+    );
+    rejects(
+      mutated((c) => (c.navigation.items[1].target = '/missing#s3')),
+      'navigation',
+    );
+    rejects(
+      mutated((c) => (c.navigation.items[1].target = '/about#s3')),
+      'navigation',
+    );
+    rejects(mutated((c) => (c.navigation.items[1].target = '#')));
+    rejects(mutated((c) => (c.navigation.items[1].target = '/#A B')));
+    rejects(mutated((c) => (c.navigation.items[1].target = '/#<x>')));
+  });
+  it('scroll CTAs need an anchor; link CTAs may still use anchors, paths and URLs', () => {
+    ok(
+      mutated(
+        (c) =>
+          (c.pages[0].sections[0].props.primaryCta = { label: 'Contact', action: 'scroll', target: '#s3' }),
+      ),
+    );
+    rejects(
+      mutated(
+        (c) => (c.pages[0].sections[0].props.primaryCta = { label: 'x', action: 'scroll', target: '/about' }),
+      ),
+    );
+    rejects(mutated((c) => (c.pages[0].sections[0].props.primaryCta = { label: 'x', action: 'scroll' })));
+    rejects(
+      mutated(
+        (c) =>
+          (c.pages[0].sections[0].props.primaryCta = {
+            label: 'x',
+            action: 'scroll',
+            target: 'https://x.com',
+          }),
+      ),
+    );
+    ok(
+      mutated(
+        (c) => (c.pages[0].sections[0].props.primaryCta = { label: 'x', action: 'link', target: '/about' }),
+      ),
+    );
+  });
+});

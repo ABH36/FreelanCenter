@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Renderer blocks, variants, motion presets and the block registry (pure layer)",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./blocks.css": "./src/blocks.css"
   },
   "scripts": {
     "lint": "eslint .",
@@ -13,6 +14,19 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.0.0",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "dependencies": {
+    "@platform/schema": "workspace:*",
+    "@platform/ui": "workspace:*",
+    "lucide": "1.58.0",
+    "zod": "4.6.6"
+  },
+  "peerDependencies": {
+    "react": "19.3.0"
   }
 }

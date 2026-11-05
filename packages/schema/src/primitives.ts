@@ -81,7 +81,11 @@ export const PATH = /^\/$|^(\/[a-z0-9][a-z0-9-]{0,59}){1,4}$/;
 export const sitePath = z.string().regex(PATH);
 
 /** A link target is either a page of this site or a safe external URL. */
-export const linkTarget = z.union([sitePath, safeUrl]);
+/** `#contact`, `/#contact` or `/about#team`: a section anchor on this or another page of the site. */
+export const ANCHOR = /^(\/|(\/[a-z0-9][a-z0-9-]{0,59}){1,4})?#[a-z0-9][a-z0-9-]{0,39}$/;
+export const anchorTarget = z.string().regex(ANCHOR);
+
+export const linkTarget = z.union([sitePath, anchorTarget, safeUrl]);
 
 export const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Use a 6-digit hex colour such as #E11D2E');
 
@@ -120,6 +124,10 @@ export const cta = z
   })
   .refine((c) => (c.action === 'link' || c.action === 'scroll' ? c.target !== undefined : true), {
     message: 'link and scroll actions need a target',
+    path: ['target'],
+  })
+  .refine((c) => c.action !== 'scroll' || (c.target !== undefined && ANCHOR.test(c.target)), {
+    message: 'A scroll action needs a section anchor such as #contact',
     path: ['target'],
   });
 export type Cta = z.infer<typeof cta>;
