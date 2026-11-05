@@ -4,12 +4,12 @@
 
 ## 1. Requirements
 
-| Requirement                                                        | State after S5b                                                                                                                                                                                                                  |
-| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Plan: `Template`, `TemplateVersion` (built-ins platform-owned)     | Implemented on the local stack: two tables, immutable versions, platform built-ins (`workspace_id` NULL) and private workspace templates, catalogue functions, seed command. **Not live until the Owner approves the migration** |
-| FR-TPL-01 / FR-TPL-10 (templates stored as validated data)         | The three reference templates are loadable from the database through the catalogue; the seed file is generated from the S5a definitions with the real `templateSchema`                                                           |
-| ADR-004 (no creator code), SEC-16 (marketplace safety, groundwork) | Tenants cannot create platform or marketplace templates; versions are immutable; content is bounded JSON; marketplace visibility is reserved for P6 and is not writable by tenants                                               |
-| SEC-01/02 (RLS, isolation suite as merge gate)                     | Both tables are in the isolation matrix and IDOR harness (216 tests); the mutation check has two new mutations (13/13 killed)                                                                                                    |
+| Requirement                                                        | State after S5b                                                                                                                                                                    |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Plan: `Template`, `TemplateVersion` (built-ins platform-owned)     | Implemented and **live** (section 9): two tables, immutable versions, platform built-ins (`workspace_id` NULL) and private workspace templates, catalogue functions, seed command  |
+| FR-TPL-01 / FR-TPL-10 (templates stored as validated data)         | The three reference templates are loadable from the database through the catalogue; the seed file is generated from the S5a definitions with the real `templateSchema`             |
+| ADR-004 (no creator code), SEC-16 (marketplace safety, groundwork) | Tenants cannot create platform or marketplace templates; versions are immutable; content is bounded JSON; marketplace visibility is reserved for P6 and is not writable by tenants |
+| SEC-01/02 (RLS, isolation suite as merge gate)                     | Both tables are in the isolation matrix and IDOR harness (216 tests); the mutation check has two new mutations (13/13 killed)                                                      |
 
 Nothing is marked "verified".
 
