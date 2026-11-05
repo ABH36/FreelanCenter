@@ -1,6 +1,6 @@
 # Phase 2, slice 3: block registry, the 15 blocks, isolated rendering
 
-**Status:** built on `feat/p2-s3-blocks`, awaiting Owner approval. **Date:** 2026-11-05 · **Plan:** `docs/IMPLEMENTATION_PLAN.md`, Phase 2 task 2 · **Module:** `docs/modules/04-template-engine-renderer.md` · **Depends on:** S1 (PR #43), S2 (PR #44).
+**Status:** built on `feat/p2-s3-blocks`, approved by the Owner 2026-11-05. **Date:** 2026-11-05 · **Plan:** `docs/IMPLEMENTATION_PLAN.md`, Phase 2 task 2 · **Module:** `docs/modules/04-template-engine-renderer.md` · **Depends on:** S1 (PR #43), S2 (PR #44).
 
 ## 1. Requirements
 
@@ -36,7 +36,7 @@ Nothing is marked "verified".
 | S3-8  | Buttons for actions the business cannot serve (no WhatsApp number, no email) would be dead links                                                                                                                                                         | `resolveCta` returns `null` and the button is omitted; floating buttons likewise                                                                                                                                                                                                     |
 | S3-9  | React 19 server output uses camelCase attribute names (`srcSet`, `fetchPriority`, `autoComplete`); valid HTML (case-insensitive). With `fetchPriority="high"` React also hoists an image `<link rel="preload">`, which helps LCP                         | Tests compare case-insensitively                                                                                                                                                                                                                                                     |
 | S3-10 | The map block is a link card to Google Maps, not an embedded map: no third-party iframe, no cookies, no script, better privacy and performance                                                                                                           | If the Owner wants an embedded map it needs a CSP, privacy-inventory and consent decision; not assumed                                                                                                                                                                               |
-| S3-11 | The 20 schema icons plus WhatsApp and mail are hand-authored simple strokes                                                                                                                                                                              | **Owner design review** (Q17 stance: quality is external). Replacing the path data later changes no contract                                                                                                                                                                         |
+| S3-11 | Hand-authored icons looked improvised                                                                                                                                                                                                                    | **Replaced by Lucide** (`lucide` 1.58.0 exact, ISC licence, released 2026-10-16, no install scripts; 1.59 and later were under the two-week age used for pinning). Only a fixed set of SVG elements and attributes is emitted from the icon data; a test covers every schema icon    |
 | S3-13 | `@platform/auth` `src/unit.test.ts` (DG-22 helper, not touched by this slice) timed out at the 5 s default in the clean-worktree run (took 9.9 s: first dynamic import of better-auth on a loaded 2-core machine); it also failed once in S1 and S2 runs | `testTimeout` raised to 30 s in that package's unit config (a bound, not a retry; logic unchanged)                                                                                                                                                                                   |
 | S3-12 | For S4: the page needs `body { margin: 0 }`, a `.pb-root` wrapper, a `<main id="main">` target for the skip link, an `<h1>` when no hero provides one (`h1Used` is returned), the theme/font/motion `<style>` and `font-src 'self'` in the CSP           | Recorded as S4 inputs                                                                                                                                                                                                                                                                |
 
@@ -67,10 +67,10 @@ Clean worktree, `pnpm install --frozen-lockfile`, steps in the order of the `ver
 
 New package code, a `zod` dependency in `@platform/blocks` and `react`/`react-dom` (dev, already pinned in the apps), additive schema fields (`business.language`, anchor targets). Stored configs without `language` parse with the default `en`. **No database change, migration, API, event or live action.** Rollback is a revert.
 
-## 8. Open items
+## 8. Owner decisions (2026-11-05)
 
-1. Approve S3.
-2. S3-2: accept `business.language` as an additive SRS 5.2 extension (or ask for an ADR).
-3. S3-6: contact form stays dormant until P5 supplies the lead endpoint; confirm that is the intended order.
-4. S3-10: link-only map (no embed) is the default; say so if an embedded map is required.
-5. S3-11: design review of the icon set.
+1. **S3 approved.**
+2. **S3-2 accepted:** stays as an additive SRS 5.2 extension.
+3. **S3-6 accepted:** the contact form stays dormant until P5 supplies the lead endpoint.
+4. **S3-10, map (Owner delegated the approach; the Owner also holds a Google Maps key):** keep the link card now. It is the fastest and most private option and needs no key. Recommended later enhancement, not built here: a **click-to-load embed** (Maps Embed API, which has no usage charge) so no third-party request or cookie happens until the visitor presses "Show map". It needs a per-site opt-in field in the schema, in the CSP of pages that enable it, a privacy-inventory row, and the key as a server-side environment variable (never in a config, a log or chat). Because tenants use custom domains, an HTTP-referrer restriction on the key cannot list them; the key should be restricted to the Maps Embed API only. Scheduled as an item for the P3 builder or the P8 hardening pass, on Owner request.
+5. **S3-11, icons (Owner delegated):** Lucide, see S3-11.

@@ -96,3 +96,16 @@ describe('purity rules (blocks render on the server and are isolated by expansio
     for (const type of BLOCK_TYPES) expect(src).not.toContain(`'${type}'`);
   });
 });
+
+describe('icons (Lucide)', () => {
+  it('every schema icon, plus the two chrome icons, has drawable, sanitised shapes', async () => {
+    const { ICONS } = await import('@platform/schema');
+    const { ICON_NAMES, iconShapes } = await import('./icons');
+    for (const name of [...ICONS, 'whatsapp', 'mail'] as const) {
+      expect(ICON_NAMES).toContain(name);
+      const shapes = iconShapes(name);
+      expect(shapes.length, name).toBeGreaterThan(0);
+      for (const s of shapes) expect(Object.keys(s.attrs).length, name).toBeGreaterThan(0);
+    }
+  });
+});
