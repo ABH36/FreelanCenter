@@ -53,7 +53,15 @@ Nothing is marked "verified".
 
 ## 6. CI-equivalent run
 
-(filled in after the clean-worktree run)
+Clean worktree, `pnpm install --frozen-lockfile`, steps in the order of the `verify` and `audit` jobs of `.github/workflows/ci.yml`.
+
+| Step                                                               | Result                                                                                                                                                                                                                                                         |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| format:check, sync-plan:check, lint, typecheck (16/16)             | pass                                                                                                                                                                                                                                                           |
+| `pnpm test` on `d19f357`                                           | **failed once:** the unrelated `@platform/auth` DG-22 test timed out (S3-13). After the timeout fix (`36e50b8`) `format:check`, `lint`, `typecheck` and `pnpm test` were re-run in the same worktree: all pass, test 14/14 tasks (ui 22, schema 41, blocks 35) |
+| traceability regenerate and diff, build (3/3), `pnpm audit --high` | pass on `d19f357` (the later commits change only a test config and docs)                                                                                                                                                                                       |
+
+**Not run:** the database jobs (`db-integration`, isolation, integration suites, `e2e`, `perf`) and `secrets` (gitleaks, Docker). S3 changes no database, migration, auth, workspace or app code; CI runs them on the PR.
 
 ## 7. Compatibility, migration, rollback
 
