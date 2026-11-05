@@ -66,7 +66,7 @@ describe('operator functions', () => {
       `SELECT r.rolname AS role, p.proname AS fn
          FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
          CROSS JOIN pg_roles r
-        WHERE n.nspname = 'app' AND p.proname LIKE 'operator\_%template%'
+        WHERE n.nspname = 'app' AND p.proname LIKE 'operator%template%'
           AND r.rolname IN ('app_user', 'app_auth', 'app_public', 'app_admin')
           AND has_function_privilege(r.oid, p.oid, 'EXECUTE')`,
     );
