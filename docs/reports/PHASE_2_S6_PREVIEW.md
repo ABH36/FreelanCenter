@@ -1,6 +1,6 @@
 # Phase 2, slice 6: preview and pitch links
 
-**Status:** built on `feat/p2-s6-preview`, awaiting Owner approval. **Date:** 2026-11-05 · **Plan:** `docs/IMPLEMENTATION_PLAN.md`, Phase 2 task 6 · **Module:** `docs/modules/04-template-engine-renderer.md` · **Depends on:** S1-S5b (PRs #43-#50; the catalogue is live since S5b).
+**Status:** built on `feat/p2-s6-preview`, approved by the Owner 2026-11-05. **Date:** 2026-11-05 · **Plan:** `docs/IMPLEMENTATION_PLAN.md`, Phase 2 task 6 · **Module:** `docs/modules/04-template-engine-renderer.md` · **Depends on:** S1-S5b (PRs #43-#50; the catalogue is live since S5b).
 
 S6 is split: **S6a (this report)** is the link itself: the signed token, the preview route in the sites app, everything the renderer needs to browse a template inside a link, and an operator command to mint links. **S6b** is the dashboard page where a freelancer picks a template, types the prospect's business name and copies the link (a capability, audit event, server action and page); it is a separate slice because it touches RBAC, the service layer and the isolation harness.
 
@@ -73,9 +73,9 @@ Clean worktree at `76e79b2`, `pnpm install --frozen-lockfile`, steps in the orde
 
 New code, one new optional input to the renderer (`basePath`, `banner`; unchanged output without them), one new method on the public DB client, new environment variables (all optional, off by default). **No database change, no migration, no live action, no new dependency.** Production behaviour is unchanged until the Owner sets `PREVIEW_HOST` and `PREVIEW_TOKEN_SECRET`. Rollback is a revert.
 
-## 8. Open items
+## 8. Owner decisions (2026-11-05)
 
-1. Approve S6a.
-2. **DG-26 (Owner action, later):** to turn previews on, set `PREVIEW_HOST` (`preview.<your sites domain>`) and `PREVIEW_TOKEN_SECRET` (32+ random characters; `openssl rand -hex 32`) in the sites Vercel project (Production and Preview) with the Vercel CLI, value piped from a file or prompt, never typed into chat or a command line that is logged. I will do the Vercel step with your approval, as for DG-20.
-3. S6b (dashboard "share a preview" page with capability, audit event and the IDOR-harness registration) is next, unless you want the NFR measurement slice first.
-4. Per-link revocation is not built (see section 2); tell me if the sales workflow needs it.
+1. **S6a approved.**
+2. **DG-26 (turning previews on in a deployment) is still open:** it needs `PREVIEW_HOST` and a strong `PREVIEW_TOKEN_SECRET` in the sites Vercel project. I will ask for the Owner's approval of that Vercel step separately; the secret is generated locally and piped, never printed.
+3. Per-link revocation is not built; open question for the sales workflow.
+4. Next: S6b (dashboard "share a preview" page), then S7 (phase exit).
