@@ -84,7 +84,23 @@ const MUTATIONS: Mutation[] = [
       'SET ROLE svc_definer; GRANT EXECUTE ON FUNCTION app.allocate_platform_subdomain(uuid, text) TO app_public; RESET ROLE',
     revert:
       'SET ROLE svc_definer; REVOKE EXECUTE ON FUNCTION app.allocate_platform_subdomain(uuid, text) FROM app_public; RESET ROLE',
-    mustFail: ['app_public executes exactly app.resolve_host'],
+    mustFail: ['app_public executes exactly the host resolver and the two read-only catalogue functions'],
+  },
+  // P2 S5b: platform templates are written only by the operator functions; a tenant policy or grant that lets a
+  // tenant create one is a catalogue-poisoning hole (every site could be started from it).
+  {
+    name: 'tenant policy allows platform templates',
+    apply: 'CREATE POLICY mutation ON app.templates FOR INSERT TO app_user WITH CHECK (true)',
+    revert: 'DROP POLICY mutation ON app.templates',
+    mustFail: ['platform and marketplace templates, and templates without an owner, are refused'],
+  },
+  {
+    name: 'tenant role granted an operator template function',
+    apply:
+      'SET ROLE svc_definer; GRANT EXECUTE ON FUNCTION app.operator_archive_builtin_template(text, text) TO app_user; RESET ROLE',
+    revert:
+      'SET ROLE svc_definer; REVOKE EXECUTE ON FUNCTION app.operator_archive_builtin_template(text, text) FROM app_user; RESET ROLE',
+    mustFail: ['no application role can execute the functions that write platform templates'],
   },
   // P1 S8: the admin role. A tenant role executing a console function, or the console without its step-up check.
   {

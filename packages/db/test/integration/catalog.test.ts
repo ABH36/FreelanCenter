@@ -107,6 +107,8 @@ describe('row-level security coverage', () => {
       'notifications',
       'outbox_events',
       'projects',
+      'template_versions',
+      'templates',
     ]);
     for (const table of [...tables, 'workspaces']) {
       const { rows } = await admin.query(
@@ -274,10 +276,14 @@ describe('functions', () => {
       'admin_step_up_finish',
       'allocate_platform_subdomain',
       'current_member_role',
+      'get_catalog_template',
       'invitation_preview',
+      'list_catalog_templates',
       'memberships_keep_owner',
       'notification_delivery',
+      'operator_archive_builtin_template',
       'operator_grant_platform_admin',
+      'operator_publish_builtin_template',
       'operator_revoke_platform_admin',
       'operator_set_platform_setting',
       'outbox_pending',
@@ -344,13 +350,22 @@ describe('functions', () => {
     expect(await executors('operator_grant_platform_admin')).toEqual(['migrator']);
     expect(await executors('operator_revoke_platform_admin')).toEqual(['migrator']);
     expect(await executors('operator_set_platform_setting')).toEqual(['migrator']);
-    // S7: the visitor role's only function (SRS 5.3 item 1); no other role needs it.
+    // S7: the host resolver is for the visitor role only (SRS 5.3 item 1); no other role needs it.
     expect(await executors('resolve_host')).toEqual(['app_public']);
+    // P2 S5b: the template catalogue is read by tenants and visitors; platform templates are written by migrator only.
+    expect(await executors('list_catalog_templates')).toEqual(['app_public', 'app_user']);
+    expect(await executors('get_catalog_template')).toEqual(['app_public', 'app_user']);
+    expect(await executors('operator_publish_builtin_template')).toEqual(['migrator']);
+    expect(await executors('operator_archive_builtin_template')).toEqual(['migrator']);
     const { rows: publicFns } = await admin.query(
       `SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
         WHERE n.nspname IN ('app', 'identity') AND has_function_privilege('app_public', p.oid, 'EXECUTE')`,
     );
-    expect(publicFns.map((r) => r.proname)).toEqual(['resolve_host']);
+    expect(publicFns.map((r) => r.proname).sort()).toEqual([
+      'get_catalog_template',
+      'list_catalog_templates',
+      'resolve_host',
+    ]);
     expect(await executors('workspace_writable')).toEqual(['app_user']);
     // S5: membership role helpers, invitation acceptance/preview, the member directory and the slug list.
     for (const fn of [
@@ -371,7 +386,14 @@ describe('functions', () => {
     for (const fn of ['is_reserved_slug', 'reserved_slugs', 'project_transition_roles']) {
       expect(await executors(fn), fn).toEqual(['app_user', 'migrator']);
     }
-    for (const fn of ['memberships_guard', 'workspaces_guard', 'projects_guard']) {
+    for (const fn of [
+      'memberships_guard',
+      'workspaces_guard',
+      'projects_guard',
+      'templates_guard',
+      'template_versions_guard',
+      'template_versions_reject_change',
+    ]) {
       expect(await executors(fn), fn).toEqual(['migrator']);
     }
     expect(await executors('memberships_keep_owner')).toEqual([]);

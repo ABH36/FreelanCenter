@@ -116,6 +116,29 @@ export async function seedWorkspace(db: TenantDatabase, auth: pg.Pool): Promise<
         invitedBy: ownerId,
       },
     });
+    // P2 S5b tables: a private template with one version.
+    const template = await tx.template.create({
+      data: {
+        workspaceId: scope.workspaceId,
+        slug: `tpl-${slug}`.slice(0, 40),
+        name: 'Seed template',
+        category: 'generic',
+        description: 'Seeded template.',
+        createdBy: ownerId,
+      },
+    });
+    await tx.templateVersion.create({
+      data: {
+        workspaceId: scope.workspaceId,
+        templateId: template.id,
+        version: 1,
+        schemaVersion: '1.0',
+        config: { schemaVersion: '1.0' },
+        manifest: { fields: [] },
+        contentHash: createHash('sha256').update(`tpl-${slug}`).digest('hex'),
+        createdBy: ownerId,
+      },
+    });
     return { scope, ownerId, projectId: project.id, contactId: contact.id, domainId: domain.id, hostname };
   });
 }

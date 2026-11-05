@@ -258,20 +258,20 @@ model AdminStepUp {
 /// The hard isolation boundary (SRS 4.2). status/suspension/plan columns are not writable by app_user;
 /// suspension goes through app.admin_set_workspace_status (FR-WS-04, FR-ADM-02).
 model Workspace {
-  id               String          @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  id               String            @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name             String
   /// Unique, lower-case, 3-48 chars; reserved words (app.reserved_slugs()) blocked by CHECK and the service (FR-WS-01).
-  slug             String          @unique
-  status           WorkspaceStatus @default(active)
-  planId           String?         @map("plan_id")
-  suspendedAt      DateTime?       @map("suspended_at") @db.Timestamptz(6)
-  suspendedReason  String?         @map("suspended_reason")
+  slug             String            @unique
+  status           WorkspaceStatus   @default(active)
+  planId           String?           @map("plan_id")
+  suspendedAt      DateTime?         @map("suspended_at") @db.Timestamptz(6)
+  suspendedReason  String?           @map("suspended_reason")
   /// Deletion request (FR-WS-05 design hook, IMPLEMENTATION_PLAN Q4); the purge job lands in P8.
-  deletedAt        DateTime?       @map("deleted_at") @db.Timestamptz(6)
-  scheduledPurgeAt DateTime?       @map("scheduled_purge_at") @db.Timestamptz(6)
-  createdBy        String?         @map("created_by") @db.Uuid
-  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime?         @map("deleted_at") @db.Timestamptz(6)
+  scheduledPurgeAt DateTime?         @map("scheduled_purge_at") @db.Timestamptz(6)
+  createdBy        String?           @map("created_by") @db.Uuid
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   memberships      Membership[]
   invitations      Invitation[]
   projects         Project[]
@@ -279,6 +279,8 @@ model Workspace {
   domains          Domain[]
   outboxEvents     OutboxEvent[]
   jobDeadLetters   JobDeadLetter[]
+  templates        Template[]
+  templateVersions TemplateVersion[]
 
   @@map("workspaces")
   @@schema("app")
@@ -524,5 +526,79 @@ model PlatformSetting {
   updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
 
   @@map("platform_settings")
+  @@schema("app")
+}
+
+enum TemplateStatus {
+  draft
+  published
+  archived
+
+  @@map("template_status")
+  @@schema("app")
+}
+
+enum TemplateVisibility {
+  /// Visible to the owning workspace only.
+  private
+  /// A platform built-in (workspace_id NULL), readable by everyone through app.get_catalog_template.
+  platform
+  /// A creator template approved for sale (P6, FR-MKT); not writable by tenants before that phase.
+  marketplace
+
+  @@map("template_visibility")
+  @@schema("app")
+}
+
+/// A site template (ADR-004: declarative data only). workspace_id NULL means a platform built-in, written only by
+/// the operator function app.operator_publish_builtin_template; tenants read the catalogue through
+/// app.list_catalog_templates / app.get_catalog_template and see their own private templates directly (RLS).
+/// Content lives in the immutable TemplateVersion rows.
+model Template {
+  id          String             @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  workspaceId String?            @map("workspace_id") @db.Uuid
+  slug        String
+  name        String
+  /// One of the SiteConfig categories (CHECK).
+  category    String
+  description String
+  status      TemplateStatus     @default(draft)
+  visibility  TemplateVisibility @default(private)
+  createdBy   String?            @map("created_by") @db.Uuid
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime?          @map("deleted_at") @db.Timestamptz(6)
+  workspace   Workspace?         @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  versions    TemplateVersion[]
+
+  @@unique([workspaceId, id])
+  @@unique([workspaceId, slug])
+  @@index([workspaceId, status])
+  @@map("templates")
+  @@schema("app")
+}
+
+/// One immutable version of a template: the full SiteConfig (config) and the onboarding manifest. No UPDATE or
+/// DELETE for any role (trigger), so a project that was started from version N always finds exactly that content.
+model TemplateVersion {
+  id            String     @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  workspaceId   String?    @map("workspace_id") @db.Uuid
+  templateId    String     @map("template_id") @db.Uuid
+  version       Int
+  /// SiteConfig schemaVersion the config was written for; old versions are migrated on read (FR-TPL-07).
+  schemaVersion String     @map("schema_version")
+  config        Json       @db.JsonB
+  manifest      Json       @db.JsonB
+  /// SHA-256 (hex) of the canonical config + manifest; lets the seed skip a version that did not change.
+  contentHash   String     @map("content_hash")
+  createdBy     String?    @map("created_by") @db.Uuid
+  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  workspace     Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  template      Template?  @relation(fields: [workspaceId, templateId], references: [workspaceId, id], onDelete: Restrict, map: "template_versions_workspace_id_template_id_fkey")
+
+  @@unique([templateId, version])
+  @@unique([workspaceId, id])
+  @@index([workspaceId, templateId])
+  @@map("template_versions")
   @@schema("app")
 }

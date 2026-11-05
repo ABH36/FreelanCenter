@@ -1,6 +1,6 @@
 # 04 — Template Engine and Renderer
 
-**Status:** In progress (P2). S1 schema (#43), S2 theme/fonts/motion (#44), S3 blocks (#45) and S4 renderer (#47) merged; S5a reference templates built, pending approval; S5b (database, seed, live migration), S6, S7 planned. Nothing is marked verified. **SRS:** FR-TPL-01..11.
+**Status:** In progress (P2). S1-S4 and S5a merged (#43-#48); S5b (template tables, catalogue, seed) built, live migration pending the Owner's approval; S6 preview and S7 phase exit planned. Nothing is marked verified. **SRS:** FR-TPL-01..11.
 
 ## Outcome
 
@@ -16,6 +16,10 @@ Template definition → schema validation → Project SiteDraft
 ```
 
 Theme tokens compile to CSS variables; no runtime stylesheet rebuilding. Renderer respects responsive design, WCAG 2.1 AA, reduced motion and SEO metadata. Initial template categories and three reference templates are explicit P2 deliverables.
+
+## Data model (P2 S5b)
+
+`templates` (identity, status, owner) and `template_versions` (the immutable content: SiteConfig and onboarding manifest). `workspace_id` NULL is a platform built-in; otherwise a private template of that workspace (marketplace templates, P6, will be non-NULL with visibility `marketplace`). Tenants read and write only their own private templates (RLS, editor roles); built-ins are written by `app.operator_publish_builtin_template` (migrator only, audited, idempotent by content hash) through `pnpm --filter @platform/db db:seed-templates` from the reviewed seed file `packages/templates/seed/builtin-templates.json`. The catalogue is read through `app.list_catalog_templates()` and `app.get_catalog_template(id, version?)`, executable by tenants and visitors. Versions are numbered 1, 2, 3 without gaps and cannot be changed or deleted.
 
 ## Failure/security rules
 

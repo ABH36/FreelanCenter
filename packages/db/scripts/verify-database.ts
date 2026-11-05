@@ -119,7 +119,8 @@ const tenantTables = await withClient('bootstrap', async (op) => {
        FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
       WHERE n.nspname = 'app' AND p.prosecdef`,
   );
-  // P1 foundation (5) + P1 S5 (6) + P1 S6 (4) + P1 S7 (1) + P1 S8 (7). An unexpected definer is as much a
+  // P1 foundation (5) + P1 S5 (6) + P1 S6 (4) + P1 S7 (1) + P1 S8 (7) + P2 S5b (4: catalogue read x2, operator
+  // publish and archive). An unexpected definer is as much a
   // finding as a missing one.
   const expectedDefiners = [
     'accept_invitation',
@@ -145,7 +146,11 @@ const tenantTables = await withClient('bootstrap', async (op) => {
     'workspace_has_members',
     'workspace_members',
     'workspace_writable',
-  ];
+    'get_catalog_template',
+    'list_catalog_templates',
+    'operator_archive_builtin_template',
+    'operator_publish_builtin_template',
+  ].sort();
   check(
     `SECURITY DEFINER functions: exactly the ${expectedDefiners.length} expected, owned by svc_definer, search_path pinned`,
     JSON.stringify(definers.map((d) => d.proname).sort()) === JSON.stringify(expectedDefiners) &&
@@ -162,14 +167,17 @@ const tenantTables = await withClient('bootstrap', async (op) => {
     publicExec.map((r) => r.proname).join(', '),
   );
 
-  // S7: the visitor role executes exactly one function, the host resolver (SRS 5.3 item 1).
+  // S7 + P2 S5b: the visitor role executes exactly the host resolver and the two read-only catalogue functions
+  // (SRS 5.3 item 1). The operator functions that write platform templates are executable by migrator only.
   const { rows: publicFns } = await op.query(
     `SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-      WHERE n.nspname IN ('app', 'identity') AND has_function_privilege('app_public', p.oid, 'EXECUTE')`,
+      WHERE n.nspname IN ('app', 'identity') AND has_function_privilege('app_public', p.oid, 'EXECUTE')
+      ORDER BY 1`,
   );
   check(
-    'app_public can execute exactly app.resolve_host',
-    JSON.stringify(publicFns.map((r) => r.proname)) === JSON.stringify(['resolve_host']),
+    'app_public can execute exactly resolve_host and the two catalogue read functions',
+    JSON.stringify(publicFns.map((r) => r.proname)) ===
+      JSON.stringify(['get_catalog_template', 'list_catalog_templates', 'resolve_host']),
     publicFns.map((r) => r.proname).join(', '),
   );
 
@@ -279,6 +287,24 @@ await withClient('public', async (c) => {
     await denied(
       c,
       "SELECT app.allocate_platform_subdomain('00000000-0000-7000-8000-000000000000', 'x-verify')",
+    ),
+  );
+  // P2 S5b: the visitor role reads the template catalogue (read-only) and cannot write a platform template.
+  const catalogue = await c.query('SELECT template_id, slug FROM app.list_catalog_templates()');
+  check(
+    'app_public can list the template catalogue (list_catalog_templates)',
+    Array.isArray(catalogue.rows),
+    `${catalogue.rows.length} published template(s)`,
+  );
+  const unknownTemplate = await c.query(
+    "SELECT template_id FROM app.get_catalog_template('00000000-0000-7000-8000-000000000000')",
+  );
+  check('an unknown template id returns no row (get_catalog_template)', unknownTemplate.rows.length === 0);
+  check(
+    'app_public cannot publish a platform template',
+    await denied(
+      c,
+      "SELECT * FROM app.operator_publish_builtin_template('x-verify', 'x', 'generic', 'x', '1.0', '{}'::jsonb, '{}'::jsonb, repeat('0', 64))",
     ),
   );
 });
