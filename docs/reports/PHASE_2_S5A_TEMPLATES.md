@@ -1,6 +1,6 @@
 # Phase 2, slice 5a: reference templates and onboarding manifests
 
-**Status:** built on `feat/p2-s5-templates`, awaiting Owner approval. **Date:** 2026-11-05 · **Plan:** `docs/IMPLEMENTATION_PLAN.md`, Phase 2 task 5 (first half) · **Module:** `docs/modules/04-template-engine-renderer.md` · **Depends on:** S1-S4 (PRs #43-#47).
+**Status:** built on `feat/p2-s5-templates`, approved by the Owner 2026-11-05. **Date:** 2026-11-05 · **Plan:** `docs/IMPLEMENTATION_PLAN.md`, Phase 2 task 5 (first half) · **Module:** `docs/modules/04-template-engine-renderer.md` · **Depends on:** S1-S4 (PRs #43-#47).
 
 S5 is split in two so that the live database migration stays small and separately approved. **S5a (this report)** is data and code only: no database, no migration. **S5b** adds `Template`/`TemplateVersion` tables, row-level security, the seed command and the live migration, and needs a separate Owner approval before anything touches the live database.
 
@@ -62,9 +62,9 @@ Clean worktree at `538be8a`, `pnpm install --frozen-lockfile`, steps in the orde
 
 New package; additive schema fields (`business.logo`, three manifest kinds, optional `maxItems`/`itemFields`). Existing stored configs and manifests stay valid. **No database change, migration, API, event or live action.** Rollback is a revert.
 
-## 8. Open items
+## 8. Owner decisions (2026-11-05)
 
-1. Approve S5a.
-2. S5-2: accept `business.logo` as an additive SRS 5.2 extension.
-3. Design review of the three templates (palette, copy, structure) when convenient; real photography is needed for sales-grade previews.
+1. **S5a approved.**
+2. **S5-2 accepted:** `business.logo` stays as an additive SRS 5.2 extension.
+3. Design review of the three templates and real photography remain Owner-side items; Hindi default content is scheduled with P5 i18n unless requested earlier.
 4. Next: S5b (database tables, RLS, seed, live migration). The migration will not be applied live without the Owner's separate approval.
