@@ -1,6 +1,6 @@
 # 04 — Template Engine and Renderer
 
-**Status:** In progress (P2). S1-S6a merged (#43-#51; S5b is live); S6b dashboard "share a preview" built, pending approval; S7 phase exit planned. Nothing is marked verified. **SRS:** FR-TPL-01..11.
+**Status:** In progress (P2). S1-S6b merged (#43-#52; S5b is live); S7 phase exit (axe, visual regression, Lighthouse budgets, Phase 2 report) built, pending Owner approval and the Phase 2 audit. Nothing is marked verified. **SRS:** FR-TPL-01..11.
 
 ## Outcome
 
@@ -30,4 +30,4 @@ Theme tokens compile to CSS variables; no runtime stylesheet rebuilding. Rendere
 
 ## Evidence / handoff
 
-Schema/property tests, migration fixtures, renderer snapshots, axe and mobile Lighthouse tests, malformed-config fallback tests. Upstream: Modules 01–03. Downstream: editor, AI, onboarding, publish, export. Read SRS §5.2, §6.4 and ADR-004.
+Schema/property tests, migration fixtures, renderer snapshots, axe, visual-regression and mobile Lighthouse checks (`tests/quality`, CI job `quality`; see `docs/reports/PHASE_2_REPORT.md`), malformed-config fallback tests. Upstream: Modules 01–03. Downstream: editor, AI, onboarding, publish, export. Read SRS §5.2, §6.4 and ADR-004.

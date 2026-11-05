@@ -6,6 +6,7 @@ import {
   compileThemeCss,
   compileThemeCssSafe,
   contrastIssues,
+  linkColor,
   themeDeclarations,
 } from './theme';
 
@@ -148,5 +149,28 @@ describe('theme compiler', () => {
       colors: { ...DEFAULT_THEME.colors, primary: '#60A5FA' },
     };
     expect(contrastIssues(outline).length).toBeGreaterThan(0);
+  });
+});
+
+describe('link colour', () => {
+  const colors = (primary: string, background: string, surface: string, text: string) => ({
+    ...DEFAULT_THEME.colors,
+    primary,
+    background,
+    surface,
+    text,
+  });
+  it('keeps the brand primary when it already reads on both surfaces', () => {
+    expect(linkColor(colors('#1D4ED8', '#FFFFFF', '#F3F4F6', '#111827'))).toBe('#1d4ed8');
+  });
+  it('blends toward the text colour until AA (4.5:1) holds on background and surface (gym-bold: red on near-black)', () => {
+    const c = colors('#E11D2E', '#0B0B0F', '#15151C', '#F9FAFB');
+    const link = linkColor(c);
+    expect(link).not.toBe('#e11d2e');
+    expect(contrastRatio(link, c.background)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(link, c.surface)).toBeGreaterThanOrEqual(4.5);
+  });
+  it('is part of every compiled theme', () => {
+    expect(themeDeclarations(DEFAULT_THEME).some((d) => d.startsWith('--color-link:'))).toBe(true);
   });
 });

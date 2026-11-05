@@ -1,0 +1,31 @@
+{
+  "name": "@platform/quality",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Phase 2 quality gates for the reference templates: axe (WCAG 2.1 AA), visual regression and Lighthouse mobile budgets, run against the real request handler",
+  "scripts": {
+    "lint": "eslint src scripts playwright.config.ts",
+    "typecheck": "tsc --noEmit",
+    "build:server": "node scripts/build-server.mjs",
+    "serve": "pnpm build:server && node .cache/serve.mjs",
+    "test:a11y": "pnpm build:server && playwright test --grep @a11y",
+    "test:visual": "pnpm build:server && playwright test --grep @visual",
+    "test:lighthouse": "pnpm build:server && node scripts/lighthouse.mjs"
+  },
+  "dependencies": {
+    "@platform/blocks": "workspace:*",
+    "@platform/hosting": "workspace:*",
+    "@platform/providers": "workspace:*",
+    "@platform/schema": "workspace:*",
+    "@platform/templates": "workspace:*",
+    "@platform/ui": "workspace:*"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.64.1",
+    "@types/node": "^22.0.0",
+    "esbuild": "0.28.2",
+    "lighthouse": "13.5.0"
+  }
+}
