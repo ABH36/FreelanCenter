@@ -108,7 +108,12 @@ export const platformConfig = tseslint.config(
   },
   {
     // Pure layers: schema, blocks and ui must stay free of I/O packages (and still may not import apps).
-    files: ['packages/schema/**/*.{ts,tsx}', 'packages/blocks/**/*.{ts,tsx}', 'packages/ui/**/*.{ts,tsx}'],
+    files: [
+      'packages/schema/**/*.{ts,tsx}',
+      'packages/blocks/**/*.{ts,tsx}',
+      'packages/ui/**/*.{ts,tsx}',
+      'packages/templates/**/*.{ts,tsx}',
+    ],
     rules: restrict(
       NO_APPS,
       [

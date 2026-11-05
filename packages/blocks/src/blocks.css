@@ -269,14 +269,19 @@
 @media (min-width: 640px) {
   /* auto-fit: two plans or two people fill the row instead of leaving an empty third column */
   .pb-grid {
-    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(max(16rem, calc((100% - 2.5rem) / 3)), 1fr));
   }
   .pb-services--icon-grid {
-    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(max(12rem, calc((100% - 3.75rem) / 4)), 1fr));
   }
 }
 .pb-services--list {
   grid-template-columns: 1fr;
+}
+@media (min-width: 900px) {
+  .pb-services--list {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 .pb-services--list .pb-card {
   display: grid;
@@ -348,6 +353,12 @@
   inset: 0;
   background: linear-gradient(90deg, var(--color-background) 35%, transparent 130%);
   opacity: 0.88;
+}
+.pb-section:has(> .pb-hero--full-bleed) {
+  padding-block: 0;
+}
+.pb-hero--full-bleed .pb-hero__grid {
+  padding-block: var(--section-py-xl);
 }
 .pb-hero--full-bleed .pb-hero__grid {
   position: relative;
@@ -557,7 +568,15 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.pb-header__bar > .pb-nav {
+.pb-header__bar > .pb-logo {
+  display: block;
+  height: 2.5rem;
+  width: auto;
+  max-width: 10rem;
+  object-fit: contain;
+  object-position: left center;
+}
+.pb-nav {
   order: 2;
 }
 .pb-header__bar > .pb-btn {

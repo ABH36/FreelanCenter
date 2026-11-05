@@ -48,6 +48,7 @@ export function localBusinessJsonLd(
   config: SiteConfig,
   origin: string,
   imageUrl: string | null,
+  logoUrl: string | null = null,
 ): Record<string, unknown> {
   const b = config.business;
   const a = b.address;
@@ -60,6 +61,7 @@ export function localBusinessJsonLd(
   };
   if (b.tagline) out['description'] = b.tagline;
   if (imageUrl) out['image'] = imageUrl;
+  if (logoUrl) out['logo'] = logoUrl;
   if (b.phone) out['telephone'] = b.phone;
   if (b.email) out['email'] = b.email;
   if (a && (a.line1 || a.city || a.state || a.postalCode)) {

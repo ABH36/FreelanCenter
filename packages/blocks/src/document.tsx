@@ -201,6 +201,7 @@ export function renderDocument(input: DocumentInput): DocumentResult {
     const ogImageId = found.seo?.ogImage ?? null;
     const assetUrl = ctx.assetUrl;
     const ogImage = ogImageId ? assetUrl(ogImageId.assetId, 1200) : null;
+    const logoUrl = business.logo ? assetUrl(business.logo.assetId, 400) : null;
 
     const headParts = [
       `<title>${escapeHtml(title)}</title>`,
@@ -220,7 +221,7 @@ export function renderDocument(input: DocumentInput): DocumentResult {
       preloads,
       lcpImagePreload(body),
       isHome && publicMode
-        ? `<script type="application/ld+json">${safeJsonForScript(localBusinessJsonLd(config, input.origin, ogImage))}</script>`
+        ? `<script type="application/ld+json">${safeJsonForScript(localBusinessJsonLd(config, input.origin, ogImage, logoUrl))}</script>`
         : '',
     ];
     const out = shell({ config, lang, head: headParts.join(''), body, themeStyle });

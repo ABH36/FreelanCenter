@@ -1,6 +1,6 @@
 # 04 — Template Engine and Renderer
 
-**Status:** In progress (P2). S1 schema (#43), S2 theme/fonts/motion (#44) and S3 blocks (#45) merged; S4 SiteRenderer built, pending approval; S5-S7 planned. Nothing is marked verified. **SRS:** FR-TPL-01..11.
+**Status:** In progress (P2). S1 schema (#43), S2 theme/fonts/motion (#44), S3 blocks (#45) and S4 renderer (#47) merged; S5a reference templates built, pending approval; S5b (database, seed, live migration), S6, S7 planned. Nothing is marked verified. **SRS:** FR-TPL-01..11.
 
 ## Outcome
 

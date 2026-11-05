@@ -74,3 +74,66 @@ describe('templateSchema', () => {
     expect(getAtPath(c, 'pages.length')).toBeUndefined();
   });
 });
+
+describe('onboarding manifest: hours, photos and repeating groups (FR-ONB-02)', () => {
+  const withList = () => {
+    const t = tpl();
+    t.manifest.fields.push(
+      { key: 'opening-hours', label: 'Opening hours', kind: 'hours', path: 'business.hours', required: true },
+      {
+        key: 'services',
+        label: 'Your services',
+        kind: 'list',
+        path: 'pages.0.sections.1.props.items',
+        required: true,
+        maxItems: 8,
+        itemFields: [
+          { key: 'title', label: 'Name', kind: 'text', required: true, maxLength: 80 },
+          { key: 'price', label: 'Price', kind: 'text', required: false },
+        ],
+      },
+    );
+    return t;
+  };
+  it('accepts hours and a list whose columns exist in the default items', () => {
+    expect(templateSchema.safeParse(withList()).success).toBe(true);
+  });
+  it('rejects kind/shape mismatches, missing itemFields, unknown columns and misplaced options', () => {
+    const t1 = withList();
+    t1.manifest.fields[3].path = 'business.name'; // list pointing at a string
+    expect(templateSchema.safeParse(t1).success).toBe(false);
+    const t2 = withList();
+    delete t2.manifest.fields[4].itemFields;
+    expect(templateSchema.safeParse(t2).success).toBe(false);
+    const t3 = withList();
+    t3.manifest.fields[4].itemFields[0].key = 'nonexistent';
+    expect(templateSchema.safeParse(t3).success).toBe(false);
+    const t4 = withList();
+    t4.manifest.fields[0].itemFields = t4.manifest.fields[4].itemFields;
+    expect(templateSchema.safeParse(t4).success).toBe(false);
+    const t5 = withList();
+    t5.manifest.fields[0].maxItems = 3;
+    expect(templateSchema.safeParse(t5).success).toBe(false);
+    const t6 = withList();
+    t6.manifest.fields[2].path = 'business.name'; // two fields, same path
+    expect(templateSchema.safeParse(t6).success).toBe(false);
+    const t7 = withList();
+    t7.manifest.fields[3].path = 'business.name';
+    t7.manifest.fields[3].kind = 'hours';
+    expect(templateSchema.safeParse(t7).success).toBe(false);
+  });
+  it('a photo field must point at an image object, a gallery at a list of images', () => {
+    const t = tpl();
+    t.manifest.fields[2].path = 'business.name';
+    expect(templateSchema.safeParse(t).success).toBe(false);
+    const g = tpl();
+    g.manifest.fields.push({
+      key: 'photos',
+      label: 'Photos',
+      kind: 'images',
+      path: 'business.hours',
+      required: false,
+    });
+    expect(templateSchema.safeParse(g).success).toBe(false);
+  });
+});

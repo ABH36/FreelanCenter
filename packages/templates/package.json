@@ -1,0 +1,26 @@
+{
+  "name": "@platform/templates",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Built-in reference templates as validated data: SiteConfig defaults plus onboarding manifests (pure layer)",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@platform/schema": "workspace:*"
+  },
+  "devDependencies": {
+    "@platform/blocks": "workspace:*",
+    "@platform/ui": "workspace:*",
+    "@types/node": "^22.0.0",
+    "@types/react": "19.3.0",
+    "react": "19.3.0",
+    "zod": "4.6.6"
+  }
+}

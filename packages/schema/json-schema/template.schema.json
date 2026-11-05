@@ -79,6 +79,24 @@
                 "hi"
               ]
             },
+            "logo": {
+              "type": "object",
+              "properties": {
+                "assetId": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,64}$"
+                },
+                "alt": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "assetId",
+                "alt"
+              ],
+              "additionalProperties": false
+            },
             "tagline": {
               "type": "string",
               "maxLength": 120
@@ -2396,7 +2414,10 @@
                   "phone",
                   "email",
                   "url",
-                  "image"
+                  "image",
+                  "hours",
+                  "images",
+                  "list"
                 ]
               },
               "path": {
@@ -2411,6 +2432,51 @@
                 "type": "integer",
                 "minimum": 1,
                 "maximum": 3000
+              },
+              "maxItems": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 24
+              },
+              "itemFields": {
+                "minItems": 1,
+                "maxItems": 6,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9]{0,39}$"
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "text",
+                        "longtext"
+                      ]
+                    },
+                    "required": {
+                      "type": "boolean"
+                    },
+                    "maxLength": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 3000
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "label",
+                    "kind",
+                    "required"
+                  ],
+                  "additionalProperties": false
+                }
               }
             },
             "required": [

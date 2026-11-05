@@ -403,3 +403,23 @@ describe('chrome', () => {
     expect(f('both', { phone: '', whatsapp: '' })).toBe('');
   });
 });
+
+describe('logo', () => {
+  const withLogo = () =>
+    parsed(
+      baseConfig([], {
+        business: { ...baseConfig().business, logo: { assetId: 'logo-1', alt: 'Iron Pulse logo' } },
+      }),
+    );
+  it('replaces the written name once the file exists, and falls back to the name until then', () => {
+    const cfg = withLogo();
+    const assetUrl = (id: string, w: number) => `https://assets.example.test/${id}-${w}.webp`;
+    const shown = html(<Header ctx={ctxFor(cfg, { assetUrl })} currentPath="/" />);
+    expect(shown).toContain('class="pb-logo"');
+    expect(shown).toContain('src="https://assets.example.test/logo-1-400.webp"');
+    expect(shown.toLowerCase()).toContain('alt="iron pulse logo"');
+    const missing = html(<Header ctx={ctxFor(cfg)} currentPath="/" />);
+    expect(missing).not.toContain('pb-logo');
+    expect(missing).toContain('Iron Pulse Fitness</a>');
+  });
+});
