@@ -143,7 +143,13 @@ describe('next.config security headers (SEC-03)', () => {
   it('applies the baseline to every path and hides the framework banner', async () => {
     expect(config.poweredByHeader).toBe(false);
     const rules = await config.headers!();
-    expect(rules).toEqual([{ source: '/:path*', headers: [...SECURITY_HEADERS] }]);
+    expect(rules[0]).toEqual({ source: '/:path*', headers: [...SECURITY_HEADERS] });
+    // Self-hosted fonts: long but not immutable cache (file names carry no content hash).
+    expect(rules[1]).toEqual({
+      source: '/fonts/:file*',
+      headers: [{ key: 'Cache-Control', value: 'public, max-age=2592000, stale-while-revalidate=86400' }],
+    });
+    expect(rules).toHaveLength(2);
     const byKey = Object.fromEntries(SECURITY_HEADERS.map((h) => [h.key, h.value]));
     expect(byKey).toMatchObject({
       'X-Content-Type-Options': 'nosniff',
