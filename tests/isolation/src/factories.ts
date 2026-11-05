@@ -160,6 +160,68 @@ export const TENANT_TABLES = {
     delete: 'denied',
     prisma: { model: (tx) => delegate(tx.domain), data: { deletedAt: new Date() } },
   },
+  templates: {
+    tenantKey: 'workspace_id',
+    // Platform built-ins have no workspace (workspace_id NULL) and are invisible to app_user; only the
+    // catalogue functions expose them.
+    nullableTenantKey: true,
+    prepare: none,
+    insert: async (tx, ctx) =>
+      (
+        await tx.template.create({
+          data: {
+            workspaceId: ctx.workspaceId,
+            slug: ctx.unique('tpl').slice(0, 40),
+            name: 'Isolation template',
+            category: 'generic',
+            description: 'Template seeded by the isolation suite.',
+            createdBy: ctx.ownerId,
+          },
+          select: { id: true },
+        })
+      ).id,
+    update: `name = 'tampered'`,
+    delete: 'denied',
+    prisma: { model: (tx) => delegate(tx.template), data: { name: 'tampered' } },
+  },
+  template_versions: {
+    tenantKey: 'workspace_id',
+    nullableTenantKey: true,
+    prepare: async (tx, ctx) => ({
+      templateId: (
+        await tx.template.create({
+          data: {
+            workspaceId: ctx.workspaceId,
+            slug: ctx.unique('tplv').slice(0, 40),
+            name: 'Isolation template',
+            category: 'generic',
+            description: 'Parent of an isolation template version.',
+            createdBy: ctx.ownerId,
+          },
+          select: { id: true },
+        })
+      ).id,
+    }),
+    insert: async (tx, ctx, deps) =>
+      (
+        await tx.templateVersion.create({
+          data: {
+            workspaceId: ctx.workspaceId,
+            templateId: deps.templateId!,
+            version: 1,
+            schemaVersion: '1.0',
+            config: { schemaVersion: '1.0' },
+            manifest: { fields: [] },
+            contentHash: token().slice(0, 64),
+            createdBy: ctx.ownerId,
+          },
+          select: { id: true },
+        })
+      ).id,
+    update: 'denied',
+    delete: 'denied',
+    prisma: { model: (tx) => delegate(tx.templateVersion), data: { manifest: {} } },
+  },
   audit_logs: {
     tenantKey: 'workspace_id',
     nullableTenantKey: true,

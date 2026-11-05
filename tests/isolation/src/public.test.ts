@@ -46,13 +46,26 @@ describe('visitor role app_public', () => {
     }
   });
 
-  it('app_public executes exactly app.resolve_host, which returns only (outcome, workspace_id, project_id)', async () => {
+  it('app_public executes exactly the host resolver and the two read-only catalogue functions, with narrow result shapes', async () => {
     const { rows } = await w.admin.query<{ fn: string; result: string }>(
       `SELECT n.nspname || '.' || p.proname AS fn, pg_get_function_result(p.oid) AS result
          FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-        WHERE n.nspname IN ('app', 'identity') AND has_function_privilege('app_public', p.oid, 'EXECUTE')`,
+        WHERE n.nspname IN ('app', 'identity') AND has_function_privilege('app_public', p.oid, 'EXECUTE')
+        ORDER BY 1`,
     );
+    // P2 S5b: the catalogue returns published platform and marketplace templates only (the functions filter; the
+    // matrix proves the underlying tables stay invisible across tenants). No tenant id appears in any result.
     expect(rows).toEqual([
+      {
+        fn: 'app.get_catalog_template',
+        result:
+          'TABLE(template_id uuid, slug text, name text, category text, description text, visibility text, version integer, schema_version text, config jsonb, manifest jsonb, content_hash text)',
+      },
+      {
+        fn: 'app.list_catalog_templates',
+        result:
+          'TABLE(template_id uuid, slug text, name text, category text, description text, visibility text, version integer, content_hash text, updated_at timestamp with time zone)',
+      },
       { fn: 'app.resolve_host', result: 'TABLE(outcome text, workspace_id uuid, project_id uuid)' },
     ]);
   });
