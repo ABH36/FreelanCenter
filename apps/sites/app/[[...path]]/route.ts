@@ -4,10 +4,12 @@
  */
 import { serveHost } from '../../lib/serve';
 import { logger, sitesRuntime } from '../../lib/runtime';
+import { emptySiteSource } from '../../lib/site-source';
 
 export const dynamic = 'force-dynamic';
 
-const deps = { resolver: async () => (await sitesRuntime()).resolver, logger };
+// P3 replaces the empty source with published SiteVersions; until then every live host keeps the placeholder.
+const deps = { resolver: async () => (await sitesRuntime()).resolver, logger, source: emptySiteSource };
 
 export function GET(request: Request): Promise<Response> {
   return serveHost(request, deps);

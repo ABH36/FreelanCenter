@@ -109,6 +109,9 @@ importers:
 
   apps/sites:
     dependencies:
+      '@platform/blocks':
+        specifier: workspace:*
+        version: link:../../packages/blocks
       '@platform/db':
         specifier: workspace:*
         version: link:../../packages/db
