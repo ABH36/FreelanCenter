@@ -61,6 +61,8 @@ Clean worktree, `pnpm install --frozen-lockfile`, steps in the order of the `ver
 | `pnpm test` on `d19f357`                                           | **failed once:** the unrelated `@platform/auth` DG-22 test timed out (S3-13). After the timeout fix (`36e50b8`) `format:check`, `lint`, `typecheck` and `pnpm test` were re-run in the same worktree: all pass, test 14/14 tasks (ui 22, schema 41, blocks 35) |
 | traceability regenerate and diff, build (3/3), `pnpm audit --high` | pass on `d19f357` (the later commits change only a test config and docs)                                                                                                                                                                                       |
 
+**Final run after the icon change (`20aa231`, new clean worktree, every step in the CI order):** format:check, sync-plan:check, lint, typecheck, `pnpm test` (14/14 tasks), traceability diff, build and `pnpm audit --high` all pass on the first attempt.
+
 **Not run:** the database jobs (`db-integration`, isolation, integration suites, `e2e`, `perf`) and `secrets` (gitleaks, Docker). S3 changes no database, migration, auth, workspace or app code; CI runs them on the PR.
 
 ## 7. Compatibility, migration, rollback
@@ -70,7 +72,7 @@ New package code, a `zod` dependency in `@platform/blocks` and `react`/`react-do
 ## 8. Owner decisions (2026-11-05)
 
 1. **S3 approved.**
-2. **S3-2 accepted:** stays as an additive SRS 5.2 extension.
+2. **S3-2 accepted:** `business.language` stays as an additive SRS 5.2 extension.
 3. **S3-6 accepted:** the contact form stays dormant until P5 supplies the lead endpoint.
-4. **S3-10, map (Owner delegated the approach; the Owner also holds a Google Maps key):** keep the link card now. It is the fastest and most private option and needs no key. Recommended later enhancement, not built here: a **click-to-load embed** (Maps Embed API, which has no usage charge) so no third-party request or cookie happens until the visitor presses "Show map". It needs a per-site opt-in field in the schema, in the CSP of pages that enable it, a privacy-inventory row, and the key as a server-side environment variable (never in a config, a log or chat). Because tenants use custom domains, an HTTP-referrer restriction on the key cannot list them; the key should be restricted to the Maps Embed API only. Scheduled as an item for the P3 builder or the P8 hardening pass, on Owner request.
+4. **S3-10, map (Owner delegated the approach; the Owner also holds a Google Maps key):** keep the link card now. It is the fastest and most private option and needs no key. Recommended later enhancement, not built here: a **click-to-load embed** (Maps Embed API, which has no usage charge) so no third-party request or cookie happens until the visitor presses "Show map". It needs a per-site opt-in field in the schema, `frame-src https://www.google.com` in the CSP of pages that enable it, a privacy-inventory row, and the key as a server-side environment variable (never in a config, a log or chat). Because tenants use custom domains, an HTTP-referrer restriction on the key cannot list them; the key should be restricted to the Maps Embed API only. Scheduled as an item for the P3 builder or the P8 hardening pass, on Owner request.
 5. **S3-11, icons (Owner delegated):** Lucide, see S3-11.
