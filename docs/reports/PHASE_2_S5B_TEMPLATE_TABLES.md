@@ -1,6 +1,6 @@
 # Phase 2, slice 5b: template tables, catalogue and seed (live migration pending)
 
-**Status:** built on `feat/p2-s5b-template-tables`, awaiting Owner approval. **The migration is NOT applied live.** **Date:** 2026-11-05 · **Plan:** `docs/IMPLEMENTATION_PLAN.md`, Phase 2 data model (`Template`, `TemplateVersion`) · **Module:** `docs/modules/04-template-engine-renderer.md` · **Depends on:** S5a (PR #48).
+**Status:** built on `feat/p2-s5b-template-tables`, approved by the Owner 2026-11-05 (code, tests, report). **The migration is NOT applied live;** the live migration and the live seed need the Owner's separate approval. **Date:** 2026-11-05 · **Plan:** `docs/IMPLEMENTATION_PLAN.md`, Phase 2 data model (`Template`, `TemplateVersion`) · **Module:** `docs/modules/04-template-engine-renderer.md` · **Depends on:** S5a (PR #48).
 
 ## 1. Requirements
 
@@ -81,8 +81,7 @@ Nothing below has been run against the live Supabase database. Proposed procedur
 5. **Rollback:** forward-only. If the migration must be undone before anything uses it, a new migration drops the two tables, the two enums and the nine functions (nothing else references them: `projects.template_id` has no foreign key). The seed is repeatable and archivable (`operator_archive_builtin_template`).
 6. **Risk:** low. New objects only; existing tables, roles and policies untouched; no downtime; the sites app does not read the new tables yet (S6 adds the preview route).
 
-## 8. Open items
+## 8. Owner decisions (2026-11-05)
 
-1. Approve S5b (code, tests, report).
-2. **Approve the live migration** and, separately, the live seed (section 7). Not requested yet: I will ask again, with the pre-check output, after the PR is merged.
-3. Nothing else is open for this slice.
+1. **S5b approved** (code, tests, report). This is not an approval to touch the live database.
+2. **Live migration and live seed: not yet approved.** After the PR is merged I will show the read-only pre-check output on the live database and ask for approval of the migration and, separately, of the seed.
