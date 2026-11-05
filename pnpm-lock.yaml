@@ -224,10 +224,32 @@ importers:
         version: 8.23.0
 
   packages/blocks:
+    dependencies:
+      '@platform/schema':
+        specifier: workspace:*
+        version: link:../schema
+      '@platform/ui':
+        specifier: workspace:*
+        version: link:../ui
+      zod:
+        specifier: 4.6.6
+        version: 4.6.6
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
         version: 22.20.4
+      '@types/react':
+        specifier: 19.3.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: 19.3.0
+        version: 19.3.0(@types/react@19.3.0)
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: 19.3.0
+        version: 19.3.0(react@19.3.0)
 
   packages/config: {}
 

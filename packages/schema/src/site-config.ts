@@ -40,6 +40,8 @@ const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 const businessSchema = z.strictObject({
   name: requiredShortText,
   category: z.enum(CATEGORIES),
+  // Not in the SRS 5.2 sample: the site's language, for <html lang> and the blocks' fixed UI strings (P2 S3).
+  language: z.enum(['en', 'hi']).default('en'),
   tagline: shortText.optional(),
   phone: phone.optional(),
   whatsapp: phone.optional(),
@@ -143,14 +145,20 @@ export const siteConfigSchema = z
     });
     if (!paths.has('/'))
       ctx.addIssue({ code: 'custom', path: ['pages'], message: 'A page with path "/" is required' });
+    const sectionsByPath = new Map(
+      config.pages.map((pg) => [pg.path, new Set(pg.sections.map((sec) => sec.id))]),
+    );
     config.navigation.items.forEach((item, i) => {
-      if (item.target.startsWith('/') && !paths.has(item.target)) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['navigation', 'items', i, 'target'],
-          message: 'Navigation target is not a page',
-        });
-      }
+      if (!item.target.startsWith('/') && !item.target.startsWith('#')) return; // external URL
+      const [base = '', anchor] = item.target.split('#');
+      const pagePath = base === '' ? '/' : base;
+      const sections = sectionsByPath.get(pagePath);
+      const message = !sections
+        ? 'Navigation target is not a page'
+        : anchor !== undefined && !sections.has(anchor)
+          ? 'Navigation anchor is not a section of that page'
+          : null;
+      if (message) ctx.addIssue({ code: 'custom', path: ['navigation', 'items', i, 'target'], message });
     });
   });
 
