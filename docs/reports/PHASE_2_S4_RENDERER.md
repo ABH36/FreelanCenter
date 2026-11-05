@@ -1,6 +1,6 @@
 # Phase 2, slice 4: SiteRenderer (SSR, SEO, CSP, sitemap, robots)
 
-**Status:** built on `feat/p2-s4-renderer`, awaiting Owner approval. **Date:** 2026-11-05 · **Plan:** `docs/IMPLEMENTATION_PLAN.md`, Phase 2 task 4 · **Module:** `docs/modules/04-template-engine-renderer.md` · **Depends on:** S1-S3 (PRs #43, #44, #45).
+**Status:** built on `feat/p2-s4-renderer`, approved by the Owner 2026-11-05. **Date:** 2026-11-05 · **Plan:** `docs/IMPLEMENTATION_PLAN.md`, Phase 2 task 4 · **Module:** `docs/modules/04-template-engine-renderer.md` · **Depends on:** S1-S3 (PRs #43, #44, #45).
 
 ## 1. Requirements
 
@@ -65,8 +65,12 @@ Clean worktree, `pnpm install --frozen-lockfile`, steps in the order of the `ver
 
 New code only; no new dependency except `@platform/blocks` in `apps/sites` (workspace). No database change, migration, API, event, environment variable or live action. Production behaviour is unchanged until a source returns content (S4-5). Rollback is a revert.
 
-## 8. Open items
+## 8. Owner decisions (2026-11-05)
 
-1. Approve S4.
-2. S4-4: analytics, pixel and chatbot integrations are not rendered. Priority and approach (privacy-first first-party analytics versus Google/Meta with consent) need an Owner decision before they are scheduled.
-3. S4-7: Sentry for block errors, optional.
+1. **S4 approved.**
+2. **S4-4, analytics, pixel and chatbot (Owner delegated the approach):** decided as follows, scheduled as its own slice after P3 (it needs published versions and the dashboard to show results).
+   - **Default: privacy-first, cookieless page-view analytics** measured on our side (visits, pages, referrers, device class, country; no cookies, no persistent visitor id, IP not stored). It needs no consent banner, keeps the strict CSP and the performance budget, and gives every client a dashboard number without sending visitor data to an ad network. This is the real-world fit for small Indian businesses and the privacy position the platform already has (SEC, privacy inventory).
+   - **Optional, per site, off by default: Google Analytics / Meta Pixel** through the existing `integrations` fields, only behind a consent banner (DPDP Act and, for EU visitors, GDPR), with a per-site CSP addition and a privacy-inventory row. It is the client's choice and the client's controller responsibility.
+   - **Chatbot** (`integrations.chatbot`) depends on the AI phase (P4); until then the field is ignored.
+   - Until that slice exists the three fields stay accepted by the schema and unrendered, as now.
+3. **S4-7:** Sentry capture for block errors stays optional (P8 alerting).
