@@ -1,6 +1,6 @@
 # Phase 2, slice 6b: share a preview from the dashboard
 
-**Status:** built on `feat/p2-s6b-share-preview`, awaiting Owner approval. **Date:** 2026-11-05 · **Plan:** `docs/IMPLEMENTATION_PLAN.md`, Phase 2 task 6 (second half) · **Modules:** 04 (templates), 01 (RBAC) · **Depends on:** S6a (PR #51), S5b (live catalogue).
+**Status:** built on `feat/p2-s6b-share-preview`, approved by the Owner 2026-11-05. **Date:** 2026-11-05 · **Plan:** `docs/IMPLEMENTATION_PLAN.md`, Phase 2 task 6 (second half) · **Modules:** 04 (templates), 01 (RBAC) · **Depends on:** S6a (PR #51), S5b (live catalogue).
 
 S6a made the link; S6b is where a freelancer actually makes one: a **Templates** page in the dashboard that lists the catalogue and, for each template, a small form (prospect's business name, how long the link should work) that returns a copyable link.
 
@@ -71,8 +71,8 @@ Clean worktree at `0954590`, `pnpm install --frozen-lockfile`, steps in the orde
 
 New capability, service, action, page and tests; one renderer output change (root anchor form inside a base path only). **No database change, no migration, no live action, no new dependency.** The page works only when `PREVIEW_HOST` and `PREVIEW_TOKEN_SECRET` are set in the dashboard environment (otherwise it explains). Rollback is a revert.
 
-## 8. Open items
+## 8. Owner decisions (2026-11-05)
 
-1. Approve S6b.
-2. **DG-26 (Owner action):** set `PREVIEW_HOST` and `PREVIEW_TOKEN_SECRET` in **both** Vercel projects (sites and dashboard), Production and Preview. I will generate the secret locally and pipe it into the Vercel CLI; it is never shown in chat or a log. Waiting for your explicit go for that Vercel step and for the exact preview host name (`preview.<sites domain>`).
-3. Next: S7 (Phase 2 exit): Lighthouse CI budgets and axe on the three templates, visual regression, the in-region NFR-PERF-04 measurement, Phase 2 report and traceability.
+1. **S6b approved.**
+2. **DG-26 (turning previews on in the deployments):** the Owner answered "yes" to the proposal to set `PREVIEW_HOST` (`preview.<live sites domain>`) and a locally generated `PREVIEW_TOKEN_SECRET` in both Vercel projects, with the secret piped and never printed. The result is recorded in the gap register (DG-26) when done.
+3. Next: S7 (Phase 2 exit).
