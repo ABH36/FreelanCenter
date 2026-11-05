@@ -42,6 +42,8 @@ const businessSchema = z.strictObject({
   category: z.enum(CATEGORIES),
   // Not in the SRS 5.2 sample: the site's language, for <html lang> and the blocks' fixed UI strings (P2 S3).
   language: z.enum(['en', 'hi']).default('en'),
+  // Not in the SRS 5.2 sample either, but the onboarding wizard asks for it (FR-ONB-02): the business logo.
+  logo: assetRef.optional(),
   tagline: shortText.optional(),
   phone: phone.optional(),
   whatsapp: phone.optional(),

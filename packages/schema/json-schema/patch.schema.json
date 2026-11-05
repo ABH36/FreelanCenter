@@ -42,6 +42,24 @@
                   "hi"
                 ]
               },
+              "logo": {
+                "type": "object",
+                "properties": {
+                  "assetId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]{1,64}$"
+                  },
+                  "alt": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "assetId",
+                  "alt"
+                ],
+                "additionalProperties": false
+              },
               "tagline": {
                 "type": "string",
                 "maxLength": 120

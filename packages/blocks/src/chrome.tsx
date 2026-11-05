@@ -99,6 +99,9 @@ export function Header({
     </>
   );
   const cta = navigation.cta && resolveCta(navigation.cta, business);
+  // The logo replaces the written name only once its file exists; until then (and for assets that fail to resolve)
+  // the business name is shown, so the header is never empty.
+  const logoSrc = business.logo ? ctx.assetUrl(business.logo.assetId, 400) : null;
   return (
     <header className={`pb-header pb-header--${variant}`}>
       <a className="pb-skip" href="#main">
@@ -106,7 +109,18 @@ export function Header({
       </a>
       <div className="pb-container pb-header__bar">
         <a className="pb-brand" href="/">
-          {business.name}
+          {logoSrc && business.logo ? (
+            <img
+              className="pb-logo"
+              src={logoSrc}
+              alt={business.logo.alt}
+              width={160}
+              height={40}
+              decoding="async"
+            />
+          ) : (
+            business.name
+          )}
         </a>
         <nav className="pb-nav" aria-label={t(locale, 'mainNavigation')}>
           <ul className="pb-nav__list pb-nav__list--desktop">{links}</ul>
