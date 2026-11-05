@@ -17,6 +17,12 @@ export const SITES_PORT = 3001;
 /** `db:configure --target local` sets sites_domain to sites.localhost; Chromium resolves *.localhost itself. */
 export const SITES_DOMAIN = 'sites.localhost';
 
+/** P2 S6b: the preview host and the synthetic signing secret both apps share in this local suite. */
+const preview = {
+  PREVIEW_HOST: `preview.${SITES_DOMAIN}`,
+  PREVIEW_TOKEN_SECRET: 'e2e-preview-secret-local-only-synthetic-0123456789',
+};
+
 const shared = {
   NEXT_TELEMETRY_DISABLED: '1',
   UPSTASH_REDIS_REST_URL: 'http://127.0.0.1:58079',
@@ -47,6 +53,7 @@ export default defineConfig({
       timeout: 180_000,
       env: {
         ...shared,
+        ...preview,
         DATABASE_URL: LOCAL_DATABASE_URLS.app,
         DATABASE_URL_AUTH: LOCAL_DATABASE_URLS.auth,
         DATABASE_URL_ADMIN: LOCAL_DATABASE_URLS.admin,
@@ -64,7 +71,7 @@ export default defineConfig({
       url: `http://localhost:${SITES_PORT}/api/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,
-      env: { ...shared, DATABASE_URL_PUBLIC: LOCAL_DATABASE_URLS.public },
+      env: { ...shared, ...preview, DATABASE_URL_PUBLIC: LOCAL_DATABASE_URLS.public },
     },
   ],
 });

@@ -51,6 +51,8 @@ export const SERVER_ACTIONS: Record<string, ActionRegistration> = {
   removeClientContactAction: { service: 'removeClientContact', selectors: ['workspaceId', 'projectId'] },
   transitionProjectAction: { service: 'transitionProject', selectors: ['workspaceId', 'projectId'] },
   duplicateProjectAction: { service: 'duplicateProject', selectors: ['workspaceId', 'projectId'] },
+  // P2 S6b: preview links for prospects.
+  createPreviewLinkAction: { service: 'createPreviewLink', selectors: ['workspaceId'] },
   markNotificationReadAction: {
     service: 'markNotificationRead',
     selectors: ['workspaceId', 'notificationId'],
@@ -83,6 +85,7 @@ export const PAGE_LOADERS: Record<string, { service: string; selectors: Selector
   'page:/w/[slug]/projects': { service: 'listProjects', selectors: ['workspaceId'] },
   'page:/w/[slug]/projects/[projectId]': { service: 'getProject', selectors: ['workspaceId', 'projectId'] },
   'page:/w/[slug]/notifications': { service: 'listNotifications', selectors: ['workspaceId'] },
+  'page:/w/[slug]/templates': { service: 'catalog', selectors: ['workspaceId'] },
   'page:/w/[slug]/notifications (preferences)': { service: 'getPreferences', selectors: ['workspaceId'] },
   'page:/w/[slug]/notifications (project names)': {
     service: 'projectNames',

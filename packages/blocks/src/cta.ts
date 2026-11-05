@@ -20,7 +20,10 @@ const digits = (v: string | undefined) => (v ?? '').replace(/[^0-9]/g, '');
  */
 export function withBase(target: string, basePath = ''): string {
   if (basePath === '' || target.startsWith('#')) return target;
-  return target === '/' ? basePath : `${basePath}${target}`;
+  if (target === '/') return basePath;
+  // `/#pricing` is the root page's anchor: `<base>#pricing`, with no trailing slash (the host redirects those).
+  if (target.startsWith('/#')) return `${basePath}${target.slice(1)}`;
+  return `${basePath}${target}`;
 }
 
 export function resolveHref(

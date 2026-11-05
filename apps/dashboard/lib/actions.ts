@@ -10,8 +10,11 @@ export interface ActionState {
   ok?: string;
   error?: string;
   fieldErrors?: Record<string, string>;
-  /** Only for invitationLinkAction: the link to copy. */
+  /** A link to copy (invitation link, preview link). */
   link?: string;
+  /** Accessible name and the sentence under the link; the invitation wording is the default. */
+  linkLabel?: string;
+  linkNote?: string;
 }
 
 export const field = (form: FormData, name: string) => {

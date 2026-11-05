@@ -197,3 +197,51 @@ test("A's audit log shows the events of the journey", async () => {
   await a.page.goto(`/w/${a.slug}/audit`);
   await expect(a.page.getByText(/project\.created/).first()).toBeVisible();
 });
+
+// P2 S6b (FR-TPL-09): a freelancer makes a preview link in the dashboard and a prospect, with no account and no
+// cookies, opens it on the preview host and clicks through the template.
+test('A shares a template preview; a prospect opens it without signing in and stays inside the link', async ({
+  browser,
+}) => {
+  await a.page.goto(`/w/${a.slug}/templates`);
+  const card = a.page.locator('li', { has: a.page.getByRole('heading', { name: 'Gym Bold' }) });
+  await card.getByLabel("Prospect's business name (optional)").fill('Sharma Fitness');
+  await card.getByRole('button', { name: 'Create preview link' }).click();
+  const link = await card.getByLabel('Preview link').inputValue();
+  expect(link).toMatch(/^http:\/\/preview\.sites\.localhost:3001\/p\/v1\.[\w-]+\.[\w-]+$/);
+
+  // The prospect: a brand-new browser context (no cookies, no session of A).
+  const prospect = await browser.newContext();
+  try {
+    const page = await prospect.newPage();
+    // Runs in the browser: collects Content-Security-Policy violations (a string, because this package has no DOM types).
+    await page.addInitScript(
+      "document.addEventListener('securitypolicyviolation', (e) => { (globalThis.__v ??= []).push(e.violatedDirective); });",
+    );
+    const res = await page.goto(link);
+    expect(res?.status()).toBe(200);
+    expect(res?.headers()['x-robots-tag']).toBe('noindex, nofollow');
+    await expect(page.locator('.pb-banner')).toContainText('Preview of the "Gym Bold" template');
+    await expect(page.locator('.pb-brand').first()).toHaveText('Sharma Fitness');
+    // Every in-site link stays inside the preview: the first menu item keeps the token in the address.
+    await page.getByRole('link', { name: 'Pricing' }).first().click();
+    await expect(page).toHaveURL(/\/p\/v1\.[\w-]+\.[\w-]+#pricing$/);
+    // No Content-Security-Policy violation was reported while the page and the click ran.
+    expect(await page.evaluate(() => (globalThis as unknown as { __v?: string[] }).__v ?? [])).toEqual([]);
+    expect(await prospect.cookies()).toEqual([]);
+
+    // A one-character edit of the link is refused.
+    const bad = await page.goto(link.replace(/(\/p\/.{12})./, '$1X'));
+    expect(bad?.status()).toBe(404);
+  } finally {
+    await prospect.close();
+  }
+});
+
+test('the preview link shows up in A’s audit log without the link or the prospect name', async () => {
+  await a.page.goto(`/w/${a.slug}/audit`);
+  await expect(a.page.getByText(/template\.preview_link\.created/).first()).toBeVisible();
+  const html = await a.page.content();
+  expect(html).not.toContain('Sharma Fitness');
+  expect(html).not.toMatch(/\/p\/v1\./);
+});

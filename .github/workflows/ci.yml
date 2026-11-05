@@ -146,6 +146,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @platform/db generate
       - run: pnpm --filter @platform/db db:setup
+      # P2 S6b: the template catalogue the dashboard lists and the preview route serves.
+      - name: Seed the built-in templates
+        run: pnpm --filter @platform/db db:seed-templates
       - run: pnpm --filter @platform/e2e exec playwright install --with-deps chromium
       - name: Phase 1 acceptance journey
         run: pnpm --filter @platform/e2e test:e2e

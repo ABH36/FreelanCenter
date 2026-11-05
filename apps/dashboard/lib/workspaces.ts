@@ -17,6 +17,7 @@ import {
   type NotificationService,
   type Outbox,
   type ProjectService,
+  type TemplateService,
   type WorkspaceContext,
   type WorkspaceService,
   createAuditService,
@@ -26,7 +27,9 @@ import {
   createNotificationService,
   createOutbox,
   createProjectService,
+  createTemplateService,
   createWorkspaceService,
+  previewSettingsFromEnv,
   deriveInvitationKey,
 } from '@platform/workspaces';
 import { authRuntime, getSession, logger } from './auth';
@@ -39,6 +42,7 @@ export const PENDING_INVITE_COOKIE = 'pending_invite';
 interface WorkspaceRuntime {
   service: WorkspaceService;
   projects: ProjectService;
+  templates: TemplateService;
   notifications: NotificationService;
   audit: AuditService;
   jobs: Jobs;
@@ -111,7 +115,9 @@ function build(): WorkspaceRuntime {
   const projects = createProjectService({ db, outbox, logger });
   const notifications = createNotificationService({ db, logger });
   const audit = createAuditService({ db, logger });
-  return { service, projects, notifications, audit, jobs, outbox, ready };
+  // P2 S6b: preview links are signed with the secret apps/sites verifies with; off when not configured.
+  const templates = createTemplateService({ db, preview: previewSettingsFromEnv(process.env), logger });
+  return { service, projects, templates, notifications, audit, jobs, outbox, ready };
 }
 
 export function workspaceRuntime(): WorkspaceRuntime {
@@ -132,6 +138,7 @@ async function ready(): Promise<WorkspaceRuntime> {
 }
 
 export const projectService = async (): Promise<ProjectService> => (await ready()).projects;
+export const templateService = async (): Promise<TemplateService> => (await ready()).templates;
 export const notificationService = async (): Promise<NotificationService> => (await ready()).notifications;
 export const auditService = async (): Promise<AuditService> => (await ready()).audit;
 export const workspaceOutbox = async (): Promise<Outbox> => (await ready()).outbox;

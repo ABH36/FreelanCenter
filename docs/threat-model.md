@@ -1,3 +1,5 @@
+| Preview links, dashboard (P2 S6b) | A viewer, a stranger or a user of another workspace creates links, or a suspended workspace keeps minting public links | E | `templates.preview` capability (owner, admin, editor) checked server-side before anything else; stranger and unknown template are the same NOT_FOUND; writable workspace required; 100 links per person per day; every link and every refusal audited without the link or the prospect name | 2 | `packages/workspaces/test/integration/templates.test.ts`, IDOR harness, Playwright journey |
+
 # Threat Model v1 (STRIDE)
 
 **Date:** 2026-09-21 · **Scope:** the platform as specified in SRS v1.2 · **Status:** design-level. Nothing here has been tested by an external party (SEC-18 requires a pen test before launch). Reviewed again at the end of every phase (Phase 1 review: 2026-10-31, see `docs/reports/PHASE_1_REPORT.md`).

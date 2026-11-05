@@ -40,6 +40,7 @@ const MATRIX: Record<Capability, string> = {
   'integrations.manage': '- y y - - -',
   'ai.use': '- y y y - -',
   'templates.sell': '- y y - - -',
+  'templates.preview': '- y y y - -',
   'platform.admin': 'y - - - - -',
   // S5 expansion (workspace management) and FR-AUD-01 ("workspace owners can view/export theirs")
   'workspace.view': '- y y y y -',
