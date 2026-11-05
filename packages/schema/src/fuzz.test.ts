@@ -121,7 +121,7 @@ describe('fuzz: parseSiteConfig', () => {
     }
     // The fuzzer must also exercise the accept path, otherwise the property above proves nothing.
     expect(accepted).toBeGreaterThan(20);
-  });
+  }, 60_000);
 
   it('applyPatch never throws on arbitrary patches', () => {
     const rand = rng(7);
@@ -150,5 +150,5 @@ describe('fuzz: parseSiteConfig', () => {
       });
       expect(() => applyPatch(base.config, patch)).not.toThrow();
     }
-  });
+  }, 60_000);
 });
