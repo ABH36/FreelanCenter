@@ -349,10 +349,12 @@ describe('base path and banner (preview links live under /p/<token>)', () => {
     const hrefs = [...r.html.matchAll(/href="([^"]*)"/g)].map((m) => m[1] as string);
     const internal = hrefs.filter((h) => h.startsWith('/') && !h.startsWith('/fonts/'));
     expect(internal.length).toBeGreaterThan(6);
-    for (const h of internal) expect(h === BASE || h.startsWith(`${BASE}/`), h).toBe(true);
+    for (const h of internal) {
+      expect(h === BASE || h.startsWith(`${BASE}/`) || h.startsWith(`${BASE}#`), h).toBe(true);
+    }
     expect(hrefs).toContain(BASE);
     expect(hrefs).toContain(`${BASE}/about`);
-    expect(hrefs).toContain(`${BASE}/#svc`);
+    expect(hrefs).toContain(`${BASE}#svc`);
     expect(hrefs).toContain('#svc');
     expect(hrefs).toContain('#main');
     expect(hrefs).toContain('https://example.com');

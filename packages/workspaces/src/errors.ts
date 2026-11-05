@@ -24,7 +24,8 @@ export type WorkspaceErrorCode =
   | 'SUBDOMAIN_UNAVAILABLE'
   | 'IDEMPOTENCY_MISMATCH'
   | 'MFA_CODE_INVALID'
-  | 'MFA_LOCKED';
+  | 'MFA_LOCKED'
+  | 'PREVIEWS_NOT_CONFIGURED';
 
 const MESSAGES: Record<WorkspaceErrorCode, string> = {
   NOT_FOUND: 'Not found.',
@@ -48,6 +49,7 @@ const MESSAGES: Record<WorkspaceErrorCode, string> = {
     'This form was already submitted with different values. Reload the page and try again.',
   MFA_CODE_INVALID: 'That code is not valid. Enter the current code from your authenticator app.',
   MFA_LOCKED: 'Too many wrong codes. Try again in 15 minutes.',
+  PREVIEWS_NOT_CONFIGURED: 'Preview links are not set up in this environment yet. Contact support.',
 };
 
 export class WorkspaceError extends Error {

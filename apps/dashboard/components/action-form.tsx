@@ -52,12 +52,14 @@ export function ActionForm({
         <div className="mt-2 space-y-1">
           <input
             readOnly
-            aria-label="Invitation link"
+            aria-label={state.linkLabel ?? 'Invitation link'}
             value={state.link}
             onFocus={(e) => e.currentTarget.select()}
             className="block w-full rounded-md border border-slate-300 bg-slate-50 px-2 py-1 font-mono text-xs"
           />
-          <p className="text-xs text-slate-500">Share it only with the invited person. It works once.</p>
+          <p className="text-xs text-slate-500">
+            {state.linkNote ?? 'Share it only with the invited person. It works once.'}
+          </p>
         </div>
       ) : null}
     </form>

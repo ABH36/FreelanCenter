@@ -31,6 +31,7 @@ export const CAPABILITIES = [
   'integrations.manage',
   'ai.use',
   'templates.sell',
+  'templates.preview',
   'platform.admin',
 ] as const;
 export type Capability = (typeof CAPABILITIES)[number];
@@ -60,6 +61,8 @@ const MEMBER_GRANTS: Record<Capability, readonly WorkspaceRole[]> = {
   'integrations.manage': ['owner', 'admin'],
   'ai.use': ['owner', 'admin', 'editor'],
   'templates.sell': ['owner', 'admin'],
+  // P2 S6b: share a template preview with a prospect. Same people who may create projects.
+  'templates.preview': ['owner', 'admin', 'editor'],
   'platform.admin': [],
 };
 

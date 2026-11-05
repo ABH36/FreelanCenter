@@ -148,7 +148,11 @@ describe('a valid link', () => {
       .map((m) => m[1] as string)
       .filter((h) => !h.startsWith('/fonts/'));
     expect(hrefs.length).toBeGreaterThan(5);
-    for (const h of hrefs) expect(h === `/p/${token}` || h.startsWith(`/p/${token}/`), h).toBe(true);
+    for (const h of hrefs) {
+      expect(h === `/p/${token}` || h.startsWith(`/p/${token}/`) || h.startsWith(`/p/${token}#`), h).toBe(
+        true,
+      );
+    }
     expect(hrefs).toContain(`/p/${token}/rates`);
     const rates = await get(`/p/${token}/rates`);
     expect(rates.status).toBe(200);

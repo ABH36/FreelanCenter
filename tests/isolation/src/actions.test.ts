@@ -21,6 +21,7 @@ import {
   createNotificationService,
   createOutbox,
   createProjectService,
+  createTemplateService,
   createWorkspaceService,
   deriveInvitationKey,
 } from '@platform/workspaces';
@@ -60,6 +61,15 @@ const s6Jobs = createInlineJobs(
 );
 const projects = createProjectService({ db, outbox: createOutbox({ db, jobs: s6Jobs.emitter }) });
 const notifications = createNotificationService({ db });
+// P2 S6b: a template service with a preview secret that exists only in this suite.
+const templates = createTemplateService({
+  db,
+  preview: {
+    host: 'preview.sites.example.test',
+    secret: 'isolation-suite-preview-secret-local-only-0123456789',
+  },
+});
+let catalogTemplateId = '';
 const audit = createAuditService({ db });
 
 type Selectors = Record<Selector, string>;
@@ -121,6 +131,17 @@ async function seed(): Promise<Tenant> {
 }
 
 beforeAll(async () => {
+  // A published built-in, written the way the seed command writes it (operator function, migrator only).
+  const migrator = pool(urls.migrator, 1);
+  try {
+    const { rows } = await migrator.query<{ template_id: string }>(
+      `SELECT template_id FROM app.operator_publish_builtin_template($1, 'Isolation Template', 'generic', 'Template for the IDOR probes.', '1.0', '{"schemaVersion":"1.0"}'::jsonb, '{"fields":[]}'::jsonb, $2)`,
+      [unique('idor-tpl').slice(0, 40), 'e'.repeat(64)],
+    );
+    catalogTemplateId = rows[0]!.template_id;
+  } finally {
+    await migrator.end();
+  }
   A = await seed();
   B = await seed();
 });
@@ -195,6 +216,9 @@ const CALLS: Record<string, (actor: string, s: Selectors) => Promise<unknown>> =
       preferences: { 'project.review': { inApp: false, email: false } },
     }),
   unreadCount: (a, s) => notifications.unreadCount(a, s.workspaceId),
+  createPreviewLink: (a, s) =>
+    templates.createPreviewLink(a, { workspaceId: s.workspaceId, templateId: catalogTemplateId, days: 1 }),
+  catalog: (a, s) => templates.catalog(a, s.workspaceId),
   listProjects: (a, s) => projects.listProjects(a, s.workspaceId),
   getProject: (a, s) => projects.getProject(a, s.workspaceId, s.projectId),
   listNotifications: (a, s) => notifications.listNotifications(a, s.workspaceId),
