@@ -1,6 +1,6 @@
 # Phase 2, slice 1: `packages/schema` (SiteConfig v1.0, Template, patch operations)
 
-**Status:** built on `feat/p2-s1-schema`, awaiting Owner approval. **Date:** 2026-11-05 · **Plan:** `docs/IMPLEMENTATION_PLAN.md`, Phase 2 task 1 · **Module:** `docs/modules/04-template-engine-renderer.md`.
+**Status:** built on `feat/p2-s1-schema`, approved by the Owner 2026-11-05. **Date:** 2026-11-05 · **Plan:** `docs/IMPLEMENTATION_PLAN.md`, Phase 2 task 1 · **Module:** `docs/modules/04-template-engine-renderer.md`.
 
 ## 1. Requirements
 
@@ -69,8 +69,8 @@ Clean worktree at `0cfbe75` (detached), `pnpm install --frozen-lockfile`, steps 
 
 New package code and one dependency (`zod` 4.6.6, already used by other packages; lockfile gains one importer entry). **No database change, no migration, no API/event change, no live action.** Rollback is a revert.
 
-## 8. Open items for the Owner
+## 8. Owner decisions (2026-11-05)
 
-1. Approve S1.
-2. S1-3: accept `footer.floatingAction` as an additive 5.2 extension, or ask for an ADR.
-3. S1-4: images by asset id only until P3, acceptable?
+1. **S1 approved.**
+2. **S1-3 accepted:** `footer.floatingAction` stays as an additive SRS 5.2 extension (no ADR required by the Owner).
+3. **S1-4 accepted:** images by asset id only until P3.
