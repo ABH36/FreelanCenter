@@ -18,7 +18,7 @@
     "@platform/jobs": "workspace:*",
     "@platform/providers": "workspace:*",
     "@platform/workspaces": "workspace:*",
-    "pg": "8.23.0"
+    "pg": "8.23.1"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
