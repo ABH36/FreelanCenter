@@ -305,7 +305,7 @@ describe('platform built-ins: the operator function and the catalogue', () => {
     await publish(slug, 'a');
     await publish(slug, 'b');
     const rows = await definerRows<{ action: string }>(
-      `SELECT action FROM app.audit_logs WHERE action LIKE 'admin.template.%' AND metadata->>'slug' = $1 ORDER BY id`,
+      `SELECT action FROM app.audit_logs WHERE action LIKE 'admin.template.%' AND metadata->>'slug' = $1 ORDER BY action`,
       [slug],
     );
     expect(rows.map((r) => r.action)).toEqual([
