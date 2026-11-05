@@ -55,7 +55,19 @@ Nothing is marked "verified".
 
 ## 6. CI-equivalent run
 
-(filled in after the clean-worktree run)
+Clean worktree at `76e79b2`, `pnpm install --frozen-lockfile`, steps in the order of `.github/workflows/ci.yml` for the `verify`, `audit` and `db-integration` jobs, against a freshly built local Docker stack. Every step passed on the first run.
+
+| Step                                                                                                | Result                                                                              |
+| --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| format:check, sync-plan:check, lint, typecheck, traceability diff, build (3/3), `pnpm audit --high` | pass                                                                                |
+| `pnpm test`                                                                                         | pass, 15/15 tasks (hosting 27, blocks 74, sites 49, templates 28, schema 44, ui 22) |
+| bootstrap (twice), migrate, configure, drift, `db:verify`                                           | pass; drift: no difference; verify 31 of 31                                         |
+| `@platform/db` integration with coverage gate, then again                                           | pass, 123 tests each; statements 94.13 %, lines 97.03 %                             |
+| Isolation suite / mutation check                                                                    | 216 tests / 13 of 13 mutations killed                                               |
+| Product auth / workspaces / jobs / hosting integration                                              | pass: 191 / 126 / 8 / 33 tests                                                      |
+| `db:seed-templates` (dry run and local)                                                             | pass                                                                                |
+
+**Not run:** the `secrets` job (gitleaks, Docker image), the Playwright `e2e` and `perf` jobs (S6a changes no dashboard code; CI runs them on the PR), the live Supabase suite (no live change in S6).
 
 ## 7. Compatibility, migration, rollback
 
