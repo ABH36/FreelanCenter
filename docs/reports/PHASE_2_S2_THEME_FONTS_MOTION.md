@@ -64,7 +64,16 @@ Budgets asserted in `apps/sites/lib/fonts.test.ts`: the Latin preload pair (body
 
 ## 7. CI-equivalent run
 
-(filled in after the clean-worktree run)
+Clean worktree at `1cc4009`, `pnpm install --frozen-lockfile`, steps in the order of the `verify` and `audit` jobs of `.github/workflows/ci.yml`. Every step passed on the first run:
+
+| Step                                                               | Result                                                   |
+| ------------------------------------------------------------------ | -------------------------------------------------------- |
+| format:check, sync-plan:check, lint                                | pass                                                     |
+| typecheck                                                          | pass, 16/16 tasks                                        |
+| `pnpm test`                                                        | pass, 14/14 tasks                                        |
+| traceability regenerate and diff, build (3/3), `pnpm audit --high` | pass; the build copied 28 font files into `public/fonts` |
+
+**Not run:** the database jobs (`db-integration`, isolation, integration suites, `e2e`, `perf`) and `secrets` (gitleaks, Docker). S2 changes no database, migration, auth or workspace code; CI runs them on the PR.
 
 ## 8. Compatibility, migration, rollback
 
