@@ -1,6 +1,11 @@
 /**
  * @platform/ui
- * Shared design system: tokens and UI primitives (pure layer).
- * Placeholder created in Phase 0 (scaffold only). Primitives land per phase; tokens live in tokens.css.
+ * Shared design system (pure layer): tokens, the theme compiler, font policy and animation presets.
+ * Component primitives land with the blocks (P2 S3); base tokens live in tokens.css.
  */
 export const PACKAGE_NAME = '@platform/ui' as const;
+
+export * from './color';
+export * from './fonts';
+export * from './motion';
+export * from './theme';
