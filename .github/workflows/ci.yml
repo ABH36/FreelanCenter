@@ -167,6 +167,45 @@ jobs:
         if: failure()
         run: docker compose -f packages/db/docker/compose.yml logs --no-color --tail 300
 
+  # P2 S7 (phase exit): axe (WCAG 2.1 A/AA), visual regression and Lighthouse mobile budgets (performance >= 90,
+  # accessibility/SEO/best practices >= 95) on the three built-in templates, served by the real sites renderer.
+  # Informational until it has been green on the S7 PR (Owner decision); the report uploads on every run.
+  quality:
+    name: Template quality (axe, visual, Lighthouse)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The sites app copies its self-hosted fonts at build time; the harness serves the same folder.
+      - run: pnpm --filter @platform/sites exec node scripts/copy-fonts.mjs
+      - run: pnpm --filter @platform/quality exec playwright install --with-deps chromium
+      - name: Accessibility (axe)
+        run: pnpm --filter @platform/quality test:a11y
+        env:
+          CI: 'true'
+      - name: Visual regression
+        run: pnpm --filter @platform/quality test:visual
+        env:
+          CI: 'true'
+      - name: Lighthouse mobile budgets
+        run: pnpm --filter @platform/quality test:lighthouse
+      - name: Quality report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: quality-report
+          path: |
+            tests/quality/.cache/lighthouse.json
+            tests/quality/playwright-report/
+            tests/quality/test-results/
+          if-no-files-found: warn
+
   # NFR-PERF-04 (P1 S10): the dashboard service p95 harness on a hosted runner (4 vCPU), where the local database
   # costs no network. Informational, not a required check: it prints the table and uploads report.json so the
   # Phase 1 audit has a reproducible number that is not a developer laptop. `continue-on-error` keeps a budget

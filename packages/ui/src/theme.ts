@@ -90,6 +90,17 @@ function buttonVariables(t: Theme, onPrimary: string): string[] {
   ];
 }
 
+/** Text-link colour: the brand primary when it reads on both page surfaces (WCAG AA 4.5:1), else the nearest blend toward the text colour that does. */
+export function linkColor(c: Theme['colors']): string {
+  const ok = (hex: string) => contrastRatio(hex, c.background) >= 4.5 && contrastRatio(hex, c.surface) >= 4.5;
+  if (ok(c.primary)) return c.primary.toLowerCase();
+  for (let i = 1; i <= 20; i += 1) {
+    const candidate = mix(c.primary, c.text, i / 20);
+    if (ok(candidate)) return candidate;
+  }
+  return c.text.toLowerCase();
+}
+
 /** Theme variables as `--name:value` declarations. Throws if the theme does not validate. */
 export function themeDeclarations(input: Theme): string[] {
   const theme = themeSchema.parse(input);
@@ -101,6 +112,7 @@ export function themeDeclarations(input: Theme): string[] {
     ...(['primary', 'secondary', 'accent', 'background', 'surface', 'text'] as const).map(
       (k) => `--color-${k}:${colors[k].toLowerCase()}`,
     ),
+    `--color-link:${linkColor(colors)}`,
     `--color-on-primary:${onPrimary}`,
     `--color-on-secondary:${onColor(colors.secondary)}`,
     `--color-on-accent:${onColor(colors.accent)}`,

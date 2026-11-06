@@ -12,6 +12,9 @@ allowBuilds:
   prisma: true
   # protobufjs (Inngest SDK -> OpenTelemetry gRPC exporter): postinstall only prints a version-compat warning. Denied.
   protobufjs: false
+  # esbuild (tests/quality harness bundler): the install script only verifies the binary, which ships in the optional
+  # platform package; denied like every other script (SEC-13).
+  esbuild: false
 
 # Security overrides for transitive dependencies of the Prisma CLI (found by `pnpm audit` in Phase 0).
 # Neither package is used by our runtime code (we use PostgreSQL; mysql2 is MySQL tooling inside the CLI), but

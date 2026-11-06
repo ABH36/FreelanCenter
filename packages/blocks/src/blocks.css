@@ -39,7 +39,7 @@
   list-style: none;
 }
 :where(.pb-root) a {
-  color: var(--color-primary);
+  color: var(--color-link);
   text-underline-offset: 0.2em;
 }
 :where(.pb-root) :focus-visible {
