@@ -1,6 +1,6 @@
 # Phase 2 report: Template Engine and Renderer (phase exit, slice 7)
 
-**Status:** built on `feat/p2-s7-phase-exit`; awaiting Owner approval and the Phase 2 audit. Nothing is marked "verified" until the audit. **Date:** 2026-11-06 · **Plan:** `docs/IMPLEMENTATION_PLAN.md`, Phase 2 · **Module:** 04 (templates and renderer) · **Slices:** S1 #43, S2 #44, S3 #45, S4 #47, S5a #48, S5b #49 (live), S6a #51, S6b #52, S7 (this report).
+**Status:** built on `feat/p2-s7-phase-exit`, approved by the Owner 2026-11-06; design review and the Phase 2 audit follow. Nothing is marked "verified" until the audit. **Date:** 2026-11-06 · **Plan:** `docs/IMPLEMENTATION_PLAN.md`, Phase 2 · **Module:** 04 (templates and renderer) · **Slices:** S1 #43, S2 #44, S3 #45, S4 #47, S5a #48, S5b #49 (live), S6a #51, S6b #52, S7 (this report).
 
 ## 1. What Phase 2 delivers
 
@@ -86,6 +86,8 @@ Full-page screenshots of the three templates, mobile and desktop (6 baselines in
 2. **CI `quality` job:** keep informational for this PR, then make it required once green on main (recommended).
 3. **NFR-PERF-04 in region:** needs DG-27 (dashboard production go-live: DG-10 email, DG-16 production Turnstile, auth and app database variables). Until then the number is open.
 4. **Design review** of the three templates and real photography (S7-3).
+
+**Owner decisions, 2026-11-06:** (1) FR-OBS-01 remainder to Phase 8 with the two hooks: approved. (2) CI `quality` job informational first, then required: approved. (3) NFR-PERF-04 in region: recorded as gap DG-28 so it is not lost. (4) Design review and real photography: done at the end of Phase 2, when the Owner tests the product through the Claude extension, before the Phase 2 audit is closed.
 
 ## 8. Open items carried out of Phase 2
 
