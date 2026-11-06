@@ -22,10 +22,10 @@
     "@platform/ui": "workspace:*"
   },
   "devDependencies": {
-    "@axe-core/playwright": "4.13.0",
+    "@axe-core/playwright": "4.14.0",
     "@playwright/test": "1.64.1",
     "@types/node": "^22.0.0",
     "esbuild": "0.28.2",
-    "lighthouse": "13.5.0"
+    "lighthouse": "13.6.0"
   }
 }

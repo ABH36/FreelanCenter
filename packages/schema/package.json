@@ -16,6 +16,6 @@
     "@types/node": "^22.0.0"
   },
   "dependencies": {
-    "zod": "4.6.6"
+    "zod": "4.6.7"
   }
 }
