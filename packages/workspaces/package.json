@@ -21,11 +21,11 @@
     "@platform/jobs": "workspace:*",
     "@platform/logger": "workspace:*",
     "@platform/providers": "workspace:*",
-    "zod": "4.6.6"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/pg": "8.23.1",
-    "pg": "8.23.0"
+    "pg": "8.23.1"
   }
 }
