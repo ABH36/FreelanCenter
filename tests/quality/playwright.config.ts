@@ -13,7 +13,7 @@ export default defineConfig({
   expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.002, animations: 'disabled' } },
   webServer: {
     command: 'node .cache/serve.mjs',
-    url: `http://127.0.0.1:${PORT}/fonts/inter-latin-400-normal.woff2`,
+    url: `http://127.0.0.1:${PORT}/healthz`,
     reuseExistingServer: !process.env.CI,
     env: { QUALITY_PORT: String(PORT) },
   },

@@ -28,6 +28,7 @@ const logger = { debug() {}, info() {}, warn() {}, error() {}, fatal() {} } as n
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://x');
+  if (url.pathname === '/healthz') return void res.writeHead(200).end('ok');
   if (url.pathname.startsWith('/fonts/')) {
     const file = join(fonts, url.pathname.slice(7).replace(/[^a-z0-9._-]/gi, ''));
     if (!existsSync(file)) return void res.writeHead(404).end();

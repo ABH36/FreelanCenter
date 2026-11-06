@@ -182,6 +182,8 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # The sites app copies its self-hosted fonts at build time; the harness serves the same folder.
+      - run: pnpm --filter @platform/sites exec node scripts/copy-fonts.mjs
       - run: pnpm --filter @platform/quality exec playwright install --with-deps chromium
       - name: Accessibility (axe)
         run: pnpm --filter @platform/quality test:a11y
