@@ -101,6 +101,19 @@ export function linkColor(c: Theme['colors']): string {
   return c.text.toLowerCase();
 }
 
+/**
+ * Secondary text colour: 65 % text over the background by default (the look), moved toward the text colour until it
+ * reads at 4.5:1 on both the background and the surface. Guaranteed by construction, like `linkColor`.
+ */
+export function mutedColor(c: Theme['colors']): string {
+  const ok = (hex: string) => contrastRatio(hex, c.background) >= 4.5 && contrastRatio(hex, c.surface) >= 4.5;
+  for (let amount = 0.35; amount >= 0; amount -= 0.05) {
+    const candidate = mix(c.text, c.background, Math.max(amount, 0));
+    if (ok(candidate)) return candidate;
+  }
+  return c.text.toLowerCase();
+}
+
 /** Theme variables as `--name:value` declarations. Throws if the theme does not validate. */
 export function themeDeclarations(input: Theme): string[] {
   const theme = themeSchema.parse(input);
@@ -117,7 +130,7 @@ export function themeDeclarations(input: Theme): string[] {
     `--color-on-secondary:${onColor(colors.secondary)}`,
     `--color-on-accent:${onColor(colors.accent)}`,
     `--color-border:${mix(colors.text, colors.background, 0.85)}`,
-    `--color-muted:${mix(colors.text, colors.background, 0.35)}`,
+    `--color-muted:${mutedColor(colors)}`,
     `color-scheme:${luminance(colors.background) < 0.35 ? 'dark' : 'light'}`,
     `--font-heading:${fontStack(theme.typography.heading)}`,
     `--font-body:${fontStack(theme.typography.body)}`,

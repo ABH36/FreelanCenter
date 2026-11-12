@@ -2,6 +2,8 @@ import { defineConfig, devices } from '@playwright/test';
 
 export const PORT = Number(process.env.QUALITY_PORT ?? 4010);
 export const SLUGS = ['gym-bold', 'taxi-quick', 'wedding-royal'] as const;
+/** The same sites in Hindi (`<slug>-hi`); every block variant is on `/gallery` of each site. */
+export const ALL_SITES = [...SLUGS, ...SLUGS.map((s) => `${s}-hi` as const)] as const;
 
 export default defineConfig({
   testDir: 'src',

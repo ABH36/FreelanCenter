@@ -1,6 +1,6 @@
 # 04 — Template Engine and Renderer
 
-**Status:** In progress (P2). S1-S6b merged (#43-#52; S5b is live); S7 phase exit (axe, visual regression, Lighthouse budgets, Phase 2 report) built, pending Owner approval and the Phase 2 audit. Nothing is marked verified. **SRS:** FR-TPL-01..11.
+**Status:** In progress (P2). S1-S7 merged (#43-#54; S5b is live); S7 phase exit merged (#54); S8 hardening (all 24 variants under axe and visual regression, reflow/keyboard/motion checks, contrast-safe derived colours) built, pending Owner approval; S8b (revocable preview links) proposed; Phase 2 audit pending. Nothing is marked verified. **SRS:** FR-TPL-01..11.
 
 ## Outcome
 
