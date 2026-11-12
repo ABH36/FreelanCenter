@@ -52,4 +52,8 @@ A preview link lived until its expiry (up to 30 days) and could not be withdrawn
 
 ## 6. CI-equivalent run
 
-Filled in after the clean-worktree run.
+Clean worktree at `5b01d5f` (`pnpm install --frozen-lockfile`), steps in the order of `.github/workflows/ci.yml`, against the local Docker stack rebuilt from scratch. Passing: format:check, sync-plan:check, lint 18/18, typecheck 18/18, traceability (no diff), `pnpm audit --audit-level high`, build 3/3, `pnpm test` 15/15 tasks, prisma generate, `db:drift` (no difference), `db:verify` (33 checks), database integration suite with the coverage gate and again on the non-fresh database, isolation suite (232), isolation mutation check (**13 of 13 killed**), auth suite, workspace suite (144), job suite, host routing suite; Playwright journey 9 of 9, three runs in a row.
+
+**What the clean run caught (all fixed before the PR):** `db:verify` (the script that also checks the live database) still listed 27 definer functions and the old visitor function set; the isolation mutation check still expected the old title of the visitor-function test; the TypeScript check had no problem. Note: `db:verify` against the live database will report these two checks as failed until the migration is applied there (it describes the target state); apply, then verify.
+
+The CI `quality` job (axe, visual, Lighthouse) is unchanged by S8b except the base path limit in the renderer; it runs on the PR as a required check.
