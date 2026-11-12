@@ -5,11 +5,13 @@
  * writable workspace and leaves an audit row; the link itself is signed with the preview secret (packages/hosting),
  * which only the server holds.
  *
- * What is audited: the template, the number of days and whether the link is personalised. Never the link, the token
- * or the prospect's name.
+ * What is stored and audited: the template, the number of days, whether the link is personalised and the link's id.
+ * Never the link, the token or the prospect's name. The id is inside the signed token (`lid`), so a link can be
+ * revoked later (P2 S8b): `revokePreviewLink` turns it off for visitors within about 30 seconds (the sites app caches
+ * the answer briefly); it is final and idempotent.
  */
 import type { Capability } from '@platform/auth/rbac';
-import type { TenantDatabase, Tx } from '@platform/db';
+import { type TenantDatabase, type Tx, uuidv7 } from '@platform/db';
 import { isValidProspectName, mintPreviewToken, normalizeHost, PREVIEW_TOKEN } from '@platform/hosting';
 import type { Logger } from '@platform/logger';
 import { z } from 'zod';
@@ -56,7 +58,21 @@ export interface CatalogEntry {
   version: number;
 }
 
+export type PreviewLinkStatus = 'active' | 'expired' | 'revoked';
+
+/** A link made in this workspace, for the "your links" list. Never carries the token or the prospect's name. */
+export interface PreviewLinkRow {
+  id: string;
+  templateName: string;
+  personalised: boolean;
+  createdAt: string;
+  expiresAt: string;
+  revokedAt: string | null;
+  status: PreviewLinkStatus;
+}
+
 export interface PreviewLink {
+  id: string;
   url: string;
   expiresAt: string;
   templateName: string;
@@ -69,6 +85,8 @@ const input = z.object({
 });
 
 const ACTION = 'template.preview_link.created';
+const REVOKE_ACTION = 'template.preview_link.revoked';
+const LIST_LIMIT = 50;
 const CAPABILITY: Capability = 'templates.preview';
 
 export function createTemplateService(deps: TemplateServiceDeps) {
@@ -148,8 +166,22 @@ export function createTemplateService(deps: TemplateServiceDeps) {
           if (recent >= perDay) throw new WorkspaceError('RATE_LIMITED');
 
           const issued = now();
+          const id = uuidv7();
+          await tx.templatePreviewLink.create({
+            data: {
+              id,
+              workspaceId: scope.workspaceId,
+              templateId,
+              createdBy: scope.actorUserId,
+              personalised: name !== undefined,
+              createdAt: issued,
+              expiresAt: new Date(issued.getTime() + days * 86_400_000),
+            },
+            select: { id: true },
+          });
           const token = mintPreviewToken(preview.secret, {
             templateId,
+            linkId: id,
             ...(name ? { prospectName: name } : {}),
             lifetimeSeconds: days * 86_400,
             now: issued,
@@ -158,6 +190,7 @@ export function createTemplateService(deps: TemplateServiceDeps) {
           const url = `${local ? 'http' : 'https'}://${preview.host}${local ? ':3001' : ''}/p/${token}`;
           return {
             result: {
+              id,
               url,
               expiresAt: new Date(issued.getTime() + days * 86_400_000).toISOString(),
               templateName: template.name,
@@ -165,8 +198,64 @@ export function createTemplateService(deps: TemplateServiceDeps) {
             audit: {
               targetType: 'template',
               targetId: templateId,
-              metadata: { slug: template.slug, days, personalised: name !== undefined },
+              metadata: { slug: template.slug, days, personalised: name !== undefined, linkId: id },
             },
+          };
+        },
+      );
+    },
+
+    /** The links made in this workspace, newest first (at most ${LIST_LIMIT}). Needs `templates.preview`. */
+    listPreviewLinks(actorUserId: string, workspaceId: unknown): Promise<PreviewLinkRow[]> {
+      return runner.query(actorUserId, workspaceId, CAPABILITY, async (tx) => {
+        const [rows, catalog] = await Promise.all([
+          tx.templatePreviewLink.findMany({ orderBy: { createdAt: 'desc' }, take: LIST_LIMIT }),
+          catalogRows(tx),
+        ]);
+        const names = new Map(catalog.map((c) => [c.templateId, c.name]));
+        const at = now().getTime();
+        return rows.map((r) => ({
+          id: r.id,
+          templateName: names.get(r.templateId) ?? 'Template',
+          personalised: r.personalised,
+          createdAt: r.createdAt.toISOString(),
+          expiresAt: r.expiresAt.toISOString(),
+          revokedAt: r.revokedAt?.toISOString() ?? null,
+          status: r.revokedAt ? 'revoked' : r.expiresAt.getTime() <= at ? 'expired' : 'active',
+        }));
+      });
+    },
+
+    /**
+     * Turns a link off for visitors. Same NOT_FOUND for an unknown id and a link of another workspace. Revoking a
+     * link that is already revoked changes nothing and writes no second audit row.
+     */
+    revokePreviewLink(
+      actorUserId: string,
+      raw: { workspaceId: unknown; linkId: unknown },
+    ): Promise<{ revoked: true; alreadyRevoked: boolean }> {
+      return runner.command<{ revoked: true; alreadyRevoked: boolean }>(
+        actorUserId,
+        raw.workspaceId,
+        // Turning a public link off is protective, so a suspended workspace may do it (Owner decision 2026-11-12).
+        { action: REVOKE_ACTION, capability: CAPABILITY, requireWritable: false },
+        async (tx, scope) => {
+          const linkId = requireId(raw.linkId);
+          const link = await tx.templatePreviewLink.findFirst({
+            where: { id: linkId },
+            select: { id: true, revokedAt: true },
+          });
+          if (!link) throw new WorkspaceError('NOT_FOUND');
+          if (link.revokedAt)
+            return { result: { revoked: true as const, alreadyRevoked: true }, audit: null };
+          await tx.templatePreviewLink.update({
+            where: { id: linkId },
+            data: { revokedAt: now(), revokedBy: scope.actorUserId },
+            select: { id: true },
+          });
+          return {
+            result: { revoked: true as const, alreadyRevoked: false },
+            audit: { targetType: 'template_preview_link', targetId: linkId, metadata: {} },
           };
         },
       );

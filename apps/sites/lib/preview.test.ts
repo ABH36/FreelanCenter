@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CatalogTemplate } from '@platform/db/public';
 import { createHostResolver } from '@platform/hosting';
 import { mintPreviewToken } from '@platform/hosting';
@@ -69,6 +69,8 @@ const logger = {
 } as never;
 
 const calls: { id: string; version: number | undefined }[] = [];
+const revocationChecks: string[] = [];
+const revoked = new Set<string>();
 let now = new Date('2026-11-05T12:00:00Z');
 
 function setup(options: { preview?: Partial<PreviewDeps> | null } = {}) {
@@ -84,6 +86,10 @@ function setup(options: { preview?: Partial<PreviewDeps> | null } = {}) {
           secrets: { current: SECRET, previous: PREVIOUS },
           logger,
           now: () => now,
+          isRevoked: async (linkId) => {
+            revocationChecks.push(linkId);
+            return revoked.has(linkId);
+          },
           catalog: async (id, version) => {
             calls.push({ id, version });
             const found = catalogue.get(id);
@@ -111,6 +117,8 @@ const mint = (
 beforeEach(() => {
   clearPreviewCache();
   calls.length = 0;
+  revocationChecks.length = 0;
+  revoked.clear();
   logs.length = 0;
   now = new Date('2026-11-05T12:00:00Z');
 });
@@ -324,5 +332,92 @@ describe('previewSettings (environment)', () => {
     expect(previewSettings({ ...ok, PREVIEW_TOKEN_SECRET: undefined })).toBeNull();
     expect(previewSettings({ ...ok, PREVIEW_HOST: undefined })).toBeNull();
     expect(previewSettings({ ...ok, PREVIEW_HOST: 'not a host!' })).toBeNull();
+  });
+});
+
+describe('revoked links (P2 S8b)', () => {
+  const LID = '01920000-0000-7000-8000-0000000000b1';
+  afterEach(() => vi.useRealTimers());
+
+  it('a link that carries an id and was revoked is 410 "withdrawn", with no template read', async () => {
+    revoked.add(LID);
+    const { get } = setup();
+    const res = await get(`/p/${mint('gym-bold', { linkId: LID })}`);
+    expect(res.status).toBe(410);
+    const html = await res.text();
+    expect(html).toContain('This preview link was withdrawn');
+    expect(html).not.toContain('Iron Pulse');
+    expect(res.headers.get('x-robots-tag')).toBe('noindex, nofollow');
+    expect(calls).toEqual([]);
+  });
+
+  it('an active link with an id is served and asked about once, then the answer is cached', async () => {
+    const { get } = setup();
+    const token = mint('gym-bold', { linkId: LID });
+    expect((await get(`/p/${token}`)).status).toBe(200);
+    expect((await get(`/p/${token}/about`)).status).toBe(404); // another path of the same link
+    expect(revocationChecks).toEqual([LID]);
+  });
+
+  it('a revocation reaches a warm instance within the cache window (30 s), and a revoked answer sticks', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-05T12:00:00Z'));
+    const { get } = setup();
+    const token = mint('gym-bold', { linkId: LID });
+    expect((await get(`/p/${token}`)).status).toBe(200);
+    revoked.add(LID);
+    expect((await get(`/p/${token}`)).status).toBe(200); // still inside the window
+    vi.setSystemTime(new Date('2026-11-05T12:00:31Z'));
+    expect((await get(`/p/${token}`)).status).toBe(410);
+    revoked.delete(LID); // cannot happen in the database (trigger); the answer is kept anyway
+    vi.setSystemTime(new Date('2026-11-05T12:01:00Z'));
+    expect((await get(`/p/${token}`)).status).toBe(410);
+  });
+
+  it('fails closed: if the revocation check cannot be answered the link is a 503, never served', async () => {
+    const { get } = setup({
+      preview: {
+        isRevoked: async () => {
+          throw new Error('db down');
+        },
+      },
+    });
+    const res = await get(`/p/${mint('gym-bold', { linkId: LID })}`);
+    expect(res.status).toBe(503);
+    expect(await res.text()).not.toContain('Iron Pulse');
+  });
+
+  it('links without an id (made before S8b or by the operator script) are never looked up', async () => {
+    const { get } = setup();
+    expect((await get(`/p/${mint('gym-bold')}`)).status).toBe(200);
+    expect(revocationChecks).toEqual([]);
+  });
+
+  it('the longest possible link (id, version, 60-character prospect name) still renders', async () => {
+    const { get } = setup();
+    const token = mint('gym-bold', { linkId: LID, version: 1, prospectName: 'ए'.repeat(60) });
+    expect(token.length).toBeLessThanOrEqual(700);
+    expect((await get(`/p/${token}`)).status).toBe(200);
+  });
+
+  it('forged, tampered and expired links never cause a revocation lookup', async () => {
+    const { get } = setup();
+    const good = mint('gym-bold', { linkId: LID });
+    await get(`/p/${good.slice(0, -1)}X`);
+    await get(`/p/${mint('gym-bold', { linkId: LID }, 'x'.repeat(40))}`);
+    now = new Date('2026-11-20T12:00:00Z');
+    await get(`/p/${good}`);
+    expect(revocationChecks).toEqual([]);
+  });
+});
+
+describe('personalising with a long name', () => {
+  it('a 60-character name never makes the preview invalid (texts are cut to the schema limits), emoji included', async () => {
+    const { get } = setup();
+    for (const name of ['W'.repeat(60), '😀'.repeat(30), 'ए'.repeat(60)]) {
+      const res = await get(`/p/${mint('wedding-royal', { prospectName: name })}`);
+      expect(res.status, name.slice(0, 4)).toBe(200);
+    }
+    expect(logs.filter((l) => l.message === 'sites.preview.render_failed')).toEqual([]);
   });
 });

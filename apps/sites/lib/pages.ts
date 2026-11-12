@@ -9,7 +9,13 @@
 import { createHash } from 'node:crypto';
 
 export type PageKind =
-  'placeholder' | 'maintenance' | 'not_found' | 'unavailable' | 'preview_invalid' | 'preview_expired';
+  | 'placeholder'
+  | 'maintenance'
+  | 'not_found'
+  | 'unavailable'
+  | 'preview_invalid'
+  | 'preview_expired'
+  | 'preview_revoked';
 
 const STYLE =
   'html{color-scheme:light dark}body{margin:0;min-height:100vh;display:grid;place-items:center;' +
@@ -69,6 +75,12 @@ const PAGES: Record<PageKind, PageSpec> = {
     title: 'Preview expired',
     heading: 'This preview link has expired',
     message: 'Ask the sender for a new link.',
+  },
+  preview_revoked: {
+    status: 410,
+    title: 'Preview withdrawn',
+    heading: 'This preview link was withdrawn',
+    message: 'The sender has turned this link off. Ask them for a new one.',
   },
   unavailable: {
     status: 503,

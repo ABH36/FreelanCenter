@@ -21,6 +21,11 @@ export interface PreviewDeps {
   host: string;
   secrets: { current: string; previous?: string | undefined };
   catalog: (templateId: string, version?: number) => Promise<CatalogTemplate | null>;
+  /**
+   * Whether the link with this id was revoked. A database failure must throw: the route then fails closed (503)
+   * rather than serving a link that may have been withdrawn.
+   */
+  isRevoked: (linkId: string) => Promise<boolean>;
   logger: Logger;
   now?: () => Date;
 }
@@ -32,8 +37,27 @@ const MAX_ENTRIES = 50;
 /** Templates are immutable per version, so a short in-process cache only saves database round trips. */
 const cache = new Map<string, { at: number; value: CatalogTemplate | null }>();
 
+/**
+ * Revocation answers. A revoked link stays revoked (the row cannot change back), so a "revoked" answer is kept for
+ * minutes; "not revoked" is kept briefly, which is also how long a new revocation can take to reach every instance.
+ */
+const REVOKED_TTL_MS = 300_000;
+const ACTIVE_TTL_MS = 30_000;
+const revocations = new Map<string, { at: number; revoked: boolean }>();
+
 export function clearPreviewCache(): void {
   cache.clear();
+  revocations.clear();
+}
+
+async function isRevoked(deps: PreviewDeps, linkId: string): Promise<boolean> {
+  const now = Date.now();
+  const hit = revocations.get(linkId);
+  if (hit && now - hit.at < (hit.revoked ? REVOKED_TTL_MS : ACTIVE_TTL_MS)) return hit.revoked;
+  const revoked = await deps.isRevoked(linkId);
+  if (revocations.size >= 500) revocations.delete(revocations.keys().next().value as string);
+  revocations.set(linkId, { at: now, revoked });
+  return revoked;
 }
 
 async function loadTemplate(deps: PreviewDeps, claims: PreviewClaims): Promise<CatalogTemplate | null> {
@@ -52,6 +76,14 @@ interface PreviewConfig {
   pages?: { seo?: { title?: unknown; description?: unknown } }[];
 }
 
+/** Cuts to `max` UTF-16 units (the schema counts those) without leaving half of a surrogate pair. */
+function clip(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max);
+  const last = cut.charCodeAt(cut.length - 1);
+  return last >= 0xd800 && last <= 0xdbff ? cut.slice(0, -1) : cut;
+}
+
 /**
  * Puts the prospect's name where the demo name appears: the business name, the logo's alt text and the pages' SEO
  * title and description (the tab title of the preview). Text only; the renderer validates the result like any config.
@@ -60,12 +92,14 @@ function personalise(config: PreviewConfig, name: string): void {
   const demo = config.business?.name;
   if (!config.business || typeof demo !== 'string' || demo === '') return;
   config.business.name = name;
-  const swap = (v: unknown) => (typeof v === 'string' ? v.split(demo).join(name) : v);
-  if (config.business.logo) config.business.logo.alt = swap(config.business.logo.alt);
+  // The prospect's name may be longer than the demo name, so each swapped text is cut to the schema limit (SEO title
+  // 70, description 200, logo alt 120); without that a 60-character name would make the whole preview invalid.
+  const swap = (v: unknown, max: number) => (typeof v === 'string' ? clip(v.split(demo).join(name), max) : v);
+  if (config.business.logo) config.business.logo.alt = swap(config.business.logo.alt, 120);
   for (const page of config.pages ?? []) {
     if (page.seo) {
-      page.seo.title = swap(page.seo.title);
-      page.seo.description = swap(page.seo.description);
+      page.seo.title = swap(page.seo.title, 70);
+      page.seo.description = swap(page.seo.description, 200);
     }
   }
 }
@@ -95,6 +129,11 @@ export async function servePreview(
   const verdict = verifyPreviewToken(deps.secrets, token, deps.now?.());
   if (!verdict.ok)
     return pageResponse(verdict.reason === 'expired' ? 'preview_expired' : 'preview_invalid', common);
+
+  // Only after the signature and the expiry: a forged or expired link never causes a lookup.
+  if (verdict.claims.lid && (await isRevoked(deps, verdict.claims.lid))) {
+    return pageResponse('preview_revoked', common);
+  }
 
   const template = await loadTemplate(deps, verdict.claims);
   if (!template) return pageResponse('preview_invalid', common);

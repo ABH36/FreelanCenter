@@ -120,7 +120,7 @@ const tenantTables = await withClient('bootstrap', async (op) => {
       WHERE n.nspname = 'app' AND p.prosecdef`,
   );
   // P1 foundation (5) + P1 S5 (6) + P1 S6 (4) + P1 S7 (1) + P1 S8 (7) + P2 S5b (4: catalogue read x2, operator
-  // publish and archive). An unexpected definer is as much a
+  // publish and archive) + P2 S8b (1: the preview-link revocation check). An unexpected definer is as much a
   // finding as a missing one.
   const expectedDefiners = [
     'accept_invitation',
@@ -147,6 +147,7 @@ const tenantTables = await withClient('bootstrap', async (op) => {
     'workspace_members',
     'workspace_writable',
     'get_catalog_template',
+    'is_preview_link_revoked',
     'list_catalog_templates',
     'operator_archive_builtin_template',
     'operator_publish_builtin_template',
@@ -175,9 +176,14 @@ const tenantTables = await withClient('bootstrap', async (op) => {
       ORDER BY 1`,
   );
   check(
-    'app_public can execute exactly resolve_host and the two catalogue read functions',
+    'app_public can execute exactly resolve_host, the two catalogue read functions and is_preview_link_revoked (P2 S8b)',
     JSON.stringify(publicFns.map((r) => r.proname)) ===
-      JSON.stringify(['get_catalog_template', 'list_catalog_templates', 'resolve_host']),
+      JSON.stringify([
+        'get_catalog_template',
+        'is_preview_link_revoked',
+        'list_catalog_templates',
+        'resolve_host',
+      ]),
     publicFns.map((r) => r.proname).join(', '),
   );
 
@@ -300,6 +306,18 @@ await withClient('public', async (c) => {
     "SELECT template_id FROM app.get_catalog_template('00000000-0000-7000-8000-000000000000')",
   );
   check('an unknown template id returns no row (get_catalog_template)', unknownTemplate.rows.length === 0);
+  // P2 S8b: the visitor role asks whether a preview link was revoked; an unknown id is not revoked.
+  const revoked = await c.query(
+    "SELECT app.is_preview_link_revoked('00000000-0000-7000-8000-000000000000') AS revoked",
+  );
+  check(
+    'an unknown preview link id is not revoked (is_preview_link_revoked)',
+    revoked.rows[0]?.revoked === false,
+  );
+  check(
+    'app_public cannot read the preview link table',
+    await denied(c, 'SELECT id FROM app.template_preview_links LIMIT 1'),
+  );
   check(
     'app_public cannot publish a platform template',
     await denied(

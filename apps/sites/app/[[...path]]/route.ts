@@ -18,7 +18,13 @@ const deps = {
   preview: async () => {
     const settings = previewSettings();
     if (!settings) return null;
-    return { ...settings, logger, catalog: (await sitesRuntime()).catalog };
+    const runtime = await sitesRuntime();
+    return {
+      ...settings,
+      logger,
+      catalog: runtime.catalog,
+      isRevoked: runtime.isPreviewLinkRevoked,
+    };
   },
 };
 

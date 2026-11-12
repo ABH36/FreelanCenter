@@ -117,6 +117,11 @@ async function seed(): Promise<Tenant> {
     to: 'in_review',
   });
   const inbox = await notifications.listNotifications(ownerId, id);
+  const link = await templates.createPreviewLink(ownerId, {
+    workspaceId: id,
+    templateId: catalogTemplateId,
+    days: 1,
+  });
   return {
     ownerId,
     own: {
@@ -126,6 +131,7 @@ async function seed(): Promise<Tenant> {
       invitationId: open.invitationId,
       projectId: project.id,
       notificationId: inbox.items[0]!.id,
+      previewLinkId: link.id,
     },
   };
 }
@@ -218,6 +224,9 @@ const CALLS: Record<string, (actor: string, s: Selectors) => Promise<unknown>> =
   unreadCount: (a, s) => notifications.unreadCount(a, s.workspaceId),
   createPreviewLink: (a, s) =>
     templates.createPreviewLink(a, { workspaceId: s.workspaceId, templateId: catalogTemplateId, days: 1 }),
+  revokePreviewLink: (a, s) =>
+    templates.revokePreviewLink(a, { workspaceId: s.workspaceId, linkId: s.previewLinkId }),
+  listPreviewLinks: (a, s) => templates.listPreviewLinks(a, s.workspaceId),
   catalog: (a, s) => templates.catalog(a, s.workspaceId),
   listProjects: (a, s) => projects.listProjects(a, s.workspaceId),
   getProject: (a, s) => projects.getProject(a, s.workspaceId, s.projectId),
@@ -230,6 +239,7 @@ const CALLS: Record<string, (actor: string, s: Selectors) => Promise<unknown>> =
   exportAuditLog: (a, s) => audit.exportAuditLog(a, { workspaceId: s.workspaceId }),
 };
 const READS = new Set([
+  'listPreviewLinks',
   'invitationLink',
   'resolveBySlug',
   'listMembers',
@@ -271,6 +281,11 @@ async function victimState() {
       n.readAt,
     ]),
     preferences: await notifications.getPreferences(B.ownerId, B.own.workspaceId),
+    // P2 S8b: B's preview links and whether each is still active.
+    previewLinks: (await templates.listPreviewLinks(B.ownerId, B.own.workspaceId)).map((l) => [
+      l.id,
+      l.status,
+    ]),
   };
 }
 

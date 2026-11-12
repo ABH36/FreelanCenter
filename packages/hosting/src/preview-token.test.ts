@@ -174,3 +174,34 @@ describe('inputs', () => {
     expect(isValidProspectName('Tom & Jerry "Gym" it\'s')).toBe(true);
   });
 });
+
+describe('link id (P2 S8b)', () => {
+  const LID = '01920000-0000-7000-8000-0000000000bb';
+  it('round-trips the link id and keeps the token inside the length bound with every claim at its maximum', () => {
+    const token = mint({
+      linkId: LID,
+      version: 10_000,
+      prospectName: 'ए'.repeat(PREVIEW_TOKEN.maxNameLength),
+    });
+    expect(token.length).toBeLessThanOrEqual(PREVIEW_TOKEN.maxLength);
+    const v = verifyPreviewToken({ current: SECRET }, token, at(60));
+    expect(v.ok && v.claims.lid).toBe(LID);
+  });
+  it('a token without an id is still valid (links made before S8b)', () => {
+    const v = verifyPreviewToken({ current: SECRET }, mint(), at(60));
+    expect(v.ok && v.claims.lid).toBeUndefined();
+  });
+  it('refuses to mint with a malformed id', () => {
+    expect(() => mint({ linkId: 'not-a-uuid' })).toThrow(/linkId/);
+    expect(() => mint({ linkId: LID.toUpperCase() })).toThrow(/linkId/);
+  });
+  it('a validly signed token with a malformed or non-string id is refused (closed claims)', () => {
+    const base = { tpl: TPL, iat: T0.getTime() / 1000, exp: T0.getTime() / 1000 + 3600 };
+    for (const lid of ['x', 5, null, ['a']]) {
+      expect(verifyPreviewToken({ current: SECRET }, forge({ ...base, lid }), at(60))).toEqual({
+        ok: false,
+        reason: 'malformed',
+      });
+    }
+  });
+});

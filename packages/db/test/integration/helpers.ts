@@ -139,6 +139,15 @@ export async function seedWorkspace(db: TenantDatabase, auth: pg.Pool): Promise<
         createdBy: ownerId,
       },
     });
+    // P2 S8b: a preview link to that template.
+    await tx.templatePreviewLink.create({
+      data: {
+        workspaceId: scope.workspaceId,
+        templateId: template.id,
+        createdBy: ownerId,
+        expiresAt: new Date(Date.now() + 7 * 86_400_000),
+      },
+    });
     return { scope, ownerId, projectId: project.id, contactId: contact.id, domainId: domain.id, hostname };
   });
 }

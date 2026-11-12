@@ -6,17 +6,24 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { verifyPreviewToken } from '@platform/hosting';
 import pg from 'pg';
-import { LOCAL_DATABASE_URLS } from '@platform/db/testing';
+import { createAdminDatabase } from '@platform/db/admin';
+import { LOCAL_DATABASE_URLS, steppedUpAdmin } from '@platform/db/testing';
+import { createAdminService } from '../../src/admin';
 import { WorkspaceError } from '../../src/errors';
 import { createTemplateService, PREVIEW_DAYS } from '../../src/templates';
-import { audit, closeAll, db, createUser, unique, workspaceWith } from '../harness';
+import { audit, auth, closeAll, db, createUser, outbox, unique, workspaceWith } from '../harness';
 
 const SECRET = 'workspace-suite-preview-secret-local-only-0123456789';
 const HOST = 'preview.sites.example.test';
+const adminDb = createAdminDatabase({ connectionString: LOCAL_DATABASE_URLS.admin, poolMax: 1 });
+const admin = createAdminService({ db: adminDb, outbox });
 const templates = createTemplateService({ db, preview: { host: HOST, secret: SECRET } });
 const unconfigured = createTemplateService({ db, preview: null });
 
 let migrator: pg.Pool;
+let visitor: pg.Pool;
+let adminRole: pg.Pool;
+let platformAdmin: { userId: string; sessionId: string };
 let slug: string;
 let templateId: string;
 const tokenOf = (url: string) => url.split('/p/')[1] as string;
@@ -31,6 +38,9 @@ const code = async (p: Promise<unknown>) => {
 
 beforeAll(async () => {
   migrator = new pg.Pool({ connectionString: LOCAL_DATABASE_URLS.migrator, max: 2 });
+  visitor = new pg.Pool({ connectionString: LOCAL_DATABASE_URLS.public, max: 2 });
+  adminRole = new pg.Pool({ connectionString: LOCAL_DATABASE_URLS.admin, max: 1 });
+  platformAdmin = await steppedUpAdmin({ auth, migrator, admin: adminRole });
   slug = unique('tplsvc').slice(0, 40);
   // Publish a built-in as the seed command does (operator function, migrator only).
   const { rows } = await migrator.query<{ template_id: string }>(
@@ -41,6 +51,9 @@ beforeAll(async () => {
 });
 afterAll(async () => {
   await migrator.end();
+  await visitor.end();
+  await adminRole.end();
+  await adminDb.close();
   await closeAll();
 });
 
@@ -114,7 +127,7 @@ describe('preview links', () => {
     expect(row).toBeDefined();
     expect(row!.targetType).toBe('template');
     expect(row!.targetId).toBe(templateId);
-    expect(row!.metadata).toEqual({ slug, days: 3, personalised: true });
+    expect(row!.metadata).toEqual({ slug, days: 3, personalised: true, linkId: link.id });
     const dump = JSON.stringify(page.items);
     expect(dump).not.toContain(tokenOf(link.url));
     expect(dump).not.toContain('Secret Prospect');
@@ -206,5 +219,141 @@ describe('preview links', () => {
     const local = createTemplateService({ db, preview: { host: 'preview.sites.localhost', secret: SECRET } });
     const link = await local.createPreviewLink(ws.owner.id, { workspaceId: ws.id, templateId, days: 1 });
     expect(link.url.startsWith('http://preview.sites.localhost:3001/p/')).toBe(true);
+  });
+});
+
+const revokedAsVisitor = async (id: string) =>
+  (await visitor.query<{ r: boolean }>('SELECT app.is_preview_link_revoked($1::uuid) AS r', [id])).rows[0]!.r;
+
+describe('revoking a link (P2 S8b)', () => {
+  it('the token carries the id of a stored row, which the list shows without the token or the name', async () => {
+    const ws = await workspaceWith();
+    const link = await templates.createPreviewLink(ws.owner.id, {
+      workspaceId: ws.id,
+      templateId,
+      prospectName: 'Hidden Prospect',
+      days: 3,
+    });
+    const verdict = verifyPreviewToken({ current: SECRET }, tokenOf(link.url));
+    expect(verdict.ok && verdict.claims.lid).toBe(link.id);
+    const list = await templates.listPreviewLinks(ws.owner.id, ws.id);
+    expect(list).toHaveLength(1);
+    expect(list[0]).toMatchObject({
+      id: link.id,
+      templateName: 'Service Test Template',
+      personalised: true,
+      status: 'active',
+      revokedAt: null,
+    });
+    const dump = JSON.stringify(list);
+    expect(dump).not.toContain('Hidden Prospect');
+    expect(dump).not.toContain(tokenOf(link.url));
+    expect(await revokedAsVisitor(link.id)).toBe(false);
+  });
+
+  it('owner, admin and editor can revoke; visitors then see it revoked; the audit row names only the link', async () => {
+    const ws = await workspaceWith(['admin', 'editor']);
+    for (const user of [ws.owner, ws.members.admin!, ws.members.editor!]) {
+      const link = await templates.createPreviewLink(user.id, { workspaceId: ws.id, templateId, days: 7 });
+      expect(await revokedAsVisitor(link.id)).toBe(false);
+      expect(await templates.revokePreviewLink(user.id, { workspaceId: ws.id, linkId: link.id })).toEqual({
+        revoked: true,
+        alreadyRevoked: false,
+      });
+      expect(await revokedAsVisitor(link.id)).toBe(true);
+    }
+    const page = await audit.listAuditLog(ws.owner.id, ws.id);
+    const rows = page.items.filter(
+      (r) => r.action === 'template.preview_link.revoked' && r.result === 'success',
+    );
+    expect(rows).toHaveLength(3);
+    expect(rows[0]!.targetType).toBe('template_preview_link');
+    expect(rows[0]!.metadata).toEqual({});
+  });
+
+  it('revoking twice changes nothing and writes no second audit row; the list shows it turned off', async () => {
+    const ws = await workspaceWith();
+    const link = await templates.createPreviewLink(ws.owner.id, { workspaceId: ws.id, templateId, days: 7 });
+    await templates.revokePreviewLink(ws.owner.id, { workspaceId: ws.id, linkId: link.id });
+    expect(await templates.revokePreviewLink(ws.owner.id, { workspaceId: ws.id, linkId: link.id })).toEqual({
+      revoked: true,
+      alreadyRevoked: true,
+    });
+    const page = await audit.listAuditLog(ws.owner.id, ws.id);
+    expect(page.items.filter((r) => r.action === 'template.preview_link.revoked')).toHaveLength(1);
+    const list = await templates.listPreviewLinks(ws.owner.id, ws.id);
+    expect(list[0]).toMatchObject({ id: link.id, status: 'revoked' });
+    expect(list[0]!.revokedAt).not.toBeNull();
+  });
+
+  it('a viewer can neither list nor revoke (refusal audited); the link stays active', async () => {
+    const ws = await workspaceWith(['viewer']);
+    const link = await templates.createPreviewLink(ws.owner.id, { workspaceId: ws.id, templateId, days: 7 });
+    const v = ws.members.viewer!;
+    expect(await code(templates.listPreviewLinks(v.id, ws.id))).toBe('FORBIDDEN');
+    expect(await code(templates.revokePreviewLink(v.id, { workspaceId: ws.id, linkId: link.id }))).toBe(
+      'FORBIDDEN',
+    );
+    expect(await revokedAsVisitor(link.id)).toBe(false);
+    const page = await audit.listAuditLog(ws.owner.id, ws.id);
+    expect(
+      page.items.some((r) => r.action === 'template.preview_link.revoked' && r.result === 'denied'),
+    ).toBe(true);
+  });
+
+  it('IDOR: another workspace cannot list, see or revoke this link, with its own or this workspace id', async () => {
+    const mine = await workspaceWith();
+    const theirs = await workspaceWith();
+    const link = await templates.createPreviewLink(mine.owner.id, {
+      workspaceId: mine.id,
+      templateId,
+      days: 7,
+    });
+    expect(await templates.listPreviewLinks(theirs.owner.id, theirs.id)).toEqual([]);
+    expect(
+      await code(templates.revokePreviewLink(theirs.owner.id, { workspaceId: theirs.id, linkId: link.id })),
+    ).toBe('NOT_FOUND');
+    expect(
+      await code(templates.revokePreviewLink(theirs.owner.id, { workspaceId: mine.id, linkId: link.id })),
+    ).toBe('NOT_FOUND');
+    expect(
+      await code(templates.revokePreviewLink(mine.owner.id, { workspaceId: mine.id, linkId: 'nope' })),
+    ).toBe('NOT_FOUND');
+    expect(await revokedAsVisitor(link.id)).toBe(false);
+  });
+
+  it('an unknown id is "not revoked" for visitors (links without a row are legacy or operator links)', async () => {
+    expect(await revokedAsVisitor('01920000-0000-7000-8000-00000000dead')).toBe(false);
+  });
+
+  it('a link expires on its own: the list says expired once the date has passed', async () => {
+    const later = createTemplateService({
+      db,
+      preview: { host: HOST, secret: SECRET },
+      now: () => new Date(Date.now() + 2 * 86_400_000),
+    });
+    const ws = await workspaceWith();
+    await templates.createPreviewLink(ws.owner.id, { workspaceId: ws.id, templateId, days: 1 });
+    expect((await later.listPreviewLinks(ws.owner.id, ws.id))[0]!.status).toBe('expired');
+  });
+
+  it('a suspended workspace can still turn a link off, but cannot make a new one', async () => {
+    const ws = await workspaceWith();
+    const link = await templates.createPreviewLink(ws.owner.id, { workspaceId: ws.id, templateId, days: 7 });
+    await admin.setWorkspaceStatus(platformAdmin, {
+      workspaceId: ws.id,
+      status: 'suspended',
+      reason: 'S8b suite',
+    });
+    expect(
+      await code(templates.createPreviewLink(ws.owner.id, { workspaceId: ws.id, templateId, days: 7 })),
+    ).toBe('NOT_WRITABLE');
+    expect(await revokedAsVisitor(link.id)).toBe(false);
+    expect(await templates.revokePreviewLink(ws.owner.id, { workspaceId: ws.id, linkId: link.id })).toEqual({
+      revoked: true,
+      alreadyRevoked: false,
+    });
+    expect(await revokedAsVisitor(link.id)).toBe(true);
+    expect((await templates.listPreviewLinks(ws.owner.id, ws.id))[0]!.status).toBe('revoked');
   });
 });

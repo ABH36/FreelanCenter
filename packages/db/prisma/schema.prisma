@@ -258,29 +258,30 @@ model AdminStepUp {
 /// The hard isolation boundary (SRS 4.2). status/suspension/plan columns are not writable by app_user;
 /// suspension goes through app.admin_set_workspace_status (FR-WS-04, FR-ADM-02).
 model Workspace {
-  id               String            @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  name             String
+  id                   String                @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  name                 String
   /// Unique, lower-case, 3-48 chars; reserved words (app.reserved_slugs()) blocked by CHECK and the service (FR-WS-01).
-  slug             String            @unique
-  status           WorkspaceStatus   @default(active)
-  planId           String?           @map("plan_id")
-  suspendedAt      DateTime?         @map("suspended_at") @db.Timestamptz(6)
-  suspendedReason  String?           @map("suspended_reason")
+  slug                 String                @unique
+  status               WorkspaceStatus       @default(active)
+  planId               String?               @map("plan_id")
+  suspendedAt          DateTime?             @map("suspended_at") @db.Timestamptz(6)
+  suspendedReason      String?               @map("suspended_reason")
   /// Deletion request (FR-WS-05 design hook, IMPLEMENTATION_PLAN Q4); the purge job lands in P8.
-  deletedAt        DateTime?         @map("deleted_at") @db.Timestamptz(6)
-  scheduledPurgeAt DateTime?         @map("scheduled_purge_at") @db.Timestamptz(6)
-  createdBy        String?           @map("created_by") @db.Uuid
-  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  memberships      Membership[]
-  invitations      Invitation[]
-  projects         Project[]
-  clientContacts   ClientContact[]
-  domains          Domain[]
-  outboxEvents     OutboxEvent[]
-  jobDeadLetters   JobDeadLetter[]
-  templates        Template[]
-  templateVersions TemplateVersion[]
+  deletedAt            DateTime?             @map("deleted_at") @db.Timestamptz(6)
+  scheduledPurgeAt     DateTime?             @map("scheduled_purge_at") @db.Timestamptz(6)
+  createdBy            String?               @map("created_by") @db.Uuid
+  createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  memberships          Membership[]
+  invitations          Invitation[]
+  projects             Project[]
+  clientContacts       ClientContact[]
+  domains              Domain[]
+  outboxEvents         OutboxEvent[]
+  jobDeadLetters       JobDeadLetter[]
+  templates            Template[]
+  templatePreviewLinks TemplatePreviewLink[]
+  templateVersions     TemplateVersion[]
 
   @@map("workspaces")
   @@schema("app")
@@ -555,21 +556,21 @@ enum TemplateVisibility {
 /// app.list_catalog_templates / app.get_catalog_template and see their own private templates directly (RLS).
 /// Content lives in the immutable TemplateVersion rows.
 model Template {
-  id          String             @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  workspaceId String?            @map("workspace_id") @db.Uuid
-  slug        String
-  name        String
+  id           String                @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  workspaceId  String?               @map("workspace_id") @db.Uuid
+  slug         String
+  name         String
   /// One of the SiteConfig categories (CHECK).
-  category    String
-  description String
-  status      TemplateStatus     @default(draft)
-  visibility  TemplateVisibility @default(private)
-  createdBy   String?            @map("created_by") @db.Uuid
-  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt   DateTime?          @map("deleted_at") @db.Timestamptz(6)
-  workspace   Workspace?         @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
-  versions    TemplateVersion[]
+  category     String
+  description  String
+  status       TemplateStatus        @default(draft)
+  visibility   TemplateVisibility    @default(private)
+  createdBy    String?               @map("created_by") @db.Uuid
+  createdAt    DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime?             @map("deleted_at") @db.Timestamptz(6)
+  workspace    Workspace?            @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  versions     TemplateVersion[]
 
   @@unique([workspaceId, id])
   @@unique([workspaceId, slug])
@@ -600,5 +601,26 @@ model TemplateVersion {
   @@unique([workspaceId, id])
   @@index([workspaceId, templateId])
   @@map("template_versions")
+  @@schema("app")
+}
+
+/// A preview link made in the dashboard (P2 S8b, FR-TPL-09). The signed token carries this row's id (`lid`); the row
+/// holds no token and no prospect name. Revocation is one way (trigger). The sites app reads only the revoked flag,
+/// through app.is_preview_link_revoked (app_public).
+model TemplatePreviewLink {
+  id           String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  workspaceId  String    @map("workspace_id") @db.Uuid
+  templateId   String    @map("template_id") @db.Uuid
+  createdBy    String    @map("created_by") @db.Uuid
+  personalised Boolean   @default(false)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt    DateTime? @map("revoked_at") @db.Timestamptz(6)
+  revokedBy    String?   @map("revoked_by") @db.Uuid
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+
+  @@unique([workspaceId, id])
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@map("template_preview_links")
   @@schema("app")
 }

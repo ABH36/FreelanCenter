@@ -169,7 +169,7 @@ jobs:
 
   # P2 S7 (phase exit): axe (WCAG 2.1 A/AA), visual regression and Lighthouse mobile budgets (performance >= 90,
   # accessibility/SEO/best practices >= 95) on the three built-in templates, served by the real sites renderer.
-  # Informational until it has been green on the S7 PR (Owner decision); the report uploads on every run.
+  # A required check on `main` since 2026-11-12 (Owner decision, after three green runs); the report uploads on every run.
   quality:
     name: Template quality (axe, visual, Lighthouse)
     runs-on: ubuntu-latest

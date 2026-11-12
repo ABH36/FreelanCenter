@@ -5,6 +5,7 @@
  * `templates.preview` capability), validates, signs and audits (SEC-10). Registered with the IDOR harness in
  * tests/isolation/src/actions.ts.
  */
+import { revalidatePath } from 'next/cache';
 import { type ActionState, field, runAction } from '@/lib/actions';
 import { requireUserId, templateService } from '@/lib/workspaces';
 
@@ -22,6 +23,7 @@ export async function createPreviewLinkAction(_prev: ActionState, form: FormData
       prospectName: field(form, 'prospectName'),
       days: field(form, 'days'),
     });
+    revalidatePath('/', 'layout');
     const until = new Date(link.expiresAt).toLocaleDateString('en-IN', {
       day: 'numeric',
       month: 'short',
@@ -33,6 +35,25 @@ export async function createPreviewLinkAction(_prev: ActionState, form: FormData
       linkLabel: 'Preview link',
       linkNote:
         'Anyone with this link can open the preview until it expires. It shows demo content only, never your clients’ data.',
+    };
+  });
+}
+
+/** Turns a preview link off for visitors (FR-TPL-09). Final; takes effect within about 30 seconds. */
+export async function revokePreviewLinkAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const userId = await requireUserId();
+  return runAction(async () => {
+    const { alreadyRevoked } = await (
+      await templateService()
+    ).revokePreviewLink(userId, {
+      workspaceId: field(form, 'workspaceId'),
+      linkId: field(form, 'linkId'),
+    });
+    revalidatePath('/', 'layout');
+    return {
+      ok: alreadyRevoked
+        ? 'That link was already turned off.'
+        : 'Link turned off. Visitors see "withdrawn" within about 30 seconds.',
     };
   });
 }

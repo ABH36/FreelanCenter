@@ -13,7 +13,9 @@
  * trusted; a token is accepted only if `exp` is in the future, `exp - iat` is at most 30 days and `iat` is not from
  * the future (5 minutes of clock skew); secrets shorter than 32 characters are refused; the previous secret is still
  * accepted while a new one rolls out; the claim set is closed (unknown keys refuse the token); the token is length
- * bounded before any work. A link cannot be revoked individually: rotating the secret revokes all of them.
+ * bounded before any work. A link made with a link id (`lid`, P2 S8b) can be revoked individually: the id names a row
+ * the sites app checks (the token itself stays stateless and verifiable without the database). Links without an id
+ * (made before S8b or by the operator script) cannot be revoked one by one; rotating the secret revokes all of them.
  */
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
@@ -35,6 +37,8 @@ export interface PreviewClaims {
   ver?: number;
   /** The prospect's business name, shown instead of the demo name. Plain text, 1 to 60 characters. */
   name?: string;
+  /** Link id (UUID): the row that can revoke this link. Absent on links that cannot be revoked individually. */
+  lid?: string;
   iat: number;
   exp: number;
 }
@@ -72,6 +76,8 @@ export interface MintOptions {
   templateId: string;
   version?: number;
   prospectName?: string;
+  /** The id of the stored link row, so the link can be revoked. */
+  linkId?: string;
   /** Lifetime in seconds. Default 7 days, at most 30. */
   lifetimeSeconds?: number;
   now?: Date;
@@ -91,6 +97,8 @@ export function mintPreviewToken(secret: string, options: MintOptions): string {
   if (options.prospectName !== undefined && !(name && isValidProspectName(name))) {
     throw new Error('The prospect name must be 1 to 60 characters of plain text');
   }
+  if (options.linkId !== undefined && !UUID.test(options.linkId))
+    throw new Error('linkId must be a lowercase UUID');
   const lifetime = options.lifetimeSeconds ?? PREVIEW_TOKEN.defaultLifetimeSeconds;
   if (!Number.isInteger(lifetime) || lifetime < 60 || lifetime > PREVIEW_TOKEN.maxLifetimeSeconds) {
     throw new Error('The lifetime must be between 60 seconds and 30 days');
@@ -100,6 +108,7 @@ export function mintPreviewToken(secret: string, options: MintOptions): string {
     tpl: options.templateId,
     ...(options.version !== undefined ? { ver: options.version } : {}),
     ...(name ? { name } : {}),
+    ...(options.linkId !== undefined ? { lid: options.linkId } : {}),
     iat,
     exp: iat + lifetime,
   };
@@ -167,7 +176,7 @@ function parseClaims(json: string): PreviewClaims | null {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
   const c = raw as Record<string, unknown>;
   for (const key of Object.keys(c)) {
-    if (!['tpl', 'ver', 'name', 'iat', 'exp'].includes(key)) return null;
+    if (!['tpl', 'ver', 'name', 'lid', 'iat', 'exp'].includes(key)) return null;
   }
   if (typeof c['tpl'] !== 'string' || !UUID.test(c['tpl'])) return null;
   if (!Number.isInteger(c['iat']) || !Number.isInteger(c['exp'])) return null;
@@ -179,10 +188,12 @@ function parseClaims(json: string): PreviewClaims | null {
   }
   if (c['name'] !== undefined && !(typeof c['name'] === 'string' && isValidProspectName(c['name'])))
     return null;
+  if (c['lid'] !== undefined && !(typeof c['lid'] === 'string' && UUID.test(c['lid']))) return null;
   return {
     tpl: c['tpl'],
     ...(c['ver'] !== undefined ? { ver: c['ver'] as number } : {}),
     ...(c['name'] !== undefined ? { name: (c['name'] as string).trim() } : {}),
+    ...(c['lid'] !== undefined ? { lid: c['lid'] as string } : {}),
     iat: c['iat'] as number,
     exp: c['exp'] as number,
   };
