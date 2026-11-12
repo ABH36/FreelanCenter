@@ -7,6 +7,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { registry } from '@platform/blocks';
 import { createHostResolver } from '@platform/hosting';
 import { createMemoryStore } from '@platform/providers';
 import { serveHost } from '../../../apps/sites/lib/serve';
@@ -19,12 +20,43 @@ const seed = JSON.parse(
 const fonts = resolve(root, '../../apps/sites/public/fonts');
 const PORT = Number(process.env.QUALITY_PORT ?? 4010);
 
-const bySlug = new Map(seed.templates.map((t) => [t.slug, t.config]));
+type Config = { business: Record<string, unknown>; pages: Record<string, unknown>[] };
+
+/**
+ * Every block variant in the registry on one extra page (`/all-blocks`), so axe and the screenshots cover all of them under
+ * each template's theme, not just the variants the three templates happen to use. `<slug>-hi` is the same site in Hindi.
+ */
+function withGallery(config: Config, language: 'en' | 'hi'): Config {
+  const sections = registry.list().flatMap((def) =>
+    def.variants.map((v) => ({
+      id: `${def.type}-${v.id}`,
+      type: def.type,
+      variant: v.id,
+      visible: true,
+      props: def.defaults(v.id),
+    })),
+  );
+  return {
+    ...config,
+    business: { ...config.business, language },
+    pages: [...config.pages, { id: 'all-blocks', path: '/all-blocks', title: 'All blocks', sections }],
+  };
+}
+
+const bySlug = new Map<string, unknown>();
+for (const t of seed.templates) {
+  bySlug.set(t.slug, withGallery(structuredClone(t.config) as Config, 'en'));
+  bySlug.set(`${t.slug}-hi`, withGallery(structuredClone(t.config) as Config, 'hi'));
+}
 const resolver = createHostResolver({
   cache: createMemoryStore(),
   lookup: async () => ({ outcome: 'placeholder', workspaceId: 'w', projectId: 'p' }),
 });
-const logger = { debug() {}, info() {}, warn() {}, error() {}, fatal() {} } as never;
+const log = (m: string, d?: unknown) =>
+  process.env.QUALITY_DEBUG &&
+  process.stderr.write(`${m} ${JSON.stringify(d)}
+`);
+const logger = { debug() {}, info() {}, warn: log, error: log, fatal: log } as never;
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://x');

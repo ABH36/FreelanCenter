@@ -7,6 +7,7 @@ import {
   compileThemeCssSafe,
   contrastIssues,
   linkColor,
+  mutedColor,
   themeDeclarations,
 } from './theme';
 
@@ -172,5 +173,40 @@ describe('link colour', () => {
   });
   it('is part of every compiled theme', () => {
     expect(themeDeclarations(DEFAULT_THEME).some((d) => d.startsWith('--color-link:'))).toBe(true);
+  });
+});
+
+describe('derived text colours are readable by construction', () => {
+  const hex = (r: () => number) =>
+    `#${[r(), r(), r()]
+      .map((x) =>
+        Math.floor(x * 256)
+          .toString(16)
+          .padStart(2, '0'),
+      )
+      .join('')}`.toUpperCase();
+  it('for random palettes whose text colour passes AA, link and muted text pass 4.5:1 on background and surface', () => {
+    const r = rng(20261112);
+    let checked = 0;
+    for (let i = 0; i < 4000 && checked < 400; i += 1) {
+      const colors = {
+        ...DEFAULT_THEME.colors,
+        primary: hex(r),
+        background: hex(r),
+        surface: hex(r),
+        text: hex(r),
+      };
+      if (
+        contrastRatio(colors.text, colors.background) < 4.5 ||
+        contrastRatio(colors.text, colors.surface) < 4.5
+      )
+        continue;
+      checked += 1;
+      for (const derived of [linkColor(colors), mutedColor(colors)]) {
+        expect(contrastRatio(derived, colors.background)).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(derived, colors.surface)).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+    expect(checked).toBeGreaterThan(100);
   });
 });

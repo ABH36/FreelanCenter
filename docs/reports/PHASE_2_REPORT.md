@@ -89,6 +89,8 @@ Full-page screenshots of the three templates, mobile and desktop (6 baselines in
 
 **Owner decisions, 2026-11-06:** (1) FR-OBS-01 remainder to Phase 8 with the two hooks: approved. (2) CI `quality` job informational first, then required: approved. (3) NFR-PERF-04 in region: recorded as gap DG-28 so it is not lost. (4) Design review and real photography: done at the end of Phase 2, when the Owner tests the product through the Claude extension, before the Phase 2 audit is closed.
 
+**Follow-up (2026-11-12):** the post-S7 gap list was worked in slice 8, see `PHASE_2_S8_HARDENING.md` (one more real defect found and fixed: 320 px reflow of the stats block; the S7 claim that fonts were not preloaded was wrong and is corrected there).
+
 ## 8. Open items carried out of Phase 2
 
 DG-27 (dashboard production); per-link preview revocation (not built; links expire, 30 days at most); `PREVIEW_HOST` is `sites-two-nu.vercel.app` as an interim because `*.vercel.app` has no sub-subdomains, to be `preview.<domain>` once the real sites domain exists (DG-11); the contact form is dormant until the P5 lead endpoint; analytics is a slice after P3.
