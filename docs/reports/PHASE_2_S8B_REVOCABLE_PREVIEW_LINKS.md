@@ -1,0 +1,55 @@
+# Phase 2, slice 8b: revocable preview links
+
+**Status:** built on `feat/p2-s8b-revoke-preview`; approved by the Owner as a slice (2026-11-12). **The live migration is not applied and needs its own approval (DG-29).** Nothing is marked "verified" until the Phase 2 audit. **Date:** 2026-11-12 · **Requirement:** FR-TPL-09 · **Modules:** 04 (templates), 01 (RBAC) · **Depends on:** S6a, S6b, S8.
+
+## 1. Why
+
+A preview link lived until its expiry (up to 30 days) and could not be withdrawn. A freelancer who sent a link to the wrong person, or to a prospect who said no, had no way to turn it off. For an enterprise product that is a real gap.
+
+## 2. What was built
+
+- **Database** (migration `20261112120000_p2_s8b_preview_links`): table `template_preview_links` (workspace id, template id, creator, personalised yes/no, created, expires, revoked at, revoked by). RLS and FORCE like every tenant table; owners, admins and editors in a writable workspace create and revoke; the only tenant UPDATE is the two revocation columns, one way (a trigger refuses any change after revocation); no delete or truncate for any role; lifetime check (future, at most 30 days); revocation columns come as a pair. **No token and no prospect name is stored.** One visitor function, `app.is_preview_link_revoked(id)`, SECURITY DEFINER, executable by `app_public` only.
+- **Token** (`@platform/hosting`): a new optional claim `lid` (the row id). Old links stay valid; they have no id and cannot be revoked one by one.
+- **Service** (`@platform/workspaces`): `createPreviewLink` now stores the row in the same transaction as the audit row and puts its id in the token; new `listPreviewLinks` (needs `templates.preview`; status active, expired or revoked; never the link or the name) and `revokePreviewLink` (capability, NOT_FOUND for another workspace, idempotent, audited as `template.preview_link.revoked`).
+- **Sites** (`apps/sites`): after the signature and expiry checks, a link that carries an id is checked against the function. A revoked link is `410 "This preview link was withdrawn"`. A failure to ask is a `503`: it **fails closed**. The answer is cached per instance for 30 seconds (revoked answers 5 minutes, as they cannot change back), so a revocation reaches every instance within about 30 seconds. Forged, expired and id-less links never cause a lookup.
+- **Dashboard:** the Templates page lists "Your preview links" with status and a **Turn off** button (confirmation, final) for roles that may share; a note explains that the link itself is shown only once and that older links cannot be turned off.
+- **Tests registries:** the new table and function are in the catalogue and isolation guards (tables, definer functions, execute grants, row factory, per-table cross-tenant matrix, IDOR harness: the new action and page loader).
+
+## 3. Findings
+
+| ID    | Finding                                                                                                                                                                                                                                                                                     | Consequence                                                                                                                                                        |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| S8b-1 | **Existing bug (since S4/S6):** the renderer accepted a base path segment of at most 200 characters, but a preview token can be up to 700. With the new `lid` a token is about 300 characters, so every link with an id would have been a 503. Found by the first sites test                | Limit raised to 700 (the token bound); a test renders the longest possible link                                                                                    |
+| S8b-2 | **Existing bug (since S6):** a prospect name of 60 characters replaces the demo name in the SEO title (limit 70) and description (limit 200) and made the config invalid, so the whole preview was a 503. Found by the longest-link test                                                    | The swapped texts are cut to the schema limits (surrogate-safe); tests with Latin, emoji and Devanagari names of 60 characters                                     |
+| S8b-3 | The isolation guard "every foreign key between tenant tables is composite on workspace_id" refused a foreign key from the link to the template, because a platform template has no workspace                                                                                                | The guard is kept as it is. `template_id` is not a foreign key; the service proves the template is in the catalogue before storing it. Documented in the migration |
+| S8b-4 | A first Playwright journey passed or failed at random. The assertion `getByText('Turned off')` also matched the words in the panel's footnote, so it was true at once and the prospect opened the link before the revocation was committed. A test bug, not a product bug                   | Exact match on the status badge; 3 consecutive green runs                                                                                                          |
+| S8b-5 | A suspended workspace's revoke is refused by the same writable-workspace rule as creating a link (RLS and the shared command runner). Turning a link off while suspended would be harmless; it is not allowed. Not covered by a dedicated S8b test (the shared runner tests cover the rule) | Open question for the Owner (section 6)                                                                                                                            |
+
+## 4. Security review
+
+- **Authorization:** `templates.preview` for list and revoke, server side; a viewer is refused and the refusal is audited; another workspace's id is NOT_FOUND, with its own or the other workspace's id (IDOR harness + service tests + database tests).
+- **Integrity:** revocation is one way and final at the database (trigger), so it cannot be undone by a bug or a tenant; the lifetime is bounded; no delete.
+- **Visitor path:** the sites role still has no table privilege; one boolean function; fail closed; the lookup happens only for validly signed, unexpired links that carry an id.
+- **Privacy:** the table and the audit hold ids, dates and "personalised yes/no". Never the link or the name (tested by reading the list and the audit back).
+- **Residual:** up to 30 seconds between "Turn off" and every visitor seeing it (per-instance cache); links without an id (older links, operator links) cannot be revoked one by one, only by rotating the secret.
+
+## 5. Tests
+
+| Suite                                            | Result                                                                                                                                                                                                            |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@platform/hosting`                              | 31 tests (new: `lid` round trip at maximum size, old tokens, malformed ids)                                                                                                                                       |
+| `@platform/sites`                                | 57 tests (new: revoked 410, caching, 30-second window, fail closed, no lookup for forged or expired or id-less links, longest link, 60-character names with Latin, emoji and Devanagari)                          |
+| `@platform/db` integration                       | 138 tests, including the new file (create, revoke, one way, pair, bounds, column privileges, no delete or truncate, visitor role) and the updated catalogue guards                                                |
+| `@platform/workspaces` integration               | 144 tests (new: id in the token, list without secrets, revoke by each role, idempotent, viewer refused and audited, IDOR, expired status)                                                                         |
+| Isolation (`tests/isolation`)                    | 232 tests: per-table matrix with the new table, IDOR harness with the new action and page loader, app_public function list                                                                                        |
+| Playwright journey (real Chromium, real servers) | 9 of 9, three runs in a row: the owner makes two links, turns one off; a prospect in a clean browser sees "withdrawn" (410) for it and the other still works; the audit log shows the revocation without the name |
+
+## 6. Decisions and next steps
+
+1. **Live migration (DG-29): approval needed.** Same procedure as S5b: read-only pre-check of the live database, apply `20261112120000_p2_s8b_preview_links`, read-only verification. Order: apply before the dashboard is deployed with this code (the dashboard is not deployed anyway, DG-27).
+2. Should a **suspended** workspace be able to turn a link off? Today it cannot (S8b-5). I recommend allowing revocation (and only revocation) while suspended, as a protective action. It needs a small change to one policy and the command. Say yes if you want it.
+3. Carried over: design review and photography at the end of Phase 2; DG-27; DG-28.
+
+## 6. CI-equivalent run
+
+Filled in after the clean-worktree run.

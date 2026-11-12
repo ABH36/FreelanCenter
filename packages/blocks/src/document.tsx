@@ -64,7 +64,8 @@ export type DocumentResult =
   | { readonly kind: 'error' };
 
 const ORIGIN = /^https?:\/\/[a-z0-9.-]+(:\d{1,5})?$/;
-const BASE_PATH = /^(\/[A-Za-z0-9._~-]{1,200}){1,3}$/;
+// A preview link (`/p/<token>`) is the longest base path: tokens are at most 700 characters (PREVIEW_TOKEN.maxLength).
+const BASE_PATH = /^(\/[A-Za-z0-9._~-]{1,700}){1,3}$/;
 
 /** Limit by characters (not bytes), never splitting a surrogate pair. */
 export function clip(value: string, max: number): string {

@@ -1,6 +1,6 @@
 # 04 — Template Engine and Renderer
 
-**Status:** In progress (P2). S1-S7 merged (#43-#54; S5b is live); S7 phase exit merged (#54); S8 hardening (all 24 variants under axe and visual regression, reflow/keyboard/motion checks, contrast-safe derived colours) built, pending Owner approval; S8b (revocable preview links) proposed; Phase 2 audit pending. Nothing is marked verified. **SRS:** FR-TPL-01..11.
+**Status:** In progress (P2). S1-S7 merged (#43-#54; S5b is live); S7 phase exit merged (#54); S8 hardening merged (#58); S8b (revocable preview links) built, pending Owner approval and its live migration; Phase 2 audit pending. Nothing is marked verified. **SRS:** FR-TPL-01..11.
 
 ## Outcome
 
@@ -25,7 +25,7 @@ Theme tokens compile to CSS variables; no runtime stylesheet rebuilding. Rendere
 
 - Reject unknown block types, unsafe URLs, unsupported fonts and malformed config.
 - Version migrations are deterministic, tested and reversible or refuse safely.
-- Preview links (FR-TPL-09, P2 S6) are public but expiring and `noindex`; no tenant secret is embedded. Form: `https://<PREVIEW_HOST>/p/<token>[/<page>]`, a signed claim set (template id, optional version, optional prospect name, issued and expiry time, at most 30 days; HMAC-SHA256, rotation with a previous secret), served only on the dedicated preview host, with demo content from the catalogue, a visible "demo content" banner, `Referrer-Policy: no-referrer` and every in-site link kept inside the link. Made in the dashboard on `/w/<slug>/templates` (capability `templates.preview`: owner, admin, editor; audited; 100 per person per day) or with `pnpm --filter @platform/db db:preview-link`.
+- Preview links (FR-TPL-09, P2 S6) are public but expiring and `noindex`; no tenant secret is embedded. Form: `https://<PREVIEW_HOST>/p/<token>[/<page>]`, a signed claim set (template id, optional version, optional prospect name, issued and expiry time, at most 30 days; HMAC-SHA256, rotation with a previous secret), served only on the dedicated preview host, with demo content from the catalogue, a visible "demo content" banner, `Referrer-Policy: no-referrer` and every in-site link kept inside the link. Made in the dashboard on `/w/<slug>/templates` (capability `templates.preview`: owner, admin, editor; audited; 100 per person per day) or with `pnpm --filter @platform/db db:preview-link`. **Revocation (P2 S8b):** links made in the dashboard carry an id (`lid`) of a row in `template_preview_links` (no token, no prospect name stored); the Templates page lists them and owners, admins and editors can turn one off (final, audited); the sites app checks `app.is_preview_link_revoked` for links that carry an id and fails closed; a revocation reaches visitors within about 30 seconds. Links made before S8b or by the operator script have no id: they expire on their date.
 - Render only a resolved immutable version in public live/staging paths.
 
 ## Evidence / handoff

@@ -238,10 +238,57 @@ test('A shares a template preview; a prospect opens it without signing in and st
   }
 });
 
+// P2 S8b (FR-TPL-09): the freelancer turns a link off; the prospect then sees it was withdrawn.
+test('A turns a preview link off; the prospect sees it withdrawn, and a link that stays on keeps working', async ({
+  browser,
+}) => {
+  await a.page.goto(`/w/${a.slug}/templates`);
+  const card = a.page.locator('li', { has: a.page.getByRole('heading', { name: 'Taxi Quick' }) });
+  const box = card.getByLabel('Preview link');
+  const make = async (name: string) => {
+    // The link box keeps showing the previous link until the new one arrives: wait for it to change.
+    const before = (await box.count()) > 0 ? await box.inputValue() : '';
+    await card.getByLabel("Prospect's business name (optional)").fill(name);
+    await card.getByRole('button', { name: 'Create preview link' }).click();
+    await expect(box).toBeVisible();
+    await expect(box).not.toHaveValue(before);
+    return await box.inputValue();
+  };
+  const toTurnOff = await make('Revoke Me Travels');
+  const staysOn = await make('Keep Me Travels');
+
+  // The list shows the links, newest first: the second row is the link made first.
+  await expect(a.page.getByText('Active').first()).toBeVisible();
+  const turnOffButtons = a.page.getByRole('button', { name: 'Turn off' });
+  // Wait for the list to show all three links (the Gym link of the journey above and these two): until then a
+  // click could land on a different row.
+  await expect(turnOffButtons).toHaveCount(3);
+  a.page.once('dialog', (d) => void d.accept());
+  await turnOffButtons.nth(1).click(); // the older of the two: the first link made
+  // Exact: the panel's footnote also contains the words "turned off", which would match at once.
+  await expect(a.page.getByText('Turned off', { exact: true })).toHaveCount(1);
+
+  const prospect = await browser.newContext();
+  try {
+    const page = await prospect.newPage();
+    const gone = await page.goto(toTurnOff);
+    expect(gone?.status()).toBe(410);
+    await expect(page.getByRole('heading', { name: 'This preview link was withdrawn' })).toBeVisible();
+    expect(await page.content()).not.toContain('Revoke Me Travels');
+    const alive = await page.goto(staysOn);
+    expect(alive?.status()).toBe(200);
+    await expect(page.locator('.pb-brand').first()).toHaveText('Keep Me Travels');
+  } finally {
+    await prospect.close();
+  }
+});
+
 test('the preview link shows up in A’s audit log without the link or the prospect name', async () => {
   await a.page.goto(`/w/${a.slug}/audit`);
   await expect(a.page.getByText(/template\.preview_link\.created/).first()).toBeVisible();
+  await expect(a.page.getByText(/template\.preview_link\.revoked/).first()).toBeVisible();
   const html = await a.page.content();
   expect(html).not.toContain('Sharma Fitness');
+  expect(html).not.toContain('Revoke Me Travels');
   expect(html).not.toMatch(/\/p\/v1\./);
 });

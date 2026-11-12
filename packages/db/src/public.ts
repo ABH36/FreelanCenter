@@ -51,6 +51,11 @@ export interface PublicDatabase {
    * unknown, draft, archived, private or deleted look the same. Used by the preview route (FR-TPL-09).
    */
   getCatalogTemplate(templateId: string, version?: number): Promise<CatalogTemplate | null>;
+  /**
+   * Whether a preview link (its `lid`) was revoked in the dashboard (P2 S8b). True only for a link that exists and
+   * was revoked; an unknown id is not revoked. Used by the preview route.
+   */
+  isPreviewLinkRevoked(linkId: string): Promise<boolean>;
   /** Fails unless the connection role is app_public without SUPERUSER or BYPASSRLS. */
   verifyRole(): Promise<void>;
   close(): Promise<void>;
@@ -116,6 +121,14 @@ export function createPublicDatabase(options: PublicDatabaseOptions): PublicData
         manifest: row.manifest,
         contentHash: row.content_hash,
       };
+    },
+
+    async isPreviewLinkRevoked(linkId) {
+      const { rows } = await pool.query<{ revoked: boolean }>(
+        'SELECT app.is_preview_link_revoked($1::uuid) AS revoked',
+        [linkId],
+      );
+      return rows[0]?.revoked === true;
     },
 
     async verifyRole() {

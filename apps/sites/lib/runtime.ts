@@ -19,6 +19,8 @@ interface SitesRuntime {
   resolver: HostResolver;
   /** The read-only template catalogue (app.get_catalog_template as app_public). */
   catalog: PublicDatabase['getCatalogTemplate'];
+  /** Whether a preview link was revoked in the dashboard (app.is_preview_link_revoked as app_public). */
+  isPreviewLinkRevoked: PublicDatabase['isPreviewLinkRevoked'];
   ready: Promise<void>;
 }
 
@@ -39,6 +41,7 @@ function build(): SitesRuntime {
   const runtime: SitesRuntime = {
     resolver,
     catalog: (id, version) => db.getCatalogTemplate(id, version),
+    isPreviewLinkRevoked: (id) => db.isPreviewLinkRevoked(id),
     ready: db.verifyRole(),
   };
   runtime.ready.catch((error: unknown) => {

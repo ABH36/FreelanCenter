@@ -222,6 +222,43 @@ export const TENANT_TABLES = {
     delete: 'denied',
     prisma: { model: (tx) => delegate(tx.templateVersion), data: { manifest: {} } },
   },
+  template_preview_links: {
+    tenantKey: 'workspace_id',
+    prepare: async (tx, ctx) => ({
+      templateId: (
+        await tx.template.create({
+          data: {
+            workspaceId: ctx.workspaceId,
+            slug: ctx.unique('lnk').slice(0, 40),
+            name: 'Isolation template',
+            category: 'generic',
+            description: 'Template of an isolation preview link.',
+            createdBy: ctx.ownerId,
+          },
+          select: { id: true },
+        })
+      ).id,
+    }),
+    insert: async (tx, ctx, deps) =>
+      (
+        await tx.templatePreviewLink.create({
+          data: {
+            workspaceId: ctx.workspaceId,
+            templateId: deps.templateId!,
+            createdBy: ctx.ownerId,
+            expiresAt: new Date(Date.now() + 86_400_000),
+          },
+          select: { id: true },
+        })
+      ).id,
+    // Revoking is the only update there is; the matrix tries it across tenants (0 rows).
+    update: `revoked_at = now(), revoked_by = created_by`,
+    delete: 'denied',
+    prisma: {
+      model: (tx) => delegate(tx.templatePreviewLink),
+      data: { revokedAt: new Date(), revokedBy: '01920000-0000-7000-8000-00000000f00d' },
+    },
+  },
   audit_logs: {
     tenantKey: 'workspace_id',
     nullableTenantKey: true,

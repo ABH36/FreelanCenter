@@ -107,6 +107,7 @@ describe('row-level security coverage', () => {
       'notifications',
       'outbox_events',
       'projects',
+      'template_preview_links',
       'template_versions',
       'templates',
     ]);
@@ -278,6 +279,7 @@ describe('functions', () => {
       'current_member_role',
       'get_catalog_template',
       'invitation_preview',
+      'is_preview_link_revoked',
       'list_catalog_templates',
       'memberships_keep_owner',
       'notification_delivery',
@@ -355,6 +357,8 @@ describe('functions', () => {
     // P2 S5b: the template catalogue is read by tenants and visitors; platform templates are written by migrator only.
     expect(await executors('list_catalog_templates')).toEqual(['app_public', 'app_user']);
     expect(await executors('get_catalog_template')).toEqual(['app_public', 'app_user']);
+    // P2 S8b: the preview-link revocation check is for the visitor role only.
+    expect(await executors('is_preview_link_revoked')).toEqual(['app_public']);
     expect(await executors('operator_publish_builtin_template')).toEqual(['migrator']);
     expect(await executors('operator_archive_builtin_template')).toEqual(['migrator']);
     const { rows: publicFns } = await admin.query(
@@ -363,6 +367,7 @@ describe('functions', () => {
     );
     expect(publicFns.map((r) => r.proname).sort()).toEqual([
       'get_catalog_template',
+      'is_preview_link_revoked',
       'list_catalog_templates',
       'resolve_host',
     ]);
@@ -393,6 +398,8 @@ describe('functions', () => {
       'templates_guard',
       'template_versions_guard',
       'template_versions_reject_change',
+      'template_preview_links_guard',
+      'template_preview_links_reject_delete',
     ]) {
       expect(await executors(fn), fn).toEqual(['migrator']);
     }

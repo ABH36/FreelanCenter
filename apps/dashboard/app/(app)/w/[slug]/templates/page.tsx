@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import { PREVIEW_DAYS } from '@platform/workspaces';
-import { createPreviewLinkAction } from '@/app/actions/templates';
+import { createPreviewLinkAction, revokePreviewLinkAction } from '@/app/actions/templates';
 import { ActionForm, SmallButton } from '@/components/action-form';
 import { selectClass } from '@/components/project-ui';
-import { Field, EmptyState } from '@/components/ui';
+import { Field, EmptyState, Panel } from '@/components/ui';
 import { currentWorkspace, requireUserId, templateService } from '@/lib/workspaces';
 
 export const metadata: Metadata = { title: 'Templates' };
@@ -21,6 +21,9 @@ const CATEGORY_LABEL: Record<string, string> = {
   generic: 'Other',
 };
 
+const formatDay = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+
 const DAYS_LABEL = (d: number) => (d === 1 ? '1 day' : `${d} days`);
 
 /**
@@ -34,6 +37,7 @@ export default async function TemplatesPage({ params }: { params: Promise<{ slug
   const service = await templateService();
   const templates = await service.catalog(userId, ws.id);
   const canShare = ws.can['templates.preview'] && ws.scope.writable;
+  const links = ws.can['templates.preview'] ? await service.listPreviewLinks(userId, ws.id) : [];
 
   return (
     <div className="space-y-6">
@@ -107,6 +111,64 @@ export default async function TemplatesPage({ params }: { params: Promise<{ slug
           ))}
         </ul>
       )}
+      {ws.can['templates.preview'] ? (
+        <Panel title="Your preview links">
+          {links.length === 0 ? (
+            <p className="text-sm text-slate-600">
+              No links yet. Create one above; it will be listed here so you can turn it off.
+            </p>
+          ) : (
+            <ul className="divide-y divide-slate-200">
+              {links.map((l) => (
+                <li key={l.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                  <div className="min-w-0 text-sm">
+                    <p className="font-medium">
+                      {l.templateName}
+                      {l.personalised ? (
+                        <span className="font-normal text-slate-500"> · personalised</span>
+                      ) : null}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Made {formatDay(l.createdAt)} ·{' '}
+                      {l.status === 'revoked'
+                        ? `turned off ${formatDay(l.revokedAt as string)}`
+                        : l.status === 'expired'
+                          ? `expired ${formatDay(l.expiresAt)}`
+                          : `works until ${formatDay(l.expiresAt)}`}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                        l.status === 'active'
+                          ? 'bg-emerald-50 text-emerald-800'
+                          : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {l.status === 'active' ? 'Active' : l.status === 'expired' ? 'Expired' : 'Turned off'}
+                    </span>
+                    {l.status === 'active' && canShare ? (
+                      <ActionForm
+                        action={revokePreviewLinkAction}
+                        hidden={{ workspaceId: ws.id, linkId: l.id }}
+                        confirm="Turn this link off? Anyone who has it will see that it was withdrawn. This cannot be undone."
+                      >
+                        <SmallButton type="submit" variant="danger">
+                          Turn off
+                        </SmallButton>
+                      </ActionForm>
+                    ) : null}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-3 text-xs text-slate-500">
+            The link itself is shown only once, when you create it. Links made before this list existed are
+            not shown and cannot be turned off; they expire on their own date.
+          </p>
+        </Panel>
+      ) : null}
     </div>
   );
 }
