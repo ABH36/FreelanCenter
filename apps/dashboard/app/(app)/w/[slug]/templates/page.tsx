@@ -147,7 +147,7 @@ export default async function TemplatesPage({ params }: { params: Promise<{ slug
                     >
                       {l.status === 'active' ? 'Active' : l.status === 'expired' ? 'Expired' : 'Turned off'}
                     </span>
-                    {l.status === 'active' && canShare ? (
+                    {l.status === 'active' ? (
                       <ActionForm
                         action={revokePreviewLinkAction}
                         hidden={{ workspaceId: ws.id, linkId: l.id }}

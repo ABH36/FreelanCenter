@@ -86,10 +86,13 @@ CREATE POLICY tenant_select ON "app"."template_preview_links" FOR SELECT TO app_
 CREATE POLICY editor_insert ON "app"."template_preview_links" FOR INSERT TO app_user
   WITH CHECK (workspace_id = app.current_workspace() AND (SELECT app.workspace_writable())
               AND (SELECT app.current_member_role()) IN ('owner', 'admin', 'editor'));
+-- Revoking is allowed in a suspended workspace too (Owner decision 2026-11-12): turning a public link off is a
+-- protective action. Creating links still needs a writable workspace (editor_insert). The column privileges and the
+-- guard trigger limit this policy to the revocation columns.
 CREATE POLICY editor_update ON "app"."template_preview_links" FOR UPDATE TO app_user
-  USING (workspace_id = app.current_workspace() AND (SELECT app.workspace_writable())
+  USING (workspace_id = app.current_workspace()
          AND (SELECT app.current_member_role()) IN ('owner', 'admin', 'editor'))
-  WITH CHECK (workspace_id = app.current_workspace() AND (SELECT app.workspace_writable())
+  WITH CHECK (workspace_id = app.current_workspace()
               AND (SELECT app.current_member_role()) IN ('owner', 'admin', 'editor'));
 -- svc_definer (owner of the visitor function below, NOBYPASSRLS) may read the table: nothing else.
 CREATE POLICY definer_select ON "app"."template_preview_links" FOR SELECT TO svc_definer USING (true);

@@ -6,18 +6,24 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { verifyPreviewToken } from '@platform/hosting';
 import pg from 'pg';
-import { LOCAL_DATABASE_URLS } from '@platform/db/testing';
+import { createAdminDatabase } from '@platform/db/admin';
+import { LOCAL_DATABASE_URLS, steppedUpAdmin } from '@platform/db/testing';
+import { createAdminService } from '../../src/admin';
 import { WorkspaceError } from '../../src/errors';
 import { createTemplateService, PREVIEW_DAYS } from '../../src/templates';
-import { audit, closeAll, db, createUser, unique, workspaceWith } from '../harness';
+import { audit, auth, closeAll, db, createUser, outbox, unique, workspaceWith } from '../harness';
 
 const SECRET = 'workspace-suite-preview-secret-local-only-0123456789';
 const HOST = 'preview.sites.example.test';
+const adminDb = createAdminDatabase({ connectionString: LOCAL_DATABASE_URLS.admin, poolMax: 1 });
+const admin = createAdminService({ db: adminDb, outbox });
 const templates = createTemplateService({ db, preview: { host: HOST, secret: SECRET } });
 const unconfigured = createTemplateService({ db, preview: null });
 
 let migrator: pg.Pool;
 let visitor: pg.Pool;
+let adminRole: pg.Pool;
+let platformAdmin: { userId: string; sessionId: string };
 let slug: string;
 let templateId: string;
 const tokenOf = (url: string) => url.split('/p/')[1] as string;
@@ -33,6 +39,8 @@ const code = async (p: Promise<unknown>) => {
 beforeAll(async () => {
   migrator = new pg.Pool({ connectionString: LOCAL_DATABASE_URLS.migrator, max: 2 });
   visitor = new pg.Pool({ connectionString: LOCAL_DATABASE_URLS.public, max: 2 });
+  adminRole = new pg.Pool({ connectionString: LOCAL_DATABASE_URLS.admin, max: 1 });
+  platformAdmin = await steppedUpAdmin({ auth, migrator, admin: adminRole });
   slug = unique('tplsvc').slice(0, 40);
   // Publish a built-in as the seed command does (operator function, migrator only).
   const { rows } = await migrator.query<{ template_id: string }>(
@@ -44,6 +52,8 @@ beforeAll(async () => {
 afterAll(async () => {
   await migrator.end();
   await visitor.end();
+  await adminRole.end();
+  await adminDb.close();
   await closeAll();
 });
 
@@ -325,5 +335,25 @@ describe('revoking a link (P2 S8b)', () => {
     const ws = await workspaceWith();
     await templates.createPreviewLink(ws.owner.id, { workspaceId: ws.id, templateId, days: 1 });
     expect((await later.listPreviewLinks(ws.owner.id, ws.id))[0]!.status).toBe('expired');
+  });
+
+  it('a suspended workspace can still turn a link off, but cannot make a new one', async () => {
+    const ws = await workspaceWith();
+    const link = await templates.createPreviewLink(ws.owner.id, { workspaceId: ws.id, templateId, days: 7 });
+    await admin.setWorkspaceStatus(platformAdmin, {
+      workspaceId: ws.id,
+      status: 'suspended',
+      reason: 'S8b suite',
+    });
+    expect(
+      await code(templates.createPreviewLink(ws.owner.id, { workspaceId: ws.id, templateId, days: 7 })),
+    ).toBe('NOT_WRITABLE');
+    expect(await revokedAsVisitor(link.id)).toBe(false);
+    expect(await templates.revokePreviewLink(ws.owner.id, { workspaceId: ws.id, linkId: link.id })).toEqual({
+      revoked: true,
+      alreadyRevoked: false,
+    });
+    expect(await revokedAsVisitor(link.id)).toBe(true);
+    expect((await templates.listPreviewLinks(ws.owner.id, ws.id))[0]!.status).toBe('revoked');
   });
 });

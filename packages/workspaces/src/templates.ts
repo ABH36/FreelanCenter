@@ -237,7 +237,8 @@ export function createTemplateService(deps: TemplateServiceDeps) {
       return runner.command<{ revoked: true; alreadyRevoked: boolean }>(
         actorUserId,
         raw.workspaceId,
-        { action: REVOKE_ACTION, capability: CAPABILITY },
+        // Turning a public link off is protective, so a suspended workspace may do it (Owner decision 2026-11-12).
+        { action: REVOKE_ACTION, capability: CAPABILITY, requireWritable: false },
         async (tx, scope) => {
           const linkId = requireId(raw.linkId);
           const link = await tx.templatePreviewLink.findFirst({
