@@ -14,7 +14,7 @@ for (const slug of SLUGS) {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto(url);
     const moving = await page.evaluate(() =>
-      [...document.querySelectorAll('*')]
+      Array.from(document.querySelectorAll('*'))
         .filter((el) => {
           const s = getComputedStyle(el);
           const ms = (v: string) =>
@@ -31,7 +31,7 @@ for (const slug of SLUGS) {
     await page.emulateMedia({ forcedColors: 'active' });
     await page.goto(url);
     const flat = await page.evaluate(() =>
-      [...document.querySelectorAll('a[class*="pb-btn"], button')]
+      Array.from(document.querySelectorAll('a[class*="pb-btn"], button'))
         .filter((el) => (el as HTMLElement).offsetParent !== null)
         .filter((el) => parseFloat(getComputedStyle(el).borderTopWidth) < 1)
         .slice(0, 5)
