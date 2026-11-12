@@ -7,8 +7,11 @@
 ```
 pnpm --filter @platform/db db:setup
 pnpm --filter @platform/db db:seed-templates
-pnpm --filter @platform/e2e acceptance
+pnpm --filter @platform/e2e acceptance          # once, to create the test account (dev mail box)
+pnpm --filter @platform/e2e acceptance --prod   # the environment for the test: production builds, no hot reload
 ```
+
+**Run 1 (2026-11-12) found that the development servers' hot reload reloaded the sign-up and sign-in pages every few seconds in the extension's Chrome** (finding A-1 below), so the test now runs on production builds, and the test account `tester1@example.test` is created and verified in advance (production builds have no dev mail box).
 
 Dashboard `http://localhost:3000` · sites `http://localhost:3001` · preview links open on `http://preview.sites.localhost:3001` · mail box for the sign-up e-mail `http://localhost:3000/dev/mailbox`.
 
@@ -20,12 +23,12 @@ You are testing a website-builder product for freelancers and small agencies in 
 
 **Environment (local test copy, fake data only).** Dashboard: http://localhost:3000 . Preview links open on http://preview.sites.localhost:3001 . First page loads are slow (the development server compiles each page the first time): wait up to 30 seconds before calling something broken. Use only invented data (fake names, a fake business). Never enter any real personal information. If something looks unsafe or you are unsure, stop and tell me.
 
-**Take a screenshot at each numbered step marked (shot), at desktop width (about 1280 px) and, for the preview pages, also at phone width (about 390 px).**
+**Take a screenshot at each numbered step marked (shot), at the widest width you can get (if the side panel limits it to about 890 px, say so in the report) and, for the preview pages, also at phone width (about 390 px).**
 
-### Part 1. Sign up and set up (about 10 minutes)
+### Part 1. Sign in and set up (about 10 minutes)
 
-1. Open /sign-up. Create an account with a fake name, a work e-mail like `tester1@example.test` and a strong password. A "verify" step runs automatically in the test copy. (shot of the form)
-2. The verification e-mail is not really sent. Open http://localhost:3000/dev/mailbox , find your e-mail, click the verification link. You should land on "Create your first workspace".
+1. Open /sign-up and review the page only (do not submit: the test account already exists). Below the security check there is a short status line; with the test set-up the check passes on its own and the line disappears. (shot)
+2. Open /sign-in and sign in with the test account: e-mail `tester1@example.test`, password `Accept-Test-Pass-2026-local` (a throw-away password for this local test copy only). You should land on "Create your first workspace".
 3. Create a workspace (fake agency name, a short address such as `tester-one`). Then create one project (business name, for example "Sharma Fitness"). (shot)
    Note: any confusing wording, missing explanation, slow step or error message. Is it clear what to do next at every step?
 
@@ -86,3 +89,13 @@ E. **Anything you were unsure about**, and anything you could not test (and why)
 1. Every problem in the report gets an answer: fixed (with the change and a test), or explained, or turned into a tracked decision for the Owner.
 2. Fixes follow the usual path: tests, clean-worktree run, Owner approval, PR, green CI.
 3. The Owner's reply to the Phase 2 report (acknowledgements 1 to 3) plus the answered acceptance report close condition C2 and C3; then the Phase 2 audit can be closed as "approved with conditions" (C1, C4, C5 stay tracked).
+
+## Findings log
+
+| ID  | Run | Severity                   | Finding                                                                                                                                                                                                                                                                                                                                                                    | Resolution                                                                                                                                                                               |
+| --- | --- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A-1 | 1   | Blocker (test environment) | Sign-up and sign-in reloaded every 2.5 to 3 seconds in the extension's Chrome, wiping the form. Cause: the development servers' hot-reload connection; sign-in has no CAPTCHA and looped too, and the server log showed 81 sign-up loads. The Turnstile widget stayed empty only because the page reloaded before it rendered. Not reproducible in a plain headless Chrome | The test runs on production builds (`acceptance --prod`): one load in 12 s, sign-in works. A production deployment has no hot reload, so users are not affected                          |
+| A-2 | 1   | Minor                      | The empty security-check box left an unexplained gap                                                                                                                                                                                                                                                                                                                       | The widget now shows a status line: "Loading the security check…", "Complete the security check above to continue.", or "Couldn’t load the security check. Your details are kept. Retry" |
+| A-3 | 1   | Polish                     | The brand reads "P Platform", a placeholder                                                                                                                                                                                                                                                                                                                                | **Owner decision needed:** the product name (and a logo) to show in the dashboard                                                                                                        |
+| A-4 | 1   | Polish                     | "Create account" disabled with no hint                                                                                                                                                                                                                                                                                                                                     | Covered by A-2: the status line says what is missing                                                                                                                                     |
+| A-5 | 1   | Note                       | A failed security check must never reload the page or clear the form                                                                                                                                                                                                                                                                                                       | Confirmed in code: there is no reload anywhere in the auth forms; the error path now shows Retry                                                                                         |

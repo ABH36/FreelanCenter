@@ -3,12 +3,16 @@
  * environment as the Playwright journey, with synthetic secrets and Cloudflare's published Turnstile test keys):
  *
  *   pnpm --filter @platform/db db:setup && pnpm --filter @platform/db db:seed-templates
- *   pnpm --filter @platform/e2e acceptance
+ *   pnpm --filter @platform/e2e acceptance          # development servers (dev mail box for sign-up)
+ *   pnpm --filter @platform/e2e acceptance --prod   # production builds: no hot reload (use this for browser
+ *                                                   # agents and manual review; dev hot reload can reload a page
+ *                                                   # in a loop in some browser set-ups). No dev mail box here,
+ *                                                   # so create the test account with the development mode first.
  *
  * Dashboard http://localhost:3000, sites http://localhost:3001, preview host http://preview.sites.localhost:3001,
  * sign-up mail box http://localhost:3000/dev/mailbox. Ctrl+C stops both. Nothing here touches a live project.
  */
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import process from 'node:process';
 import { LOCAL_DATABASE_URLS } from '../../../packages/db/src/env.ts';
 
@@ -38,12 +42,28 @@ const apps = [
   { name: 'sites', port: 3001, env: { DATABASE_URL_PUBLIC: LOCAL_DATABASE_URLS.public } },
 ];
 
+const prod = process.argv.includes('--prod');
+if (prod) {
+  for (const app of apps) {
+    const built = spawnSync('pnpm', ['--filter', `@platform/${app.name}`, 'build'], {
+      env: { ...process.env, ...shared, ...app.env },
+      stdio: 'inherit',
+      shell: true,
+    });
+    if (built.status !== 0) process.exit(built.status ?? 1);
+  }
+}
+
 const children = apps.map((app) =>
-  spawn('pnpm', ['--filter', `@platform/${app.name}`, 'exec', 'next', 'dev', '-p', String(app.port)], {
-    env: { ...process.env, ...shared, ...app.env },
-    stdio: 'inherit',
-    shell: true,
-  }),
+  spawn(
+    'pnpm',
+    ['--filter', `@platform/${app.name}`, 'exec', 'next', prod ? 'start' : 'dev', '-p', String(app.port)],
+    {
+      env: { ...process.env, ...shared, ...app.env },
+      stdio: 'inherit',
+      shell: true,
+    },
+  ),
 );
 const stop = () => {
   for (const c of children) c.kill();
