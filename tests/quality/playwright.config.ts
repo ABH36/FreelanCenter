@@ -20,7 +20,15 @@ export default defineConfig({
     env: { QUALITY_PORT: String(PORT) },
   },
   projects: [
-    { name: 'mobile', use: { ...devices['Pixel 7'] } },
-    { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } } },
+    { name: 'mobile', grepInvert: /@browser/, use: { ...devices['Pixel 7'] } },
+    {
+      name: 'desktop',
+      grepInvert: /@browser/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
+    },
+    // NFR-BROW-01: Firefox, and WebKit (the engine of Safari and every iOS browser) on a phone. Only the @browser
+    // smoke and accessibility checks run here; screenshots are Chromium-only.
+    { name: 'firefox', grep: /@browser/, use: { ...devices['Desktop Firefox'] } },
+    { name: 'webkit-mobile', grep: /@browser/, use: { ...devices['iPhone 13'] } },
   ],
 });

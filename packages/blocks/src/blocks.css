@@ -147,6 +147,34 @@
 .pb-bg-accent :focus-visible {
   outline-color: currentColor;
 }
+/* Surfaces on a coloured band: a card, a stat card or a full-bleed hero sits on the page's own surface or background, so
+   it keeps the page's text colours instead of the band's on-colour (which suits the band only). */
+.pb-card,
+.pb-stats--cards .pb-stat,
+.pb-hero--full-bleed {
+  color: var(--color-text);
+  --color-muted: var(--color-muted-base);
+}
+.pb-hero--full-bleed {
+  background: var(--color-background);
+}
+.pb-bg-primary :is(.pb-card, .pb-stats--cards .pb-stat, .pb-hero--full-bleed) a:not(.pb-btn),
+.pb-bg-secondary :is(.pb-card, .pb-stats--cards .pb-stat, .pb-hero--full-bleed) a:not(.pb-btn),
+.pb-bg-accent :is(.pb-card, .pb-stats--cards .pb-stat, .pb-hero--full-bleed) a:not(.pb-btn) {
+  color: var(--color-link);
+}
+.pb-bg-primary :is(.pb-card, .pb-stats--cards .pb-stat, .pb-hero--full-bleed) :focus-visible,
+.pb-bg-secondary :is(.pb-card, .pb-stats--cards .pb-stat, .pb-hero--full-bleed) :focus-visible,
+.pb-bg-accent :is(.pb-card, .pb-stats--cards .pb-stat, .pb-hero--full-bleed) :focus-visible {
+  outline-color: var(--color-text);
+}
+/* Big numbers of a plain stats row take the band's text colour (the primary colour would vanish on a primary band
+   and is too dim on a dark one). */
+.pb-bg-primary .pb-stats:not(.pb-stats--cards) .pb-stat dd,
+.pb-bg-secondary .pb-stats:not(.pb-stats--cards) .pb-stat dd,
+.pb-bg-accent .pb-stats:not(.pb-stats--cards) .pb-stat dd {
+  color: inherit;
+}
 .pb-fallback {
   background: var(--color-surface);
   border-block: 1px dashed var(--color-border);

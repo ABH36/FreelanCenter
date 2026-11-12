@@ -131,6 +131,8 @@ export function themeDeclarations(input: Theme): string[] {
     `--color-on-accent:${onColor(colors.accent)}`,
     `--color-border:${mix(colors.text, colors.background, 0.85)}`,
     `--color-muted:${mutedColor(colors)}`,
+    // Bands restyle --color-muted for their own text; cards and full-bleed heroes on a band restore this one.
+    `--color-muted-base:${mutedColor(colors)}`,
     `color-scheme:${luminance(colors.background) < 0.35 ? 'dark' : 'light'}`,
     `--font-heading:${fontStack(theme.typography.heading)}`,
     `--font-body:${fontStack(theme.typography.body)}`,

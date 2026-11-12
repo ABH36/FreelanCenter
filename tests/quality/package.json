@@ -11,7 +11,8 @@
     "serve": "pnpm build:server && node .cache/serve.mjs",
     "test:a11y": "pnpm build:server && playwright test --grep @a11y",
     "test:visual": "pnpm build:server && playwright test --grep @visual",
-    "test:lighthouse": "pnpm build:server && node scripts/lighthouse.mjs"
+    "test:lighthouse": "pnpm build:server && node scripts/lighthouse.mjs",
+    "test:browsers": "pnpm build:server && playwright test --project=firefox --project=webkit-mobile"
   },
   "dependencies": {
     "@platform/blocks": "workspace:*",

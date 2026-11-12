@@ -4,6 +4,7 @@
  * UI, the API (forged workspace id in a server action, audit export) or direct database access as `app_user`.
  */
 import { randomUUID } from 'node:crypto';
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { SITES_DOMAIN, SITES_PORT } from '../playwright.config';
 import { appPool, asTenant, authPool, userIdByEmail } from './local-stack';
@@ -291,4 +292,58 @@ test('the preview link shows up in A’s audit log without the link or the prosp
   expect(html).not.toContain('Sharma Fitness');
   expect(html).not.toContain('Revoke Me Travels');
   expect(html).not.toMatch(/\/p\/v1\./);
+});
+
+// P2 (NFR-A11Y-01: WCAG 2.1 AA for the dashboard and the reference templates): the dashboard pages a freelancer uses
+// every day, signed in, with data on them.
+test('the dashboard pages pass axe (WCAG 2.1 A and AA)', async () => {
+  const pages = [
+    `/w/${a.slug}`,
+    `/w/${a.slug}/projects`,
+    `/w/${a.slug}/projects/new`,
+    `/w/${a.slug}/projects/${projectId}`,
+    `/w/${a.slug}/templates`,
+    `/w/${a.slug}/members`,
+    `/w/${a.slug}/notifications`,
+    `/w/${a.slug}/audit`,
+    `/w/${a.slug}/settings`,
+    `/settings/security`,
+  ];
+  const found: string[] = [];
+  for (const path of pages) {
+    await a.page.goto(path);
+    await expect(a.page.locator('main, h1').first()).toBeVisible();
+    const result = await new AxeBuilder({ page: a.page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+    for (const v of result.violations) {
+      found.push(
+        `${path} ${v.id} (${v.impact}): ${v.nodes
+          .slice(0, 3)
+          .map((n) => n.target.join(' '))
+          .join(' | ')}`,
+      );
+    }
+  }
+  expect(found).toEqual([]);
+});
+
+test('the public pages pass axe: sign-in and sign-up', async ({ page }) => {
+  const found: string[] = [];
+  for (const path of ['/sign-in', '/sign-up']) {
+    await page.goto(path);
+    await expect(page.locator('h1').first()).toBeVisible();
+    const result = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+    for (const v of result.violations) {
+      found.push(
+        `${path} ${v.id} (${v.impact}): ${v.nodes
+          .slice(0, 3)
+          .map((n) => n.target.join(' '))
+          .join(' | ')}`,
+      );
+    }
+  }
+  expect(found).toEqual([]);
 });

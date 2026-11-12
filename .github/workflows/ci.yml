@@ -184,13 +184,18 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # The sites app copies its self-hosted fonts at build time; the harness serves the same folder.
       - run: pnpm --filter @platform/sites exec node scripts/copy-fonts.mjs
-      - run: pnpm --filter @platform/quality exec playwright install --with-deps chromium
+      - run: pnpm --filter @platform/quality exec playwright install --with-deps chromium firefox webkit
       - name: Accessibility (axe)
         run: pnpm --filter @platform/quality test:a11y
         env:
           CI: 'true'
       - name: Visual regression
         run: pnpm --filter @platform/quality test:visual
+        env:
+          CI: 'true'
+      # NFR-BROW-01: the same pages in Firefox and in WebKit (Safari, every iOS browser).
+      - name: Firefox and WebKit
+        run: pnpm --filter @platform/quality test:browsers
         env:
           CI: 'true'
       - name: Lighthouse mobile budgets
