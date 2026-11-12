@@ -37,8 +37,21 @@ export function resolveHref(
 }
 
 /** wa.me link with a short greeting already typed, so the business knows the message came from the website. */
-export function whatsappHref(digitsOnly: string, businessName: string, locale: Locale = 'en'): string {
-  return `https://wa.me/${digitsOnly}?text=${encodeURIComponent(t(locale, 'whatsappGreeting', { name: businessName }))}`;
+export function whatsappHref(
+  digitsOnly: string,
+  business: Pick<SiteConfig['business'], 'name' | 'category'>,
+  locale: Locale = 'en',
+  plan?: string,
+): string {
+  const key = plan
+    ? 'whatsappPlan'
+    : business.category === 'taxi'
+      ? 'whatsappTaxi'
+      : business.category === 'wedding-event'
+        ? 'whatsappEvent'
+        : 'whatsappGreeting';
+  const text = t(locale, key, { name: business.name, plan: plan ?? '' });
+  return `https://wa.me/${digitsOnly}?text=${encodeURIComponent(text)}`;
 }
 
 export function resolveCta(
@@ -46,12 +59,14 @@ export function resolveCta(
   business: SiteConfig['business'],
   basePath = '',
   locale: Locale = 'en',
+  /** For a pricing plan's button: the WhatsApp message names the plan. */
+  plan?: string,
 ): ResolvedLink | null {
   switch (cta.action) {
     case 'whatsapp': {
       const n = digits(business.whatsapp);
       return n.length >= 8
-        ? { href: whatsappHref(n, business.name, locale), label: cta.label, external: true }
+        ? { href: whatsappHref(n, business, locale, plan), label: cta.label, external: true }
         : null;
     }
     case 'tel': {

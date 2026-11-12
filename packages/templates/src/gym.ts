@@ -10,7 +10,7 @@ const sections = [
     {
       headline: 'Build strength that lasts',
       subheadline:
-        'Coached training, serious equipment and a community that shows up. Walk in for a free trial class today.',
+        'Coached training, serious equipment and a community that shows up, right here in Indore. Walk in for a free trial class today.',
       primaryCta: { label: 'Book a free trial', action: 'whatsapp' },
       secondaryCta: { label: 'See plans', action: 'scroll', target: '#pricing' },
     },
@@ -148,10 +148,10 @@ const sections = [
           image: asset('gym-coach-2', 'Neha, group class coach'),
         },
         {
-          name: 'Imran Khan',
+          name: 'Farhan Siddiqui',
           role: 'Nutrition and fat loss',
           bio: 'Builds practical meal plans around home food.',
-          image: asset('gym-coach-3', 'Imran, nutrition coach'),
+          image: asset('gym-coach-3', 'Farhan, nutrition coach'),
         },
       ],
     },

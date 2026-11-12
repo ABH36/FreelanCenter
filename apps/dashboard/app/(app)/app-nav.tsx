@@ -4,9 +4,9 @@ import { usePathname } from 'next/navigation';
 import { currentSlug } from './workspace-switcher';
 
 /** Workspace items appear inside a workspace route; the account item is always there. */
-export function AppNav() {
+export function AppNav({ fallbackSlug = null }: { fallbackSlug?: string | null }) {
   const pathname = usePathname();
-  const slug = currentSlug(pathname);
+  const slug = currentSlug(pathname) ?? (pathname.startsWith('/settings') ? fallbackSlug : null);
   const items = [
     ...(slug
       ? [

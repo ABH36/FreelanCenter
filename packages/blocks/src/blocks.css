@@ -240,6 +240,15 @@
   display: grid;
   place-items: center;
 }
+/* In a full-bleed hero the photo is behind the text: its hint sits in the corner, above the shading. */
+.pb-hero__bg .pb-image__hint {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 1;
+  opacity: 1;
+  border: 1px solid var(--color-border);
+}
 .pb-image__hint {
   padding: 0.2rem 0.7rem;
   border-radius: 999px;
@@ -334,6 +343,7 @@
 }
 .pb-grid > .pb-card {
   height: 100%;
+  align-content: start;
 }
 .pb-services--list {
   grid-template-columns: 1fr;
@@ -364,6 +374,14 @@
 }
 .pb-quotes blockquote {
   margin: 0 0 1rem;
+}
+/* Browsers indent <figure> by 40 px; a review card has the same inner spacing as every other card. */
+.pb-quotes figure {
+  margin: 0;
+}
+.pb-quote__role {
+  display: block;
+  font-size: var(--text-sm);
 }
 .pb-stars {
   color: var(--color-accent);
@@ -789,6 +807,22 @@
 
 .pb-header:has(.pb-nav__mobile[open]) {
   position: relative;
+}
+.pb-header__bar > .pb-btn {
+  white-space: nowrap;
+}
+/* On phones the contact bar at the bottom already carries the main action: the header keeps the business name
+   readable instead of squeezing it next to a second, wrapped button (acceptance run 3, N-2 and N-9). */
+@media (max-width: 899px) {
+  .pb-root:has(.pb-float) .pb-header__bar > .pb-btn {
+    display: none;
+  }
+}
+/* On large screens the round WhatsApp button sits in its own lane at the right edge, never on page content. */
+@media (min-width: 900px) {
+  .pb-root:has(.pb-float) .pb-container {
+    padding-inline: max(1.25rem, calc(5.75rem - (100vw - 72rem) / 2));
+  }
 }
 :where(.pb-root) [id] {
   scroll-margin-top: 5rem;

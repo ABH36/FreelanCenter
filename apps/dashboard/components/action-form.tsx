@@ -57,7 +57,12 @@ export function ActionForm({
         el.value = value;
       }
     }
-    const invalid = Object.keys(state.fieldErrors ?? {}).map((k) => k.split('.').at(-1) ?? k);
+    // Server keys look like 'contact.phone'; inputs are named 'contact_phone' or 'phone'.
+    const invalid = Object.keys(state.fieldErrors ?? {}).flatMap((k) => [
+      k,
+      k.split('.').join('_'),
+      k.split('.').at(-1) ?? k,
+    ]);
     let first: HTMLElement | null = null;
     for (const el of Array.from(form.elements)) {
       if (!(
@@ -98,7 +103,9 @@ export function ActionForm({
       {confirm ? (
         <dialog
           ref={dialogRef}
-          className="w-[min(28rem,calc(100vw-2rem))] rounded-lg border border-slate-200 p-0 shadow-xl backdrop:bg-slate-900/40"
+          aria-label={confirmLabel}
+          // Tailwind's reset removes the browser's centring of <dialog>; put it back (acceptance run 3, N-1).
+          className="fixed inset-0 m-auto h-fit w-[min(28rem,calc(100vw-2rem))] rounded-lg border border-slate-200 p-0 shadow-xl backdrop:bg-slate-900/40"
         >
           <div className="space-y-4 p-5">
             <p className="text-sm text-slate-800">{confirm}</p>
@@ -179,7 +186,7 @@ export function CopyLink({
       </div>
       <p className="text-xs text-slate-500" aria-live="polite">
         {copied ? 'Link copied. ' : ''}
-        {note ?? 'Share it only with the invited person. It works once.'}
+        {note === '' ? null : (note ?? 'Share it only with the invited person. It works once.')}
       </p>
     </div>
   );
@@ -188,6 +195,7 @@ export function CopyLink({
 export function SmallButton({
   children,
   variant = 'secondary',
+  className = '',
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'secondary' | 'danger' | 'primary' }) {
   const styles = {
@@ -197,7 +205,7 @@ export function SmallButton({
   }[variant];
   return (
     <button
-      className={`rounded-md px-2.5 py-1.5 text-xs font-medium disabled:opacity-50 ${styles}`}
+      className={`rounded-md px-2.5 py-1.5 text-xs font-medium disabled:opacity-50 ${styles} ${className}`}
       {...props}
     >
       {children}

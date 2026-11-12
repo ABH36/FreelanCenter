@@ -61,7 +61,7 @@ export const testimonials: BlockDefinition<PropsOf<'testimonials'>> = {
                     <span className="pb-sample">{tr(ctx.locale, 'sample')}</span>
                   ) : null}
                   <strong>{t.author}</strong>
-                  {t.role ? <span className="pb-muted"> · {t.role}</span> : null}
+                  {t.role ? <span className="pb-muted pb-quote__role">{t.role}</span> : null}
                 </figcaption>
               </figure>
             </li>

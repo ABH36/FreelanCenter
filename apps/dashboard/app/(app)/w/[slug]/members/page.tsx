@@ -71,7 +71,7 @@ export default async function MembersPage({ params }: { params: Promise<{ slug: 
                         >
                           {assignable.map((r) => (
                             <option key={r} value={r}>
-                              {r}
+                              {r.charAt(0).toUpperCase() + r.slice(1)}
                             </option>
                           ))}
                         </select>
@@ -145,7 +145,7 @@ export default async function MembersPage({ params }: { params: Promise<{ slug: 
                     .filter((r) => r !== 'owner')
                     .map((r) => (
                       <option key={r} value={r}>
-                        {r}
+                        {r.charAt(0).toUpperCase() + r.slice(1)}
                       </option>
                     ))}
                 </select>

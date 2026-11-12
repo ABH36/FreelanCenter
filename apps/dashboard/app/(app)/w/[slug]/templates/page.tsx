@@ -56,15 +56,24 @@ export default async function TemplatesPage({
 
   // Pre-fill from a project of this workspace; anything else (unknown, foreign, malformed) is simply ignored.
   const projectId = (await searchParams).project;
-  let prefill: { name: string; city: string } | null = null;
+  let prefill: { name: string; city: string; category: string | null } | null = null;
   if (projectId) {
     try {
       const p = await (await projectService()).getProject(userId, ws.id, projectId);
-      prefill = { name: p.name.slice(0, 60), city: (p.city ?? '').slice(0, 40) };
+      prefill = { name: p.name.slice(0, 60), city: (p.city ?? '').slice(0, 40), category: p.category };
     } catch (error) {
       if (!(error instanceof WorkspaceError)) throw error;
     }
   }
+
+  const matching = prefill?.category ? templates.filter((t) => t.category === prefill.category) : [];
+  /** Pre-fill the cards that suit the project (all of them when none matches its category). */
+  const prefillFor = (category: string) =>
+    prefill && (matching.length === 0 || category === prefill.category) ? prefill : null;
+  // The matching template first.
+  const ordered = [...templates].sort(
+    (a, b) => Number(b.category === prefill?.category) - Number(a.category === prefill?.category),
+  );
 
   return (
     <div className="space-y-6">
@@ -77,7 +86,10 @@ export default async function TemplatesPage({
         {prefill ? (
           <p role="status" className="mt-2 text-sm text-slate-700">
             Pre-filled for <strong>{prefill.name}</strong>
-            {prefill.city ? `, ${prefill.city}` : ''}. Pick a template below.
+            {prefill.city ? `, ${prefill.city}` : ''}.{' '}
+            {matching.length > 0
+              ? `The ${matching.map((m) => m.name).join(' / ')} template matches this project and is filled in for you.`
+              : 'Pick a template below.'}
           </p>
         ) : null}
       </div>
@@ -93,8 +105,15 @@ export default async function TemplatesPage({
         <EmptyState title="No templates yet" body="Published templates will appear here." />
       ) : (
         <ul className="grid gap-4 md:grid-cols-2">
-          {templates.map((t) => (
-            <li key={t.templateId} className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+          {ordered.map((t) => (
+            <li
+              key={t.templateId}
+              className={`space-y-3 rounded-lg border bg-white p-4 ${
+                prefill?.category === t.category
+                  ? 'border-[var(--color-primary)] ring-1 ring-[var(--color-primary)]'
+                  : 'border-slate-200'
+              }`}
+            >
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-semibold">{t.name}</h2>
@@ -118,25 +137,25 @@ export default async function TemplatesPage({
                 <ActionForm
                   action={createPreviewLinkAction}
                   hidden={{ workspaceId: ws.id, templateId: t.templateId }}
-                  className="grid gap-2 sm:grid-cols-2"
+                  className="grid items-start gap-3 sm:grid-cols-2"
                 >
                   <Field
                     id={`name-${t.templateId}`}
                     name="prospectName"
-                    label="Prospect's business name"
-                    hint="Optional. Shown in the preview instead of the demo name."
+                    label="Business name"
+                    hint="Optional. Replaces the demo name."
                     maxLength={60}
                     autoComplete="off"
-                    defaultValue={prefill?.name ?? ''}
+                    defaultValue={prefillFor(t.category)?.name ?? ''}
                   />
                   <Field
                     id={`city-${t.templateId}`}
                     name="prospectCity"
-                    label="Prospect's city"
+                    label="City"
                     hint="Optional. Replaces the demo city and address."
                     maxLength={40}
                     autoComplete="off"
-                    defaultValue={prefill?.city ?? ''}
+                    defaultValue={prefillFor(t.category)?.city ?? ''}
                   />
                   <div className="space-y-1.5">
                     <label htmlFor={`days-${t.templateId}`} className="block text-sm font-medium">
@@ -150,8 +169,8 @@ export default async function TemplatesPage({
                       ))}
                     </select>
                   </div>
-                  <div className="flex items-end">
-                    <SmallButton type="submit" variant="primary">
+                  <div className="flex items-end sm:pt-6">
+                    <SmallButton type="submit" variant="primary" className="whitespace-nowrap">
                       Create preview link
                     </SmallButton>
                   </div>
@@ -168,7 +187,10 @@ export default async function TemplatesPage({
         </ul>
       )}
       {ws.can['templates.preview'] ? (
-        <Panel title="Your preview links">
+        <Panel
+          title="Your preview links"
+          description="Anyone with an active link can open its preview until it expires or you turn it off."
+        >
           {links.length === 0 ? (
             <p className="text-sm text-slate-600">
               No links yet. Create one above; it will be listed here so you can copy it again or turn it off.
@@ -205,16 +227,18 @@ export default async function TemplatesPage({
                       >
                         {l.status === 'active' ? 'Active' : l.status === 'expired' ? 'Expired' : 'Turned off'}
                       </span>
-                      {l.status === 'active' ? (
+                      {l.status === 'active' || l.revokedAt ? (
                         <ActionForm
                           action={revokePreviewLinkAction}
                           hidden={{ workspaceId: ws.id, linkId: l.id }}
                           confirm={`Turn off the link for ${l.prospectName ?? 'this prospect'}? Anyone who has it will see that it was withdrawn. This cannot be undone.`}
                           confirmLabel="Turn off"
                         >
-                          <SmallButton type="submit" variant="danger">
-                            Turn off
-                          </SmallButton>
+                          {l.status === 'active' ? (
+                            <SmallButton type="submit" variant="danger">
+                              Turn off
+                            </SmallButton>
+                          ) : null}
                         </ActionForm>
                       ) : null}
                     </div>
@@ -223,17 +247,13 @@ export default async function TemplatesPage({
                     <CopyLink
                       link={l.url}
                       label={`Preview link for ${l.prospectName ?? l.templateName}`}
-                      note="Anyone with this link can open the preview until it expires."
+                      note=""
                     />
                   ) : null}
                 </li>
               ))}
             </ul>
           )}
-          <p className="mt-3 text-xs text-slate-600">
-            Links made before this list existed are not shown and cannot be turned off; they expire on their
-            own date.
-          </p>
         </Panel>
       ) : null}
     </div>

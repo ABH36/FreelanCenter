@@ -115,7 +115,12 @@ export const pricing: BlockDefinition<PropsOf<'pricing'>> = {
                   </li>
                 ))}
               </ul>
-              <CtaButton cta={tier.cta} ctx={ctx} variant={tier.highlighted ? 'primary' : 'secondary'} />
+              <CtaButton
+                cta={tier.cta}
+                ctx={ctx}
+                variant={tier.highlighted ? 'primary' : 'secondary'}
+                plan={tier.name}
+              />
             </li>
           ))}
         </ul>

@@ -17,9 +17,16 @@ export function currentSlug(pathname: string): string | null {
 }
 
 /** FR-AUTH-08: switch between memberships. Switching posts to the server, which re-checks membership. */
-export function WorkspaceSwitcher({ workspaces }: { workspaces: SwitcherItem[] }) {
+export function WorkspaceSwitcher({
+  workspaces,
+  fallbackSlug = null,
+}: {
+  workspaces: SwitcherItem[];
+  fallbackSlug?: string | null;
+}) {
   const [open, setOpen] = useState(false);
-  const slug = currentSlug(usePathname());
+  const pathname = usePathname();
+  const slug = currentSlug(pathname) ?? (pathname.startsWith('/settings') ? fallbackSlug : null);
   const current = workspaces.find((w) => w.slug === slug);
   const root = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);

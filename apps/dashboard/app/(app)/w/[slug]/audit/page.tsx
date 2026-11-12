@@ -2,7 +2,13 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Panel } from '@/components/ui';
-import { auditService, currentWorkspace, requireUserId } from '@/lib/workspaces';
+import {
+  auditService,
+  currentWorkspace,
+  projectService,
+  requireUserId,
+  templateService,
+} from '@/lib/workspaces';
 
 /** Times in India Standard Time, the product's home time zone (acceptance C-15). */
 const ist = (d: Date) =>
@@ -63,6 +69,23 @@ export default async function AuditPage({
     service.listAuditLog(userId, ws.id, { ...filters, cursor: one(sp.cursor) }),
     service.listDeadLetters(userId, ws.id),
   ]);
+  // Names for the targets on this page (acceptance run 3, C-15): templates, the prospect of a preview link, projects.
+  // Looked up through the member's own services, so nothing outside the workspace can be named.
+  const names = new Map<string, string>();
+  const templates = await templateService();
+  for (const t of await templates.catalog(userId, ws.id)) names.set(t.templateId, t.name);
+  if (ws.can['templates.preview']) {
+    for (const l of await templates.listPreviewLinks(userId, ws.id)) {
+      names.set(l.id, `link for ${l.prospectName ?? 'a prospect'} (${l.templateName})`);
+    }
+  }
+  const projectIds = [...new Set(items.map((r) => r.projectId).filter((id): id is string => Boolean(id)))];
+  if (projectIds.length) {
+    for (const [id, name] of await (await projectService()).projectNames(userId, ws.id, projectIds))
+      names.set(id, name);
+  }
+  const targetLabel = (_type: string | null, id: string | null) =>
+    id ? ` ${names.get(id) ?? id.slice(0, 8)}` : '';
   const query = new URLSearchParams(Object.entries(filters).filter(([, v]) => v)).toString();
 
   return (
@@ -143,12 +166,12 @@ export default async function AuditPage({
                     {r.projectId ? (
                       <Link href={`/w/${ws.slug}/projects/${r.projectId}`} className="hover:underline">
                         {r.targetType}
-                        {r.targetId ? ` ${r.targetId.slice(0, 8)}` : ''}
+                        {targetLabel(r.targetType, r.targetId)}
                       </Link>
                     ) : (
                       <span className="break-all">
                         {r.targetType ?? '—'}
-                        {r.targetId ? ` ${r.targetId.slice(0, 8)}` : ''}
+                        {targetLabel(r.targetType, r.targetId)}
                       </span>
                     )}
                   </td>

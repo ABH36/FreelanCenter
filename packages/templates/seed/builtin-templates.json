@@ -99,7 +99,7 @@
                 "visible": true,
                 "props": {
                   "headline": "Build strength that lasts",
-                  "subheadline": "Coached training, serious equipment and a community that shows up. Walk in for a free trial class today.",
+                  "subheadline": "Coached training, serious equipment and a community that shows up, right here in Indore. Walk in for a free trial class today.",
                   "primaryCta": {
                     "label": "Book a free trial",
                     "action": "whatsapp"
@@ -314,12 +314,12 @@
                       }
                     },
                     {
-                      "name": "Imran Khan",
+                      "name": "Farhan Siddiqui",
                       "role": "Nutrition and fat loss",
                       "bio": "Builds practical meal plans around home food.",
                       "image": {
                         "assetId": "gym-coach-3",
-                        "alt": "Imran, nutrition coach"
+                        "alt": "Farhan, nutrition coach"
                       }
                     }
                   ]
@@ -728,7 +728,7 @@
           }
         ]
       },
-      "contentHash": "0d6942c00b5a0b8fdf9056536e6a1fb01b24f4a60ad9059f3a36a207d72623be"
+      "contentHash": "ff5d146faebedf1fed1329058800f54701cc997e9148c27a52766ba33a882888"
     },
     {
       "slug": "taxi-quick",

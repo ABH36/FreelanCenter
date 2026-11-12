@@ -206,7 +206,7 @@ test('A shares a template preview; a prospect opens it without signing in and st
 }) => {
   await a.page.goto(`/w/${a.slug}/templates`);
   const card = a.page.locator('li', { has: a.page.getByRole('heading', { name: 'Gym Bold' }) });
-  await card.getByLabel("Prospect's business name").fill('Sharma Fitness');
+  await card.getByLabel('Business name').fill('Sharma Fitness');
   await card.getByRole('button', { name: 'Create preview link' }).click();
   const link = await card.getByLabel('Preview link').inputValue();
   expect(link).toMatch(/^http:\/\/preview\.sites\.localhost:3001\/p\/v1\.[\w-]+\.[\w-]+$/);
@@ -249,7 +249,7 @@ test('A turns a preview link off; the prospect sees it withdrawn, and a link tha
   const make = async (name: string) => {
     // The link box keeps showing the previous link until the new one arrives: wait for it to change.
     const before = (await box.count()) > 0 ? await box.inputValue() : '';
-    await card.getByLabel("Prospect's business name").fill(name);
+    await card.getByLabel('Business name').fill(name);
     await card.getByRole('button', { name: 'Create preview link' }).click();
     await expect(box).toBeVisible();
     await expect(box).not.toHaveValue(before);
@@ -287,14 +287,19 @@ test('A turns a preview link off; the prospect sees it withdrawn, and a link tha
   }
 });
 
-test('the preview link shows up in A’s audit log without the link or the prospect name', async () => {
+test('the audit log names preview-link events, and the stored log holds neither the link nor the prospect', async () => {
   await a.page.goto(`/w/${a.slug}/audit`);
   await expect(a.page.getByText(/template\.preview_link\.created/).first()).toBeVisible();
   await expect(a.page.getByText(/template\.preview_link\.revoked/).first()).toBeVisible();
-  const html = await a.page.content();
-  expect(html).not.toContain('Sharma Fitness');
-  expect(html).not.toContain('Revoke Me Travels');
-  expect(html).not.toMatch(/\/p\/v1\./);
+  // The page names the target for the people allowed to read it (joined from the workspace's own link list)...
+  await expect(a.page.getByText(/link for Revoke Me Travels/).first()).toBeVisible();
+  expect(await a.page.content()).not.toMatch(/\/p\/v1\./);
+  // ...but the audit records themselves (the export) never contain the prospect or the link.
+  const csv = await (await a.context.request.get(`/w/${a.slug}/audit/export`)).text();
+  expect(csv).toContain('template.preview_link.revoked');
+  expect(csv).not.toContain('Revoke Me Travels');
+  expect(csv).not.toContain('Sharma Fitness');
+  expect(csv).not.toMatch(/\/p\/v1\./);
 });
 
 // P2 (NFR-A11Y-01: WCAG 2.1 AA for the dashboard and the reference templates): the dashboard pages a freelancer uses

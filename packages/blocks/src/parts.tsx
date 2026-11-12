@@ -37,13 +37,15 @@ export function CtaButton({
   cta,
   ctx,
   variant = 'primary',
+  plan,
 }: {
   cta: Cta | undefined;
   ctx: RenderContext;
   variant?: 'primary' | 'secondary';
+  plan?: string;
 }) {
   if (!cta) return null;
-  const link = resolveCta(cta, ctx.business, ctx.basePath, ctx.locale);
+  const link = resolveCta(cta, ctx.business, ctx.basePath, ctx.locale, plan);
   if (!link) return null;
   return (
     <Link href={link.href} external={link.external} className={`pb-btn pb-btn--${variant}`}>
