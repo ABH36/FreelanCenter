@@ -51,4 +51,4 @@ No new route, secret or dependency. The harness stays local. The CSS change only
 
 ## 8. CI-equivalent run
 
-Filled in after the clean-worktree run.
+Clean worktree, `pnpm install --frozen-lockfile`. The first run caught a typecheck error in the new modes spec (DOM `NodeListOf` iteration), fixed in a follow-up commit and re-run. Passing: format:check, sync-plan:check, lint 18/18, typecheck 18/18, traceability (no diff), `pnpm audit --audit-level high` (exit 0), build 3/3, `pnpm test` 15/15 tasks (ui 26, blocks 74, schema 44, sites 49, auth 150, workspaces 71, others unchanged), axe and modes 42/42, Lighthouse (performance 100 / 99 / 99, accessibility 100 / 100 / 96, SEO and best practices 100), visual check in the Linux image 12/12. `db-integration` and `e2e` run in CI; S8 changes no database, auth or route code.
