@@ -1,6 +1,6 @@
 # 04 — Template Engine and Renderer
 
-**Status:** In progress (P2). S1-S7 merged (#43-#54; S5b is live); S7 phase exit merged (#54); S8 hardening merged (#58); S8b (revocable preview links) built, pending Owner approval and its live migration; Phase 2 audit pending. Nothing is marked verified. **SRS:** FR-TPL-01..11.
+**Status:** In progress (P2). S1-S7 merged (#43-#54; S5b is live); S7 phase exit merged (#54); S8 hardening merged (#58); S8b revocable preview links merged (#59) and its migration is live; Phase 2 audit pending. Nothing is marked verified. **SRS:** FR-TPL-01..11.
 
 ## Outcome
 

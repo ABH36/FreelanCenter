@@ -1,6 +1,6 @@
 # Phase 2, slice 8b: revocable preview links
 
-**Status:** built on `feat/p2-s8b-revoke-preview`; approved by the Owner as a slice (2026-11-12). **The live migration is not applied and needs its own approval (DG-29).** Nothing is marked "verified" until the Phase 2 audit. **Date:** 2026-11-12 · **Requirement:** FR-TPL-09 · **Modules:** 04 (templates), 01 (RBAC) · **Depends on:** S6a, S6b, S8.
+**Status:** built on `feat/p2-s8b-revoke-preview`; approved by the Owner as a slice (2026-11-12). **Merged (PR #59, `0ba0549`). Live migration applied 2026-11-12 with the Owner's approval (section 7).** Nothing is marked "verified" until the Phase 2 audit. **Date:** 2026-11-12 · **Requirement:** FR-TPL-09 · **Modules:** 04 (templates), 01 (RBAC) · **Depends on:** S6a, S6b, S8.
 
 ## 1. Why
 
@@ -57,3 +57,18 @@ Clean worktree at `5b01d5f` (`pnpm install --frozen-lockfile`), steps in the ord
 **What the clean run caught (all fixed before the PR):** `db:verify` (the script that also checks the live database) still listed 27 definer functions and the old visitor function set; the isolation mutation check still expected the old title of the visitor-function test; the TypeScript check had no problem. Note: `db:verify` against the live database will report these two checks as failed until the migration is applied there (it describes the target state); apply, then verify.
 
 The CI `quality` job (axe, visual, Lighthouse) is unchanged by S8b except the base path limit in the renderer; it runs on the PR as a required check.
+
+## 7. Live application (2026-11-12, Owner-approved)
+
+Run from the developer machine against the Supabase project as (non-superuser, no BYPASSRLS). No secret was printed or stored; the scripts print counts and booleans only. The temporary pre-check script was deleted after use.
+
+| Step                                        | Result                                                                                                                                                             |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Read-only pre-check (read-only transaction) | remote host; not superuser, no BYPASSRLS; 7 migrations (S1 to S5b) all finished, none rolled back; absent; and the three new functions absent; can                 |
+| ()                                          | applied                                                                                                                                                            |
+|                                             | database schema is up to date (8 migrations)                                                                                                                       |
+| Live database vs                            | no difference detected                                                                                                                                             |
+|                                             | **33 passed, 0 failed** (includes: executes exactly the resolver, the two catalogue functions and ; an unknown link id is not revoked; cannot read the link table) |
+|                                             | 2 files: 6 passed, 1 skipped (same as before)                                                                                                                      |
+
+Nothing else on the live database changed: no existing table, role, policy or data was touched. No link exists yet (the dashboard is not deployed, DG-27), so the sites production deployment is unaffected.
