@@ -59,6 +59,8 @@ const servicesProps = z.strictObject({
 const pricingProps = z.strictObject({
   heading: shortText.optional(),
   intro: mediumText.optional(),
+  /** Header of the first column in the table variant ("Car", "Course"); default "Plan". Additive (P2 S10). */
+  itemLabel: shortText.optional(),
   tiers: list(
     z.strictObject({
       name: requiredShortText,

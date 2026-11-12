@@ -2,6 +2,9 @@ import type { NextConfig } from 'next';
 import { SECURITY_HEADERS } from './lib/security-headers';
 
 const config: NextConfig = {
+  // A separate output folder for local acceptance builds (tests/e2e/scripts/acceptance.ts --prod), so a production
+  // build never shares a cache with the development server (that mix made pages reload in a loop, P2 S10).
+  ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   reactStrictMode: true,
   poweredByHeader: false,
   transpilePackages: ['@platform/ui', '@platform/schema', '@platform/blocks'],

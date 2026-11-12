@@ -66,7 +66,7 @@ const PAGES: Record<PageKind, PageSpec> = {
   },
   preview_invalid: {
     status: 404,
-    title: 'Preview not found',
+    title: 'Preview link not valid',
     heading: 'This preview link is not valid',
     message: 'Check the link you were sent, or ask the sender for a new one.',
   },

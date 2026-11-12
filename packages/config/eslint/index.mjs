@@ -53,6 +53,12 @@ export const platformConfig = tseslint.config(
     ignores: [
       '**/node_modules/**',
       '**/.next/**',
+      '**/.next-acceptance/**',
+      // Playwright output (HTML report with its bundled viewer, traces, screenshots): generated, not source.
+      'tests/e2e/report/**',
+      'tests/e2e/results/**',
+      '**/playwright-report/**',
+      '**/test-results/**',
       '**/dist/**',
       '**/coverage/**',
       '**/.turbo/**',

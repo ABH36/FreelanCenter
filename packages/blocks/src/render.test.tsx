@@ -207,7 +207,7 @@ describe('CTA and links', () => {
   const biz = config().business;
   it('resolves each action from the business contact details', () => {
     expect(resolveCta({ label: 'W', action: 'whatsapp' }, biz)).toEqual({
-      href: 'https://wa.me/919800000001',
+      href: 'https://wa.me/919800000001?text=Hi%20Iron%20Pulse%20Fitness%2C%20I%20found%20your%20website%20and%20would%20like%20to%20know%20more.',
       label: 'W',
       external: true,
     });
@@ -311,7 +311,7 @@ describe('contact, images, language', () => {
     );
     expect(later).toContain('loading="lazy"');
   });
-  it('shows an accessible placeholder while the asset is unavailable', () => {
+  it('shows a decorative placeholder while the asset is unavailable (no photo is announced that nobody can see)', () => {
     const cfg = config();
     const out = html(
       renderSection(
@@ -320,8 +320,9 @@ describe('contact, images, language', () => {
         { registry, asH1: true, priority: true },
       ),
     );
-    expect(out).toContain('role="img"');
-    expect(out).toContain('aria-label="Gym floor"');
+    expect(out).toContain('aria-hidden="true"');
+    expect(out).not.toContain('aria-label="Gym floor"');
+    expect(out).not.toContain('role="img"');
   });
   it('speaks Hindi when the site language is hi', () => {
     const cfg = parsed(baseConfig([], { business: { ...baseConfig().business, language: 'hi' } }));

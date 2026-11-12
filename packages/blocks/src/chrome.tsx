@@ -6,7 +6,8 @@ import { resolveCta, resolveHref, withBase } from './cta';
 import type { RenderContext } from './context';
 import { Icon } from './icons';
 import { CtaButton, Link } from './parts';
-import { DAY_KEYS, t } from './strings';
+import { formatPhone, hoursLines } from './format';
+import { t } from './strings';
 import type { ChromeDefinition } from './types';
 
 export const CHROME: readonly ChromeDefinition[] = [
@@ -99,7 +100,7 @@ export function Header({
       ))}
     </>
   );
-  const cta = navigation.cta && resolveCta(navigation.cta, business, ctx.basePath);
+  const cta = navigation.cta && resolveCta(navigation.cta, business, ctx.basePath, ctx.locale);
   // The logo replaces the written name only once its file exists; until then (and for assets that fail to resolve)
   // the business name is shown, so the header is never empty.
   const logoSrc = business.logo ? ctx.assetUrl(business.logo.assetId, 400) : null;
@@ -154,7 +155,7 @@ export function Footer({ ctx, variant }: { ctx: RenderContext; variant?: 'simple
           {business.phone ? (
             <p>
               <Link href={`tel:${business.phone}`} external={false}>
-                {business.phone}
+                {formatPhone(business.phone)}
               </Link>
             </p>
           ) : null}
@@ -170,10 +171,8 @@ export function Footer({ ctx, variant }: { ctx: RenderContext; variant?: 'simple
           <div>
             <p className="pb-footer__title">{t(locale, 'hours')}</p>
             <ul>
-              {business.hours.map((h, i) => (
-                <li key={i}>
-                  {h.days.map((d) => t(locale, DAY_KEYS[d])).join(', ')}: {h.open} {t(locale, 'to')} {h.close}
-                </li>
+              {hoursLines(business.hours, locale).map((line, i) => (
+                <li key={i}>{line}</li>
               ))}
             </ul>
           </div>
@@ -227,7 +226,12 @@ export function FloatingActions({ ctx }: { ctx: RenderContext }) {
   if (mode === 'none') return null;
   const whatsapp =
     mode === 'whatsapp' || mode === 'both'
-      ? resolveCta({ label: t(ctx.locale, 'floatingWhatsapp'), action: 'whatsapp' }, ctx.business)
+      ? resolveCta(
+          { label: t(ctx.locale, 'floatingWhatsapp'), action: 'whatsapp' },
+          ctx.business,
+          '',
+          ctx.locale,
+        )
       : null;
   const call =
     mode === 'call' || mode === 'both'
@@ -239,13 +243,13 @@ export function FloatingActions({ ctx }: { ctx: RenderContext }) {
       {whatsapp ? (
         <Link href={whatsapp.href} external className="pb-float__btn pb-float__btn--whatsapp">
           <Icon name="whatsapp" />
-          <span className="pb-sr-only">{whatsapp.label}</span>
+          <span className="pb-float__label">{whatsapp.label}</span>
         </Link>
       ) : null}
       {call ? (
         <Link href={call.href} external={false} className="pb-float__btn pb-float__btn--call">
           <Icon name="phone" />
-          <span className="pb-sr-only">{call.label}</span>
+          <span className="pb-float__label">{call.label}</span>
         </Link>
       ) : null}
     </div>

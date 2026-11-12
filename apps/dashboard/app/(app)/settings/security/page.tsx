@@ -15,6 +15,9 @@ export default async function SecurityPage() {
   return (
     <div className="space-y-6">
       <div>
+        <a href="/" className="text-sm text-slate-600 hover:underline">
+          ← Back to your workspace
+        </a>
         <h1 className="text-2xl font-semibold tracking-tight">Security</h1>
         <p className="mt-1 text-sm text-slate-600">Manage how you sign in and where you are signed in.</p>
       </div>

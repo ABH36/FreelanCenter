@@ -556,21 +556,21 @@ enum TemplateVisibility {
 /// app.list_catalog_templates / app.get_catalog_template and see their own private templates directly (RLS).
 /// Content lives in the immutable TemplateVersion rows.
 model Template {
-  id           String                @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  workspaceId  String?               @map("workspace_id") @db.Uuid
-  slug         String
-  name         String
+  id          String             @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  workspaceId String?            @map("workspace_id") @db.Uuid
+  slug        String
+  name        String
   /// One of the SiteConfig categories (CHECK).
-  category     String
-  description  String
-  status       TemplateStatus        @default(draft)
-  visibility   TemplateVisibility    @default(private)
-  createdBy    String?               @map("created_by") @db.Uuid
-  createdAt    DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt    DateTime?             @map("deleted_at") @db.Timestamptz(6)
-  workspace    Workspace?            @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
-  versions     TemplateVersion[]
+  category    String
+  description String
+  status      TemplateStatus     @default(draft)
+  visibility  TemplateVisibility @default(private)
+  createdBy   String?            @map("created_by") @db.Uuid
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime?          @map("deleted_at") @db.Timestamptz(6)
+  workspace   Workspace?         @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  versions    TemplateVersion[]
 
   @@unique([workspaceId, id])
   @@unique([workspaceId, slug])
@@ -613,6 +613,8 @@ model TemplatePreviewLink {
   templateId   String    @map("template_id") @db.Uuid
   createdBy    String    @map("created_by") @db.Uuid
   personalised Boolean   @default(false)
+  prospectName String?   @map("prospect_name")
+  prospectCity String?   @map("prospect_city")
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   expiresAt    DateTime  @map("expires_at") @db.Timestamptz(6)
   revokedAt    DateTime? @map("revoked_at") @db.Timestamptz(6)

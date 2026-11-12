@@ -24,6 +24,7 @@ export {
   type MintOptions,
   type PreviewClaims,
   type PreviewVerdict,
+  isValidProspectCity,
   isValidProspectName,
   mintPreviewToken,
   verifyPreviewToken,

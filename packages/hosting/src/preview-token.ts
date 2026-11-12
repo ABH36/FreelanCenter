@@ -27,6 +27,7 @@ export const PREVIEW_TOKEN = {
   clockSkewSeconds: 300,
   maxLength: 700,
   maxNameLength: 60,
+  maxCityLength: 40,
   minSecretLength: 32,
 } as const;
 
@@ -39,6 +40,8 @@ export interface PreviewClaims {
   name?: string;
   /** Link id (UUID): the row that can revoke this link. Absent on links that cannot be revoked individually. */
   lid?: string;
+  /** The prospect's city, shown instead of the demo city (P2 S10). Plain text, 1 to 40 characters. */
+  city?: string;
   iat: number;
   exp: number;
 }
@@ -60,6 +63,15 @@ function assertSecret(secret: string): void {
   }
 }
 
+export function isValidProspectCity(city: string): boolean {
+  const trimmed = city.trim();
+  return (
+    trimmed.length >= 1 &&
+    Array.from(trimmed).length <= PREVIEW_TOKEN.maxCityLength &&
+    !FORBIDDEN_NAME.test(trimmed)
+  );
+}
+
 export function isValidProspectName(name: string): boolean {
   const trimmed = name.trim();
   return (
@@ -78,6 +90,8 @@ export interface MintOptions {
   prospectName?: string;
   /** The id of the stored link row, so the link can be revoked. */
   linkId?: string;
+  /** The prospect's city. */
+  prospectCity?: string;
   /** Lifetime in seconds. Default 7 days, at most 30. */
   lifetimeSeconds?: number;
   now?: Date;
@@ -99,6 +113,10 @@ export function mintPreviewToken(secret: string, options: MintOptions): string {
   }
   if (options.linkId !== undefined && !UUID.test(options.linkId))
     throw new Error('linkId must be a lowercase UUID');
+  const city = options.prospectCity?.trim();
+  if (options.prospectCity !== undefined && !(city && isValidProspectCity(city))) {
+    throw new Error('The prospect city must be 1 to 40 characters of plain text');
+  }
   const lifetime = options.lifetimeSeconds ?? PREVIEW_TOKEN.defaultLifetimeSeconds;
   if (!Number.isInteger(lifetime) || lifetime < 60 || lifetime > PREVIEW_TOKEN.maxLifetimeSeconds) {
     throw new Error('The lifetime must be between 60 seconds and 30 days');
@@ -109,6 +127,7 @@ export function mintPreviewToken(secret: string, options: MintOptions): string {
     ...(options.version !== undefined ? { ver: options.version } : {}),
     ...(name ? { name } : {}),
     ...(options.linkId !== undefined ? { lid: options.linkId } : {}),
+    ...(city ? { city } : {}),
     iat,
     exp: iat + lifetime,
   };
@@ -148,6 +167,11 @@ export function verifyPreviewToken(
       if (given.length === expected.length && timingSafeEqual(given, expected)) valid = true;
     }
     if (!valid) return { ok: false, reason: 'signature' };
+    // Base64url has spare bits in its last character, so several spellings decode to the same bytes. Only the
+    // canonical spelling is accepted: one link, one address.
+    if (b64(given) !== signature || b64(Buffer.from(payload, 'base64url')) !== payload) {
+      return { ok: false, reason: 'malformed' };
+    }
 
     const claims = parseClaims(Buffer.from(payload, 'base64url').toString('utf8'));
     if (!claims) return { ok: false, reason: 'malformed' };
@@ -176,7 +200,7 @@ function parseClaims(json: string): PreviewClaims | null {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
   const c = raw as Record<string, unknown>;
   for (const key of Object.keys(c)) {
-    if (!['tpl', 'ver', 'name', 'lid', 'iat', 'exp'].includes(key)) return null;
+    if (!['tpl', 'ver', 'name', 'lid', 'city', 'iat', 'exp'].includes(key)) return null;
   }
   if (typeof c['tpl'] !== 'string' || !UUID.test(c['tpl'])) return null;
   if (!Number.isInteger(c['iat']) || !Number.isInteger(c['exp'])) return null;
@@ -189,11 +213,14 @@ function parseClaims(json: string): PreviewClaims | null {
   if (c['name'] !== undefined && !(typeof c['name'] === 'string' && isValidProspectName(c['name'])))
     return null;
   if (c['lid'] !== undefined && !(typeof c['lid'] === 'string' && UUID.test(c['lid']))) return null;
+  if (c['city'] !== undefined && !(typeof c['city'] === 'string' && isValidProspectCity(c['city'])))
+    return null;
   return {
     tpl: c['tpl'],
     ...(c['ver'] !== undefined ? { ver: c['ver'] as number } : {}),
     ...(c['name'] !== undefined ? { name: (c['name'] as string).trim() } : {}),
     ...(c['lid'] !== undefined ? { lid: c['lid'] as string } : {}),
+    ...(c['city'] !== undefined ? { city: (c['city'] as string).trim() } : {}),
     iat: c['iat'] as number,
     exp: c['exp'] as number,
   };

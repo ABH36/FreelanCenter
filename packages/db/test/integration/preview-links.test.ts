@@ -231,3 +231,50 @@ describe('the visitor role (app_public)', () => {
     }
   });
 });
+
+describe('who a link was made for (P2 S10)', () => {
+  const makeFor = (prospectName: string | null, prospectCity: string | null) =>
+    db.withTenant(A.scope, async (tx) => {
+      const id = uuidv7();
+      await tx.templatePreviewLink.create({
+        data: {
+          id,
+          workspaceId: A.scope.workspaceId,
+          templateId,
+          createdBy: A.scope.actorUserId,
+          personalised: prospectName !== null,
+          prospectName,
+          prospectCity,
+          expiresAt: new Date(Date.now() + 86_400_000),
+        },
+        select: { id: true },
+      });
+      return id;
+    });
+
+  it('stores the prospect name and city, bounded and without markup (23514)', async () => {
+    const id = await makeFor('City Cabs Indore', 'Indore');
+    const row = await db.withTenant(A.scope, (tx) => tx.templatePreviewLink.findFirst({ where: { id } }));
+    expect(row).toMatchObject({ prospectName: 'City Cabs Indore', prospectCity: 'Indore' });
+    await expectPgError(makeFor('x'.repeat(61), null), '23514');
+    await expectPgError(makeFor('<b>x</b>', null), '23514');
+    await expectPgError(makeFor(null, 'y'.repeat(41)), '23514');
+  });
+
+  it('cannot be changed afterwards, not even by the link owner (42501)', async () => {
+    const id = await makeFor('Sharma Fitness', 'Pune');
+    await expectPgError(
+      db.withTenant(A.scope, (tx) =>
+        tx.templatePreviewLink.update({ where: { id }, data: { prospectName: 'Other' } }),
+      ),
+      '42501',
+    );
+  });
+
+  it('another workspace never sees it', async () => {
+    const id = await makeFor('Private Prospect', 'Indore');
+    expect(await db.withTenant(B.scope, (tx) => tx.templatePreviewLink.findMany({ where: { id } }))).toEqual(
+      [],
+    );
+  });
+});

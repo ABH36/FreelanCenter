@@ -6,14 +6,13 @@ const sections = [
   section(
     'hero',
     'hero',
-    'split-image',
+    'centered',
     {
       headline: 'Build strength that lasts',
       subheadline:
         'Coached training, serious equipment and a community that shows up. Walk in for a free trial class today.',
       primaryCta: { label: 'Book a free trial', action: 'whatsapp' },
       secondaryCta: { label: 'See plans', action: 'scroll', target: '#pricing' },
-      image: asset('gym-hero', 'Members training with free weights in a bright gym'),
     },
     { style: { paddingY: 'xl' } },
   ),
@@ -105,14 +104,14 @@ const sections = [
       tiers: [
         {
           name: 'Monthly',
-          price: 'Rs 1,500',
+          price: '₹1,500',
           period: 'month',
           features: ['Full gym access', 'Group classes', 'Locker'],
           cta: { label: 'Choose monthly', action: 'whatsapp' },
         },
         {
           name: 'Quarterly',
-          price: 'Rs 3,900',
+          price: '₹3,900',
           period: '3 months',
           features: ['Everything in Monthly', 'Two coaching sessions', 'Diet chart'],
           highlighted: true,
@@ -120,7 +119,7 @@ const sections = [
         },
         {
           name: 'Annual',
-          price: 'Rs 12,000',
+          price: '₹12,000',
           period: 'year',
           features: ['Everything in Quarterly', 'Monthly body scan', 'Guest passes'],
           cta: { label: 'Choose annual', action: 'whatsapp' },
@@ -137,10 +136,10 @@ const sections = [
       heading: 'Meet your coaches',
       members: [
         {
-          name: 'Rohit Sharma',
+          name: 'Arjun Mehta',
           role: 'Head coach, strength',
           bio: 'National-level powerlifter with ten years of coaching.',
-          image: asset('gym-coach-1', 'Rohit, head strength coach'),
+          image: asset('gym-coach-1', 'Arjun, head strength coach'),
         },
         {
           name: 'Neha Verma',
@@ -295,12 +294,12 @@ export const gym: TemplateDefinition = {
         { days: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'], open: '05:30', close: '22:00' },
         { days: ['sun'], open: '07:00', close: '12:00' },
       ],
-      social: { instagram: 'https://instagram.com/example', facebook: '', youtube: '' },
+      social: { instagram: '', facebook: '', youtube: '' },
     },
     theme: {
       colors: {
         primary: '#E11D2E',
-        secondary: '#111827',
+        secondary: '#15151C',
         accent: '#FACC15',
         background: '#0B0B0F',
         surface: '#15151C',
@@ -344,14 +343,6 @@ export const gym: TemplateDefinition = {
         path: propPath(pages, 0, 'hero', 'subheadline'),
         required: false,
         maxLength: 600,
-      },
-      {
-        key: 'hero-photo',
-        label: 'Main photo',
-        kind: 'image',
-        path: propPath(pages, 0, 'hero', 'image'),
-        required: false,
-        help: 'A bright photo of your gym floor.',
       },
       {
         key: 'services',

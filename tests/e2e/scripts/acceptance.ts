@@ -43,6 +43,8 @@ const apps = [
 ];
 
 const prod = process.argv.includes('--prod');
+// Production builds go to their own folder, never mixed with the development server's cache.
+if (prod) Object.assign(shared, { NEXT_DIST_DIR: '.next-acceptance' });
 if (prod) {
   for (const app of apps) {
     const built = spawnSync('pnpm', ['--filter', `@platform/${app.name}`, 'build'], {

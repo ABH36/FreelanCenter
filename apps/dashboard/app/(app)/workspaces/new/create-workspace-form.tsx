@@ -38,7 +38,7 @@ export function CreateWorkspaceForm() {
       />
       <Field
         id="slug"
-        label="Address"
+        label="Web address"
         required
         minLength={3}
         maxLength={48}

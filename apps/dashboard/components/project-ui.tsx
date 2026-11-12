@@ -19,4 +19,4 @@ export function StatusBadge({ status }: { status: ProjectStatus }) {
 }
 
 export const selectClass =
-  'block w-full rounded-[var(--radius-base)] border border-slate-300 bg-white px-3 py-2 text-sm shadow-xs';
+  'block w-full rounded-[var(--radius-base)] border border-slate-300 bg-white px-3 py-2 text-sm shadow-xs aria-[invalid=true]:border-red-500 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-red-200';

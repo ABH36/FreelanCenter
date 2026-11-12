@@ -46,7 +46,7 @@ export function Field({
       <input
         id={id}
         name={id}
-        className="block w-full rounded-[var(--radius-base)] border border-slate-300 bg-white px-3 py-2 text-sm shadow-xs outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
+        className="block w-full rounded-[var(--radius-base)] border border-slate-300 bg-white px-3 py-2 text-sm shadow-xs outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20 aria-[invalid=true]:border-red-500 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-red-200"
         {...input}
       />
       {hint ? <p className="text-xs text-slate-500">{hint}</p> : null}
@@ -127,14 +127,19 @@ export function Panel({
   title,
   description,
   children,
+  tone = 'default',
 }: {
   title: string;
   description?: ReactNode;
   children: ReactNode;
+  /** `danger`: irreversible actions (a red frame and heading). */
+  tone?: 'default' | 'danger';
 }) {
   return (
-    <section className="rounded-[var(--radius-base)] border border-slate-200 bg-white p-6">
-      <h2 className="text-base font-semibold">{title}</h2>
+    <section
+      className={`rounded-[var(--radius-base)] border bg-white p-6 ${tone === 'danger' ? 'border-red-300' : 'border-slate-200'}`}
+    >
+      <h2 className={`text-base font-semibold ${tone === 'danger' ? 'text-red-700' : ''}`}>{title}</h2>
       {description ? <p className="mt-1 text-sm text-slate-600">{description}</p> : null}
       <div className="mt-5">{children}</div>
     </section>

@@ -37,8 +37,40 @@ export default async function WorkspaceOverviewPage({ params }: { params: Promis
           </Link>
         ))}
       </div>
-      <Panel title="Plan" description="Every workspace is on the free plan while billing is being built.">
-        <p className="text-sm text-slate-600">Plans, credits and usage limits arrive with billing.</p>
+      <Panel title="Get started" description="Three steps to your first client.">
+        <ol className="space-y-2 text-sm">
+          {[
+            {
+              done: overview.projects > 0,
+              label: 'Add a client project',
+              href: `/w/${ws.slug}/projects/new`,
+            },
+            {
+              done: false,
+              label: 'Share a template preview with the client',
+              href: `/w/${ws.slug}/templates`,
+            },
+            { done: overview.members > 1, label: 'Invite your team', href: `/w/${ws.slug}/members` },
+          ].map((step, i) => (
+            <li key={step.label} className="flex items-center gap-3">
+              <span
+                aria-hidden
+                className={`grid size-6 place-items-center rounded-full text-xs font-semibold ${
+                  step.done ? 'bg-emerald-600 text-white' : 'border border-slate-300 text-slate-700'
+                }`}
+              >
+                {step.done ? '✓' : i + 1}
+              </span>
+              <Link
+                href={step.href}
+                className="font-medium text-slate-900 underline-offset-2 hover:underline"
+              >
+                {step.label}
+              </Link>
+              {step.done ? <span className="text-xs text-emerald-700">Done</span> : null}
+            </li>
+          ))}
+        </ol>
       </Panel>
     </>
   );

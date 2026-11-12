@@ -46,6 +46,8 @@ export function Turnstile({
     widgetId.current = window.turnstile.render(container.current, {
       sitekey: siteKey,
       action,
+      theme: 'light',
+      size: 'flexible',
       callback: (token: string) => {
         setStatus('solved');
         onToken(token);
@@ -92,7 +94,7 @@ export function Turnstile({
         onError={() => setStatus('error')}
       />
       <div ref={container} className="min-h-[65px]" data-testid="turnstile" />
-      <p role="status" className="text-xs text-slate-600" data-testid="turnstile-status">
+      <p role="status" className="min-h-4 text-xs text-slate-600" data-testid="turnstile-status">
         {status === 'loading' ? 'Loading the security check…' : null}
         {status === 'ready' ? 'Complete the security check above to continue.' : null}
         {status === 'error' ? (

@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useMenu } from '@/components/use-menu';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { switchWorkspaceAction } from '@/app/actions/workspaces';
@@ -20,10 +21,17 @@ export function WorkspaceSwitcher({ workspaces }: { workspaces: SwitcherItem[] }
   const [open, setOpen] = useState(false);
   const slug = currentSlug(usePathname());
   const current = workspaces.find((w) => w.slug === slug);
+  const root = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  useMenu(open, setOpen, root, button);
   return (
-    <div className="relative min-w-0">
+    <div ref={root} className="relative min-w-0">
       <button
+        ref={button}
         type="button"
+        aria-label={
+          current ? `Workspace: ${current.name} (${current.role}). Switch workspace` : 'Select a workspace'
+        }
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen(!open)}

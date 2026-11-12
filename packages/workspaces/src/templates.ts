@@ -12,7 +12,13 @@
  */
 import type { Capability } from '@platform/auth/rbac';
 import { type TenantDatabase, type Tx, uuidv7 } from '@platform/db';
-import { isValidProspectName, mintPreviewToken, normalizeHost, PREVIEW_TOKEN } from '@platform/hosting';
+import {
+  isValidProspectCity,
+  isValidProspectName,
+  mintPreviewToken,
+  normalizeHost,
+  PREVIEW_TOKEN,
+} from '@platform/hosting';
 import type { Logger } from '@platform/logger';
 import { z } from 'zod';
 import { WorkspaceError } from './errors';
@@ -60,11 +66,18 @@ export interface CatalogEntry {
 
 export type PreviewLinkStatus = 'active' | 'expired' | 'revoked';
 
-/** A link made in this workspace, for the "your links" list. Never carries the token or the prospect's name. */
+/**
+ * A link made in this workspace, for the "your links" list (P2 S10: with the prospect it was made for, and the link
+ * itself while it is active, re-signed from the stored claims; the token is never stored).
+ */
 export interface PreviewLinkRow {
   id: string;
   templateName: string;
   personalised: boolean;
+  prospectName: string | null;
+  prospectCity: string | null;
+  /** The link, while it is active and previews are configured; otherwise null. */
+  url: string | null;
   createdAt: string;
   expiresAt: string;
   revokedAt: string | null;
@@ -81,6 +94,7 @@ export interface PreviewLink {
 const input = z.object({
   templateId: z.unknown(),
   prospectName: z.string().trim().max(200).optional(),
+  prospectCity: z.string().trim().max(200).optional(),
   days: z.coerce.number().int(),
 });
 
@@ -94,6 +108,29 @@ export function createTemplateService(deps: TemplateServiceDeps) {
   const perDay = deps.linksPerDay ?? TEMPLATE_LIMITS.previewLinksPerDay;
   const now = deps.now ?? (() => new Date());
   const runner = createScopedRunner(db, logger);
+
+  function linkUrl(
+    settings: PreviewSettings,
+    claims: {
+      templateId: string;
+      id: string;
+      name?: string | null;
+      city?: string | null;
+      createdAt: Date;
+      expiresAt: Date;
+    },
+  ): string {
+    const token = mintPreviewToken(settings.secret, {
+      templateId: claims.templateId,
+      linkId: claims.id,
+      ...(claims.name ? { prospectName: claims.name } : {}),
+      ...(claims.city ? { prospectCity: claims.city } : {}),
+      lifetimeSeconds: Math.round((claims.expiresAt.getTime() - claims.createdAt.getTime()) / 1000),
+      now: claims.createdAt,
+    });
+    const local = settings.host.endsWith('localhost');
+    return `${local ? 'http' : 'https'}://${settings.host}${local ? ':3001' : ''}/p/${token}`;
+  }
 
   async function catalogRows(tx: Tx): Promise<CatalogEntry[]> {
     const rows = await tx.$queryRaw<
@@ -126,12 +163,36 @@ export function createTemplateService(deps: TemplateServiceDeps) {
     },
 
     /**
+     * P2 S10 (acceptance C-13): "View demo" on a template card. A one-hour link to the template as designed, for the
+     * member themself: no prospect, no stored row, not audited (it shows only platform demo content). Any member who
+     * may browse the catalogue may open one. Same NOT_FOUND for an unknown or unpublished template.
+     */
+    demoLink(actorUserId: string, workspaceId: unknown, templateId: unknown): Promise<string> {
+      return runner.query(actorUserId, workspaceId, 'projects.view', async (tx) => {
+        if (!preview) throw new WorkspaceError('PREVIEWS_NOT_CONFIGURED');
+        const id = requireId(templateId);
+        const found = await tx.$queryRaw<{ slug: string }[]>`
+          SELECT slug FROM app.get_catalog_template(${id}::uuid)`;
+        if (!found[0]) throw new WorkspaceError('NOT_FOUND');
+        const token = mintPreviewToken(preview.secret, { templateId: id, lifetimeSeconds: 3600, now: now() });
+        const local = preview.host.endsWith('localhost');
+        return `${local ? 'http' : 'https'}://${preview.host}${local ? ':3001' : ''}/p/${token}`;
+      });
+    },
+
+    /**
      * FR-TPL-09: a signed, expiring link to the template with demo data, optionally showing the prospect's business
      * name. Same NOT_FOUND for an unknown, unpublished or foreign template.
      */
     createPreviewLink(
       actorUserId: string,
-      raw: { workspaceId: unknown; templateId: unknown; prospectName?: unknown; days: unknown },
+      raw: {
+        workspaceId: unknown;
+        templateId: unknown;
+        prospectName?: unknown;
+        prospectCity?: unknown;
+        days: unknown;
+      },
     ): Promise<PreviewLink> {
       return runner.command<PreviewLink>(
         actorUserId,
@@ -151,6 +212,13 @@ export function createTemplateService(deps: TemplateServiceDeps) {
           if (name !== undefined && !isValidProspectName(name)) {
             throw new WorkspaceError('INVALID_INPUT', {
               'preview.prospectName': `Use 1 to ${PREVIEW_TOKEN.maxNameLength} characters of plain text, without < or >.`,
+            });
+          }
+
+          const city = v.prospectCity && v.prospectCity.length > 0 ? v.prospectCity : undefined;
+          if (city !== undefined && !isValidProspectCity(city)) {
+            throw new WorkspaceError('INVALID_INPUT', {
+              'preview.prospectCity': `Use 1 to ${PREVIEW_TOKEN.maxCityLength} characters of plain text, without < or >.`,
             });
           }
 
@@ -174,20 +242,21 @@ export function createTemplateService(deps: TemplateServiceDeps) {
               templateId,
               createdBy: scope.actorUserId,
               personalised: name !== undefined,
+              prospectName: name ?? null,
+              prospectCity: city ?? null,
               createdAt: issued,
               expiresAt: new Date(issued.getTime() + days * 86_400_000),
             },
             select: { id: true },
           });
-          const token = mintPreviewToken(preview.secret, {
+          const url = linkUrl(preview, {
             templateId,
-            linkId: id,
-            ...(name ? { prospectName: name } : {}),
-            lifetimeSeconds: days * 86_400,
-            now: issued,
+            id,
+            name: name ?? null,
+            city: city ?? null,
+            createdAt: issued,
+            expiresAt: new Date(issued.getTime() + days * 86_400_000),
           });
-          const local = preview.host.endsWith('localhost');
-          const url = `${local ? 'http' : 'https'}://${preview.host}${local ? ':3001' : ''}/p/${token}`;
           return {
             result: {
               id,
@@ -218,6 +287,19 @@ export function createTemplateService(deps: TemplateServiceDeps) {
           id: r.id,
           templateName: names.get(r.templateId) ?? 'Template',
           personalised: r.personalised,
+          prospectName: r.prospectName,
+          prospectCity: r.prospectCity,
+          url:
+            preview && !r.revokedAt && r.expiresAt.getTime() > at
+              ? linkUrl(preview, {
+                  templateId: r.templateId,
+                  id: r.id,
+                  name: r.prospectName,
+                  city: r.prospectCity,
+                  createdAt: r.createdAt,
+                  expiresAt: r.expiresAt,
+                })
+              : null,
           createdAt: r.createdAt.toISOString(),
           expiresAt: r.expiresAt.toISOString(),
           revokedAt: r.revokedAt?.toISOString() ?? null,

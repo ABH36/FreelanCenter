@@ -9,13 +9,14 @@ const home = [
   section(
     'hero',
     'hero',
-    'centered',
+    'full-bleed',
     {
       headline: 'Your wedding, planned with love',
       subheadline:
         'From the first meeting to the last dance, we design, decorate and run your celebration so your family can enjoy every moment.',
-      primaryCta: { label: 'Plan a consultation', action: 'whatsapp' },
+      primaryCta: { label: 'Book a free consultation', action: 'whatsapp' },
       secondaryCta: { label: 'See our work', action: 'link', target: '/gallery' },
+      image: asset('wedding-hero', 'A couple during their pheras under a decorated mandap'),
     },
     { style: { paddingY: 'xl', bg: 'surface' } },
   ),
@@ -78,7 +79,7 @@ const home = [
   section(
     'work',
     'gallery',
-    'masonry',
+    'grid',
     { heading: 'A few of our celebrations', images: gallery(6) },
     { motion: { enter: 'fade-in' } },
   ),
@@ -147,7 +148,7 @@ const gallerySections = [
     {
       headline: 'Like what you see?',
       subheadline: 'Tell us about your date and we will share ideas that fit your family.',
-      cta: { label: 'Message us', action: 'whatsapp' },
+      cta: { label: 'Book a free consultation', action: 'whatsapp' },
     },
     { style: { paddingY: 'md', bg: 'primary' } },
   ),
@@ -185,7 +186,7 @@ export const wedding: TemplateDefinition = {
   name: 'Wedding Royal',
   category: 'wedding-event',
   description:
-    'An elegant, photo-led two-page site for wedding and event planners with a gallery and a consultation form.',
+    'An elegant, photo-led two-page site for wedding and event planners, with a hero photo, a gallery page and free-consultation booking on WhatsApp.',
   tags: ['light', 'elegant', 'two-page', 'gallery'],
   config: {
     schemaVersion: '1.0',
@@ -209,11 +210,7 @@ export const wedding: TemplateDefinition = {
         { days: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'], open: '10:00', close: '19:00' },
         { days: ['sun'], open: '11:00', close: '15:00' },
       ],
-      social: {
-        instagram: 'https://instagram.com/example',
-        facebook: 'https://facebook.com/example',
-        youtube: '',
-      },
+      social: { instagram: '', facebook: '', youtube: '' },
     },
     theme: {
       colors: {
@@ -238,7 +235,7 @@ export const wedding: TemplateDefinition = {
         { label: 'Gallery', target: '/gallery' },
         { label: 'Contact', target: '/#contact' },
       ],
-      cta: { label: 'Free consultation', action: 'whatsapp' },
+      cta: { label: 'Book a free consultation', action: 'whatsapp' },
     },
     footer: { variant: 'columns', showPlatformBadge: true, floatingAction: 'whatsapp' },
     integrations: {},
@@ -261,6 +258,14 @@ export const wedding: TemplateDefinition = {
         path: propPath(pages, 0, 'hero', 'subheadline'),
         required: false,
         maxLength: 600,
+      },
+      {
+        key: 'hero-photo',
+        label: 'Main photo',
+        kind: 'image',
+        path: propPath(pages, 0, 'hero', 'image'),
+        required: false,
+        help: 'Your most beautiful wedding photo; it fills the top of the site.',
       },
       {
         key: 'services',

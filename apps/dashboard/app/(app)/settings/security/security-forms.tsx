@@ -76,8 +76,8 @@ export function TwoFactorSettings({ enabled, hasPassword }: { enabled: boolean; 
       title="Two-factor authentication"
       description={
         <>
-          An authenticator app code is required at every sign-in. Required for owners before payouts or
-          white-label can be enabled. {status}
+          An authenticator app code is required at every sign-in. Strongly recommended for workspace owners.{' '}
+          {status}
         </>
       }
     >

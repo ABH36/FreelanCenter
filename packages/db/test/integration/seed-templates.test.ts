@@ -136,9 +136,14 @@ describe('PublicDatabase.getCatalogTemplate (the preview route reads this)', () 
         slug: 'taxi-quick',
         category: 'taxi',
         visibility: 'platform',
-        version: 1,
         schemaVersion: '1.0',
       });
+      // The latest version: 1 on a fresh database; higher where an older seed was applied before (a developer's
+      // database, or the live one after a template revision).
+      const { rows: versions } = await visitor.query(
+        `SELECT version FROM app.list_catalog_templates() WHERE slug = 'taxi-quick'`,
+      );
+      expect(latest!.version).toBe(versions[0].version);
       expect(canonicalJson(latest!.config)).toBe(
         canonicalJson(verifySeed(real()).templates.find((t) => t.slug === 'taxi-quick')!.config),
       );

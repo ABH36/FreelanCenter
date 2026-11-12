@@ -2,7 +2,8 @@ import { BLOCKS, CONTACT_FIELDS } from '@platform/schema';
 import { mapHref } from '../cta';
 import { Icon } from '../icons';
 import { CtaButton, Link, SectionHeading } from '../parts';
-import { DAY_KEYS, t, type StringKey } from '../strings';
+import { formatPhone, hoursLines } from '../format';
+import { t, type StringKey } from '../strings';
 import type { BlockDefinition, PropsOf } from '../types';
 
 const FIELD_LABEL: Record<(typeof CONTACT_FIELDS)[number], StringKey> = {
@@ -65,7 +66,7 @@ export const contact: BlockDefinition<PropsOf<'contact'>> = {
                   <li>
                     <Icon name="phone" />
                     <Link href={`tel:${business.phone}`} external={false}>
-                      {business.phone}
+                      {formatPhone(business.phone)}
                     </Link>
                   </li>
                 ) : null}
@@ -83,13 +84,10 @@ export const contact: BlockDefinition<PropsOf<'contact'>> = {
                     <span>{address}</span>
                   </li>
                 ) : null}
-                {business.hours?.map((h, i) => (
+                {hoursLines(business.hours, ctx.locale).map((line, i) => (
                   <li key={i}>
                     <Icon name="clock" />
-                    <span>
-                      {h.days.map((d) => t(ctx.locale, DAY_KEYS[d])).join(', ')}: {h.open}{' '}
-                      {t(ctx.locale, 'to')} {h.close}
-                    </span>
+                    <span>{line}</span>
                   </li>
                 ))}
               </ul>

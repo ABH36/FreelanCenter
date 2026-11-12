@@ -4,6 +4,7 @@
  * rather than render a dead link. Every href is re-checked against the same rules the schema enforces.
  */
 import { ANCHOR, PATH, isSafeUrl, type Cta, type SiteConfig } from '@platform/schema';
+import { t, type Locale } from './strings';
 
 export interface ResolvedLink {
   readonly href: string;
@@ -35,11 +36,23 @@ export function resolveHref(
   return null;
 }
 
-export function resolveCta(cta: Cta, business: SiteConfig['business'], basePath = ''): ResolvedLink | null {
+/** wa.me link with a short greeting already typed, so the business knows the message came from the website. */
+export function whatsappHref(digitsOnly: string, businessName: string, locale: Locale = 'en'): string {
+  return `https://wa.me/${digitsOnly}?text=${encodeURIComponent(t(locale, 'whatsappGreeting', { name: businessName }))}`;
+}
+
+export function resolveCta(
+  cta: Cta,
+  business: SiteConfig['business'],
+  basePath = '',
+  locale: Locale = 'en',
+): ResolvedLink | null {
   switch (cta.action) {
     case 'whatsapp': {
       const n = digits(business.whatsapp);
-      return n.length >= 8 ? { href: `https://wa.me/${n}`, label: cta.label, external: true } : null;
+      return n.length >= 8
+        ? { href: whatsappHref(n, business.name, locale), label: cta.label, external: true }
+        : null;
     }
     case 'tel': {
       const n = digits(business.phone || business.whatsapp);

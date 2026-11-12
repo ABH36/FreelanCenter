@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useMenu } from '@/components/use-menu';
 import Link from 'next/link';
 import { authClient } from '@/lib/auth-client';
 
@@ -11,11 +12,16 @@ export function UserMenu({ name, email, mfa }: { name: string; email: string; mf
     .join('')
     .slice(0, 2)
     .toUpperCase();
+  const root = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  useMenu(open, setOpen, root, button);
 
   return (
-    <div className="relative">
+    <div ref={root} className="relative">
       <button
+        ref={button}
         type="button"
+        aria-label={`Account menu for ${name}`}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen(!open)}

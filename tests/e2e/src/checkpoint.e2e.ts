@@ -50,7 +50,7 @@ async function onboard(browser: Browser, label: string): Promise<Actor> {
   // Verified accounts are signed in on return; the first screen is the workspace creator.
   await expect(page.getByRole('heading', { name: 'Create your first workspace' })).toBeVisible();
   await page.getByLabel('Workspace name').fill(`Agency ${label} ${run}`);
-  await page.getByLabel('Address').fill(slug);
+  await page.getByLabel('Web address').fill(slug);
   await page.getByRole('button', { name: 'Create workspace' }).click();
   await page.waitForURL(`**/w/${slug}**`);
 
@@ -206,7 +206,7 @@ test('A shares a template preview; a prospect opens it without signing in and st
 }) => {
   await a.page.goto(`/w/${a.slug}/templates`);
   const card = a.page.locator('li', { has: a.page.getByRole('heading', { name: 'Gym Bold' }) });
-  await card.getByLabel("Prospect's business name (optional)").fill('Sharma Fitness');
+  await card.getByLabel("Prospect's business name").fill('Sharma Fitness');
   await card.getByRole('button', { name: 'Create preview link' }).click();
   const link = await card.getByLabel('Preview link').inputValue();
   expect(link).toMatch(/^http:\/\/preview\.sites\.localhost:3001\/p\/v1\.[\w-]+\.[\w-]+$/);
@@ -222,7 +222,7 @@ test('A shares a template preview; a prospect opens it without signing in and st
     const res = await page.goto(link);
     expect(res?.status()).toBe(200);
     expect(res?.headers()['x-robots-tag']).toBe('noindex, nofollow');
-    await expect(page.locator('.pb-banner')).toContainText('Preview of the "Gym Bold" template');
+    await expect(page.locator('.pb-banner')).toContainText('Website preview for "Sharma Fitness"');
     await expect(page.locator('.pb-brand').first()).toHaveText('Sharma Fitness');
     // Every in-site link stays inside the preview: the first menu item keeps the token in the address.
     await page.getByRole('link', { name: 'Pricing' }).first().click();
@@ -249,7 +249,7 @@ test('A turns a preview link off; the prospect sees it withdrawn, and a link tha
   const make = async (name: string) => {
     // The link box keeps showing the previous link until the new one arrives: wait for it to change.
     const before = (await box.count()) > 0 ? await box.inputValue() : '';
-    await card.getByLabel("Prospect's business name (optional)").fill(name);
+    await card.getByLabel("Prospect's business name").fill(name);
     await card.getByRole('button', { name: 'Create preview link' }).click();
     await expect(box).toBeVisible();
     await expect(box).not.toHaveValue(before);
@@ -264,8 +264,11 @@ test('A turns a preview link off; the prospect sees it withdrawn, and a link tha
   // Wait for the list to show all three links (the Gym link of the journey above and these two): until then a
   // click could land on a different row.
   await expect(turnOffButtons).toHaveCount(3);
-  a.page.once('dialog', (d) => void d.accept());
   await turnOffButtons.nth(1).click(); // the older of the two: the first link made
+  // An in-page confirmation (not the browser's confirm()): it names what will happen.
+  const dialog = a.page.getByRole('dialog');
+  await expect(dialog).toContainText('Turn off the link for Revoke Me Travels');
+  await dialog.getByRole('button', { name: 'Turn off' }).click();
   // Exact: the panel's footnote also contains the words "turned off", which would match at once.
   await expect(a.page.getByText('Turned off', { exact: true })).toHaveCount(1);
 
