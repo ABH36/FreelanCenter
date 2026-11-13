@@ -36,16 +36,21 @@ export function WorkspaceSwitcher({
       <button
         ref={button}
         type="button"
-        aria-label={
-          current ? `Workspace: ${current.name} (${current.role}). Switch workspace` : 'Select a workspace'
-        }
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
         className="flex max-w-64 items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-slate-50"
       >
+        {/* The accessible name comes from the content, so it always contains the visible text (WCAG 2.5.3). */}
+        {current ? <span className="sr-only">Workspace: </span> : null}
         <span className="truncate font-medium">{current?.name ?? 'Select a workspace'}</span>
-        {current ? <span className="text-xs text-slate-500 capitalize">{current.role}</span> : null}
+        {current ? (
+          <span className="text-xs text-slate-500 capitalize">
+            <span className="sr-only">(</span>
+            {current.role}
+            <span className="sr-only">). Switch workspace</span>
+          </span>
+        ) : null}
         <span aria-hidden className="text-slate-400">
           ▾
         </span>
