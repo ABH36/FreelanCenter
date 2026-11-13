@@ -1,6 +1,6 @@
 # Phase 3, slice S0: private technical go-live of the dashboard (Stage A)
 
-**Status:** built and run live on `feat/p3-s0-golive`; awaiting the Owner's approval of the slice and of the gap-register updates (section 9). Nothing is marked closed until the Owner approves. **Date:** 2026-11-13 · **Plan:** `docs/governance/DASHBOARD_GO_LIVE_PLAN.md` (Stage A) · **Gaps:** DG-27 (Stage A), DG-28 (a), DG-16, DG-26, DG-17 · **Requirements exercised live:** FR-AUTH-01, FR-AUTH-03, FR-AUTH-04, SEC-09, FR-TPL-09, FR-AUD-01, NFR-PERF-04.
+**Status:** built and run live on `feat/p3-s0-golive`. **Approved by the Owner 2026-11-13**, with the gap closures of section 9 (DG-17 after the Inngest check below). **Date:** 2026-11-13 · **Plan:** `docs/governance/DASHBOARD_GO_LIVE_PLAN.md` (Stage A) · **Gaps:** DG-27 (Stage A), DG-28 (a), DG-16, DG-26, DG-17 · **Requirements exercised live:** FR-AUTH-01, FR-AUTH-03, FR-AUTH-04, SEC-09, FR-TPL-09, FR-AUD-01, NFR-PERF-04.
 
 ## 1. Why
 
@@ -31,15 +31,15 @@ Code on the branch (all local CI-equivalent checks green, section 7):
 
 ## 3. Live account journey (production, 2026-11-13)
 
-| Check                                                    | Evidence                                                                                                                                                                                                                                                                                                                     |
-| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **SEC-09 / DG-16:** live Turnstile solve, production key | The Owner's sign-up passed the captcha check and reached the password rule ("Password is too short" in the function log at 09:05:10 UTC). The captcha is checked before the endpoint, so the production secret verified a real widget token                                                                                  |
-| **FR-AUTH-04:** no account enumeration                   | The address already had an account (created 2026-10-23 with Google during Phase 1 testing, verified, password added 2026-10-31). Sign-up showed the same "Check your inbox" screen as for a new address and sent nothing; "Resend verification" did the same. No new verification row was created (read-only database check) |
-| **First real e-mail (Resend)**                           | Password reset requested from the sign-in page: one hashed verification row at 09:14:16 UTC, and "Reset your password - FreelanCenter" from `FreelanCenter <onboarding@resend.dev>` arrived in the Gmail **inbox** (not spam) at 14:44 IST. No `auth.mail.send_failed` log                                                   |
-| **FR-AUTH-03:** TOTP on production                       | The old factor could not be read (finding S0-1). After the reset the Owner enrolled a new factor (stored `verified`, encrypted with the production secret) and signed in with a TOTP code; one live session created 09:44 UTC                                                                                                |
-| Workspace and Templates                                  | The Owner's Phase 2 workspace **Pixelstack** (Owner role, 2 members, 2 projects) opened; Templates lists the 3 reference templates (version 2)                                                                                                                                                                               |
-| **FR-TPL-09 / DG-26:** valid live preview link           | "Gym Bold" link created (valid to 20 Nov 2026) on `sites-two-nu.vercel.app/p/v1…`; it opened without sign-in with the "Preview of the Gym Bold template: demo content" banner. After **Turn off** the same URL showed "This preview link was withdrawn. Ask Pixelstack for a new link."                                      |
-| **DG-17:** Inngest on production                         | Sync succeeded against the production alias (the sync is a signed exchange, so the production signing key matches). The Vercel Hobby log keeps only console output for 30 minutes, so the cron runs themselves leave no trace there: one look at the Inngest Runs page for `outbox.sweep.v1` is the open part (section 9)    |
+| Check                                                    | Evidence                                                                                                                                                                                                                                                                                                                                                      |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **SEC-09 / DG-16:** live Turnstile solve, production key | The Owner's sign-up passed the captcha check and reached the password rule ("Password is too short" in the function log at 09:05:10 UTC). The captcha is checked before the endpoint, so the production secret verified a real widget token                                                                                                                   |
+| **FR-AUTH-04:** no account enumeration                   | The address already had an account (created 2026-10-23 with Google during Phase 1 testing, verified, password added 2026-10-31). Sign-up showed the same "Check your inbox" screen as for a new address and sent nothing; "Resend verification" did the same. No new verification row was created (read-only database check)                                  |
+| **First real e-mail (Resend)**                           | Password reset requested from the sign-in page: one hashed verification row at 09:14:16 UTC, and "Reset your password - FreelanCenter" from `FreelanCenter <onboarding@resend.dev>` arrived in the Gmail **inbox** (not spam) at 14:44 IST. No `auth.mail.send_failed` log                                                                                    |
+| **FR-AUTH-03:** TOTP on production                       | The old factor could not be read (finding S0-1). After the reset the Owner enrolled a new factor (stored `verified`, encrypted with the production secret) and signed in with a TOTP code; one live session created 09:44 UTC                                                                                                                                 |
+| Workspace and Templates                                  | The Owner's Phase 2 workspace **Pixelstack** (Owner role, 2 members, 2 projects) opened; Templates lists the 3 reference templates (version 2)                                                                                                                                                                                                                |
+| **FR-TPL-09 / DG-26:** valid live preview link           | "Gym Bold" link created (valid to 20 Nov 2026) on `sites-two-nu.vercel.app/p/v1…`; it opened without sign-in with the "Preview of the Gym Bold template: demo content" banner. After **Turn off** the same URL showed "This preview link was withdrawn. Ask Pixelstack for a new link."                                                                       |
+| **DG-17:** Inngest on production                         | Sync succeeded against the production alias (the sync is a signed exchange, so the production signing key matches). The Vercel Hobby log keeps only console output for 30 minutes, so the cron runs themselves leave no trace there: the Inngest Production overview shows `outbox.sweep.v1` (`platform-dashboard`) with 293 runs in 24 hours and no failures |
 
 ## 4. NFR-PERF-04 in region (DG-28 a)
 
@@ -138,13 +138,13 @@ Code on the branch (all local CI-equivalent checks green, section 7):
 
 ## 9. Open items and decisions for the Owner
 
-1. **Approve the slice** and the gap-register updates. Proposed:
+1. **Approved by the Owner 2026-11-13:** the slice and these gap-register updates:
    - DG-27 Stage A closed (Stage B stays open with DG-10/DG-11).
    - DG-28 (a) closed with section 4.
    - DG-16 closed for the dashboard hostname.
    - DG-26 closed.
-   - DG-17 closed after one look at the Inngest Runs page shows `outbox.sweep.v1` runs completing on the production URL.
-2. **Open the S0 PR** after approval. Production then returns to deployments built from `main`.
+   - DG-17 closed (Inngest: 293 `outbox.sweep.v1` runs in 24 hours, no failures).
+2. **Open the S0 PR.** Production then returns to deployments built from `main`.
 3. Follow-ups, each as its own small PR:
    - Dependabot hygiene: close #67, a separate group for `better-auth` (its upgrades always re-run Spike F, ADR-006), and exclude `spikes/`.
    - S0-7 lint for root scripts.
