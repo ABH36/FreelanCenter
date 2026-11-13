@@ -49,6 +49,15 @@ describe('app.outbox_pending order', () => {
       (tx) => tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM app.outbox_pending(500, 0)`,
     );
     const order = rows.map((r) => r.id).filter((id) => mine.has(id));
+    // The function returns at most 500 rows. On a long-lived local database, pending rows left by earlier runs can
+    // sort ahead of these and push them past the limit (P3 S0 finding S0-8: 680 left over). CI starts empty; say so
+    // plainly instead of failing with an order diff. Least privilege rules out hiding the other rows from here.
+    if (order.length < mine.size && rows.length === 500) {
+      throw new Error(
+        'app.outbox_pending is full of pending rows from earlier runs, so this test cannot see its own rows. ' +
+          'Reset the local database: pnpm --filter @platform/db db:down, then db:up, db:migrate and db:configure.',
+      );
+    }
     expect(order).toEqual([freshOld, freshNew, lessFailing, failingOld, failingNew]);
   });
 
