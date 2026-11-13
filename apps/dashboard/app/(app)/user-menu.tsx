@@ -21,16 +21,21 @@ export function UserMenu({ name, email, mfa }: { name: string; email: string; mf
       <button
         ref={button}
         type="button"
-        aria-label={`Account menu for ${name}`}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 rounded-full p-1 pr-3 text-sm hover:bg-slate-50"
       >
-        <span className="grid size-8 place-items-center rounded-full bg-slate-900 text-xs font-semibold text-white">
+        {/* The accessible name comes from the content, so it always contains the visible name (WCAG 2.5.3); the
+            initials are decoration, and on small screens the name stays readable for screen readers only. */}
+        <span
+          aria-hidden
+          className="grid size-8 place-items-center rounded-full bg-slate-900 text-xs font-semibold text-white"
+        >
           {initials || '?'}
         </span>
-        <span className="hidden max-w-40 truncate sm:inline">{name}</span>
+        <span className="sr-only">Account menu for </span>
+        <span className="sr-only sm:not-sr-only sm:max-w-40 sm:truncate">{name}</span>
       </button>
       {open ? (
         <div
