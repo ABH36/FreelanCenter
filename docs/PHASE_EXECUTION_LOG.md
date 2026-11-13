@@ -140,3 +140,12 @@ pnpm traceability                              # regenerate docs/traceability.md
 # Spike B (Docker):
 cd spikes/spike-b-rls-pooling && pnpm spike:up && pnpm spike:generate && pnpm spike:test
 ```
+
+---
+
+## Later phases (pointer)
+
+This log records Phase 0 in detail. From Phase 1 on, each slice has its own report in `docs/reports/`; the phase-level record is the phase report:
+
+- **Phase 1** (auth, workspaces, projects, host routing, admin, audit): `docs/reports/PHASE_1_REPORT.md`; closed with DG-24.
+- **Phase 2** (template engine and renderer, templates, preview links): `docs/reports/PHASE_2_REPORT.md`, with the Owner's acceptance test in `docs/reports/PHASE_2_ACCEPTANCE_TEST.md`; approved with conditions on 2026-11-13.

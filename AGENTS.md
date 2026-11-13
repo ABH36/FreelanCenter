@@ -8,7 +8,7 @@ Read [docs/governance/DOCUMENTATION_INDEX.md](docs/governance/DOCUMENTATION_INDE
 
 ## Current delivery state
 
-The repository is at Phase 0 approved-with-conditions. No product feature is implemented. The live Supabase `ap-south-1` RLS/pooler proof passed on 2026-10-16 (see `docs/spikes/SPIKE_B_RLS_POOLING.md`), so product Prisma schema work is permitted. The Phase-1 Vercel preview-deployment proof passed on 2026-10-17 (see `docs/reports/PHASE_1_DG02_VERCEL_PREVIEW.md`); The Better Auth proof passed and ADR-006 was accepted on 2026-10-22 (see `docs/spikes/SPIKE_F_BETTER_AUTH.md`); product auth must use its mandatory configuration. Remaining early controls are tracked in the gap register.
+Phases 0, 1 and 2 are approved with conditions (Phase 2 on 2026-11-13; see `docs/reports/PHASE_2_REPORT.md`). Implemented and live: auth (ADR-006 mandatory configuration), workspaces and RBAC, projects, host routing, admin console, audit, the template engine and renderer, three reference templates (version 2 live), preview links (revocable, live migrations applied). Next: Phase 3 (Builder/Editor), starting with S0, the private technical go-live of the dashboard (`docs/governance/DASHBOARD_GO_LIVE_PLAN.md`). Product direction: this product serves local-business websites with lead capture; heavy apps (full e-commerce, ride-hailing) are a separate future product that will integrate through services, not features here. Open conditions and decisions are tracked in the gap register and the phase reports.
 
 ## Required implementation discipline
 
