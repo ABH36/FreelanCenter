@@ -189,8 +189,23 @@ export const platformConfig = tseslint.config(
     ),
   },
   {
-    // Node scripts, configs and spikes may print to the console.
+    // Node scripts, configs and spikes may print to the console. They run on Node, so its globals are defined here
+    // (P3 S0 finding S0-7). The list is written out instead of taking the `globals` package: no new dependency, and
+    // a global a script starts to use is a visible, reviewed change.
     files: ['**/*.mjs', '**/*.js', 'scripts/**', 'spikes/**'],
+    languageOptions: {
+      globals: {
+        Buffer: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
+        clearTimeout: 'readonly',
+        console: 'readonly',
+        fetch: 'readonly',
+        performance: 'readonly',
+        process: 'readonly',
+        setTimeout: 'readonly',
+      },
+    },
     rules: { 'no-console': 'off' },
   },
 );
