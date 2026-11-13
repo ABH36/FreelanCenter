@@ -47,7 +47,10 @@ export interface PreviewClaims {
 }
 
 export type PreviewVerdict =
-  { ok: true; claims: PreviewClaims } | { ok: false; reason: 'malformed' | 'signature' | 'expired' };
+  | { ok: true; claims: PreviewClaims }
+  | { ok: false; reason: 'malformed' | 'signature' }
+  /** The signature was valid, so the claims are genuine; only the time has run out. */
+  | { ok: false; reason: 'expired'; claims: PreviewClaims };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const B64URL = /^[A-Za-z0-9_-]+$/;
@@ -183,7 +186,7 @@ export function verifyPreviewToken(
     ) {
       return { ok: false, reason: 'malformed' };
     }
-    if (claims.exp <= nowSeconds) return { ok: false, reason: 'expired' };
+    if (claims.exp <= nowSeconds) return { ok: false, reason: 'expired', claims };
     return { ok: true, claims };
   } catch {
     return { ok: false, reason: 'malformed' };

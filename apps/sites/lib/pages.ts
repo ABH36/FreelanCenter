@@ -104,11 +104,19 @@ const DOCUMENTS = Object.fromEntries(
   Object.entries(PAGES).map(([kind, spec]) => [kind, documentFor(spec)]),
 ) as Record<PageKind, string>;
 
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
 export function pageResponse(
   kind: PageKind,
-  options: { head?: boolean; correlationId?: string } = {},
+  options: { head?: boolean; correlationId?: string; sender?: string | null } = {},
 ): Response {
   const spec = PAGES[kind];
+  // A preview page can name who sent the link, so the prospect knows whom to ask (acceptance C-25).
+  const body =
+    options.sender && kind.startsWith('preview_')
+      ? documentFor({ ...spec, message: `Ask ${escapeHtml(options.sender)} for a new link.` })
+      : DOCUMENTS[kind];
   const headers = new Headers({
     'content-type': 'text/html; charset=utf-8',
     'cache-control': 'no-store',
@@ -119,5 +127,5 @@ export function pageResponse(
   // A preview link carries its token in the URL: nothing it links to may receive it in a Referer.
   if (kind.startsWith('preview_')) headers.set('referrer-policy', 'no-referrer');
   if (options.correlationId) headers.set('x-correlation-id', options.correlationId);
-  return new Response(options.head ? null : DOCUMENTS[kind], { status: spec.status, headers });
+  return new Response(options.head ? null : body, { status: spec.status, headers });
 }

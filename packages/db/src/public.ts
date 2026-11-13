@@ -56,6 +56,8 @@ export interface PublicDatabase {
    * was revoked; an unknown id is not revoked. Used by the preview route.
    */
   isPreviewLinkRevoked(linkId: string): Promise<boolean>;
+  /** The name of the workspace that made a link, or null (P2 S10, acceptance C-25). */
+  previewLinkSender(linkId: string): Promise<string | null>;
   /** Fails unless the connection role is app_public without SUPERUSER or BYPASSRLS. */
   verifyRole(): Promise<void>;
   close(): Promise<void>;
@@ -129,6 +131,14 @@ export function createPublicDatabase(options: PublicDatabaseOptions): PublicData
         [linkId],
       );
       return rows[0]?.revoked === true;
+    },
+
+    async previewLinkSender(linkId) {
+      const { rows } = await pool.query<{ name: string | null }>(
+        'SELECT app.preview_link_sender($1::uuid) AS name',
+        [linkId],
+      );
+      return rows[0]?.name ?? null;
     },
 
     async verifyRole() {

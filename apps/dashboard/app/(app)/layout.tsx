@@ -6,6 +6,7 @@ import { ACTIVE_WORKSPACE_COOKIE, myWorkspaces } from '@/lib/workspaces';
 import { AppNav } from './app-nav';
 import { UserMenu } from './user-menu';
 import { WorkspaceSwitcher } from './workspace-switcher';
+import { BRAND_NAME } from '@/lib/brand';
 
 /**
  * Signed-in shell. The session is verified on the server for every request (no client-side gate): a missing,
@@ -28,9 +29,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       <aside className="border-b border-slate-200 bg-white md:min-h-dvh md:border-r md:border-b-0">
         <div className="flex h-14 items-center gap-2 px-5 text-sm font-semibold tracking-tight">
           <span className="grid size-7 place-items-center rounded-md bg-[var(--color-primary)] text-white">
-            P
+            F
           </span>
-          Platform
+          {BRAND_NAME}
         </div>
         <AppNav fallbackSlug={fallbackSlug} />
       </aside>

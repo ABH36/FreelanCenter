@@ -150,6 +150,7 @@ const tenantTables = await withClient('bootstrap', async (op) => {
     'is_preview_link_revoked',
     'list_catalog_templates',
     'operator_archive_builtin_template',
+    'preview_link_sender',
     'operator_publish_builtin_template',
   ].sort();
   check(
@@ -176,12 +177,13 @@ const tenantTables = await withClient('bootstrap', async (op) => {
       ORDER BY 1`,
   );
   check(
-    'app_public can execute exactly resolve_host, the two catalogue read functions and is_preview_link_revoked (P2 S8b)',
+    'app_public can execute exactly resolve_host, the two catalogue read functions and is_preview_link_revoked (P2 S8b) and preview_link_sender (P2 S10)',
     JSON.stringify(publicFns.map((r) => r.proname)) ===
       JSON.stringify([
         'get_catalog_template',
         'is_preview_link_revoked',
         'list_catalog_templates',
+        'preview_link_sender',
         'resolve_host',
       ]),
     publicFns.map((r) => r.proname).join(', '),

@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import './globals.css';
+import { BRAND_NAME } from '@/lib/brand';
 
 export const metadata: Metadata = {
-  title: 'Platform Dashboard',
+  title: { default: BRAND_NAME, template: `%s · ${BRAND_NAME}` },
   robots: { index: false, follow: false },
 };
 

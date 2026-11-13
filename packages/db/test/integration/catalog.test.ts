@@ -289,6 +289,7 @@ describe('functions', () => {
       'operator_revoke_platform_admin',
       'operator_set_platform_setting',
       'outbox_pending',
+      'preview_link_sender',
       'record_platform_audit',
       'resolve_host',
       'workspace_has_members',
@@ -359,6 +360,7 @@ describe('functions', () => {
     expect(await executors('get_catalog_template')).toEqual(['app_public', 'app_user']);
     // P2 S8b: the preview-link revocation check is for the visitor role only.
     expect(await executors('is_preview_link_revoked')).toEqual(['app_public']);
+    expect(await executors('preview_link_sender')).toEqual(['app_public']);
     expect(await executors('operator_publish_builtin_template')).toEqual(['migrator']);
     expect(await executors('operator_archive_builtin_template')).toEqual(['migrator']);
     const { rows: publicFns } = await admin.query(
@@ -369,6 +371,7 @@ describe('functions', () => {
       'get_catalog_template',
       'is_preview_link_revoked',
       'list_catalog_templates',
+      'preview_link_sender',
       'resolve_host',
     ]);
     expect(await executors('workspace_writable')).toEqual(['app_user']);

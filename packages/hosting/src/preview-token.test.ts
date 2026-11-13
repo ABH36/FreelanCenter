@@ -50,7 +50,12 @@ describe('expiry and lifetime', () => {
   it('expires exactly at exp and reports "expired" only for a validly signed token', () => {
     const t = mint({ lifetimeSeconds: 3600 });
     expect(verifyPreviewToken({ current: SECRET }, t, at(3599)).ok).toBe(true);
-    expect(verifyPreviewToken({ current: SECRET }, t, at(3600))).toEqual({ ok: false, reason: 'expired' });
+    // An expired verdict carries the (genuinely signed) claims, so the page can name who sent the link.
+    expect(verifyPreviewToken({ current: SECRET }, t, at(3600))).toMatchObject({
+      ok: false,
+      reason: 'expired',
+      claims: { tpl: TPL },
+    });
     expect(verifyPreviewToken({ current: OTHER }, t, at(99999))).toEqual({ ok: false, reason: 'signature' });
   });
 

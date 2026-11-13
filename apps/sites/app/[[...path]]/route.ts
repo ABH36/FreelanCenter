@@ -24,6 +24,7 @@ const deps = {
       logger,
       catalog: runtime.catalog,
       isRevoked: runtime.isPreviewLinkRevoked,
+      sender: runtime.previewLinkSender,
     };
   },
 };

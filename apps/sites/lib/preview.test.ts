@@ -456,3 +456,40 @@ describe('making the demo the prospect’s (P2 S10, acceptance run 2)', () => {
     expect(res.status).toBe(200);
   });
 });
+
+describe('who sent the link (P2 S10, acceptance C-25)', () => {
+  const LID = '01920000-0000-7000-8000-0000000000c1';
+  it('the withdrawn and expired pages name the sender (escaped); a forged link never asks', async () => {
+    const asked: string[] = [];
+    const sender = async (id: string) => {
+      asked.push(id);
+      return 'Tester One <Digital>';
+    };
+    revoked.add(LID);
+    const { get } = setup({ preview: { sender } });
+    const gone = await (await get(`/p/${mint('gym-bold', { linkId: LID })}`)).text();
+    expect(gone).toContain('Ask Tester One &lt;Digital&gt; for a new link.');
+    revoked.delete(LID);
+    const old = mint('gym-bold', { linkId: LID });
+    now = new Date('2026-11-20T12:00:00Z');
+    const expired = await get(`/p/${old}`);
+    expect(expired.status).toBe(410);
+    expect(await expired.text()).toContain('Ask Tester One &lt;Digital&gt; for a new link.');
+    asked.length = 0;
+    await get(`/p/${old.slice(0, -2)}AA`);
+    expect(asked).toEqual([]);
+  });
+  it('a failing sender lookup still shows the page, without a name', async () => {
+    revoked.add(LID);
+    const { get } = setup({
+      preview: {
+        sender: async () => {
+          throw new Error('db down');
+        },
+      },
+    });
+    const res = await get(`/p/${mint('gym-bold', { linkId: LID })}`);
+    expect(res.status).toBe(410);
+    expect(await res.text()).toContain('The sender has turned this link off');
+  });
+});

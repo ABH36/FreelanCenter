@@ -27,6 +27,8 @@ export interface PreviewDeps {
    * rather than serving a link that may have been withdrawn.
    */
   isRevoked: (linkId: string) => Promise<boolean>;
+  /** The name of the workspace that made a link; best effort (a failure just leaves the name out). */
+  sender?: (linkId: string) => Promise<string | null>;
   logger: Logger;
   now?: () => Date;
 }
@@ -157,6 +159,16 @@ function personalise(config: PreviewConfig, prospect: { name?: string; city?: st
   return safe;
 }
 
+/** Who sent a link (only for links whose signature was verified); never fails the page. */
+async function senderOf(deps: PreviewDeps, linkId: string | undefined): Promise<string | null> {
+  if (!linkId || !deps.sender) return null;
+  try {
+    return await deps.sender(linkId);
+  } catch {
+    return null;
+  }
+}
+
 const TOKEN_PATH = /^\/p\/([A-Za-z0-9._-]{1,700})(\/.*)?$/;
 const HOST_HEADER = /^[a-z0-9.-]+(:\d{1,5})?$/;
 
@@ -180,12 +192,17 @@ export async function servePreview(
   const rest = match[2] ?? '/';
 
   const verdict = verifyPreviewToken(deps.secrets, token, deps.now?.());
-  if (!verdict.ok)
-    return pageResponse(verdict.reason === 'expired' ? 'preview_expired' : 'preview_invalid', common);
+  if (!verdict.ok) {
+    if (verdict.reason === 'expired') {
+      return pageResponse('preview_expired', { ...common, sender: await senderOf(deps, verdict.claims.lid) });
+    }
+    return pageResponse('preview_invalid', common);
+  }
 
-  // Only after the signature and the expiry: a forged or expired link never causes a lookup.
+  // Only after the signature and the expiry: a forged or expired link never causes a revocation or catalogue lookup
+  // (an expired one, whose signature is genuine, may ask who sent it, for its page).
   if (verdict.claims.lid && (await isRevoked(deps, verdict.claims.lid))) {
-    return pageResponse('preview_revoked', common);
+    return pageResponse('preview_revoked', { ...common, sender: await senderOf(deps, verdict.claims.lid) });
   }
 
   const template = await loadTemplate(deps, verdict.claims);

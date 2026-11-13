@@ -278,3 +278,28 @@ describe('who a link was made for (P2 S10)', () => {
     );
   });
 });
+
+describe('who sent a link (P2 S10, acceptance C-25)', () => {
+  it('the visitor role gets the workspace name for a link, and nothing for an unknown id', async () => {
+    const id = await make(A.scope);
+    const { rows } = await visitor.query<{ name: string | null }>(
+      'SELECT app.preview_link_sender($1::uuid) AS name',
+      [id],
+    );
+    const own = await db.withTenant(A.scope, (tx) => tx.workspace.findFirst({ select: { name: true } }));
+    expect(rows[0]!.name).toBe(own!.name);
+    const none = await visitor.query<{ name: string | null }>(
+      'SELECT app.preview_link_sender($1::uuid) AS name',
+      [uuidv7()],
+    );
+    expect(none.rows[0]!.name).toBeNull();
+  });
+  it('app_user cannot call it (EXECUTE is granted to app_public only)', async () => {
+    const app = pool(urls.app, 1);
+    try {
+      await expectPgError(app.query('SELECT app.preview_link_sender($1::uuid)', [uuidv7()]), '42501');
+    } finally {
+      await app.end();
+    }
+  });
+});
