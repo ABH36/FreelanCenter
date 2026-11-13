@@ -183,3 +183,20 @@ Every run-3 item was fixed or partly fixed; one regression was found.
 **Still open by design (agreed):** the phone menu stays open after a tap (tenant sites run no JavaScript; it does not cover content); gallery captions and categories (editor, Phase 3).
 
 **Verdict of the acceptance test:** after R-1, the tester's answer to "would you send it to a client" is yes for all three templates.
+
+## Live application after the acceptance test (2026-11-13, Owner-approved)
+
+PR #61 merged (`ddde0bf`). Run from the developer machine against Supabase `ap-south-1`; no secret printed or stored; the temporary check scripts were deleted after use.
+
+| Step                                              | Result                                                                                                                                                                                          |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Read-only pre-check as `migrator`                 | remote host; not superuser, no BYPASSRLS; 8 migrations, all finished; the two S10 migrations, the prospect columns and `preview_link_sender` absent; can `SET ROLE svc_definer`                 |
+| `prisma migrate deploy`                           | applied `20261113120000_p2_s10_preview_link_prospect` and `20261114120000_p2_s10_preview_link_sender`                                                                                           |
+| `prisma migrate status` / live vs `schema.prisma` | up to date (10 migrations) / no difference                                                                                                                                                      |
+| `db:verify --target env`                          | **33 passed, 0 failed**                                                                                                                                                                         |
+| `test:live`                                       | 2 files: 6 passed, 1 skipped (unchanged)                                                                                                                                                        |
+| Seed dry run, then seed                           | gym-bold, taxi-quick, wedding-royal: **version 2 written**; the same command again: all unchanged                                                                                               |
+| Read-back as `app_public`                         | each template at version 2, hash and content equal to the seed file, version 1 still readable; an unknown link is not revoked and has no sender; the visitor cannot read the link table (42501) |
+| Sites production                                  | `/api/health` 200; a forged link shows "Preview link not valid" (the new page title), so the deployment runs the merged code                                                                    |
+
+Nothing else on the live database changed. The dashboard production is still not configured (DG-27), so no live link exists yet.
