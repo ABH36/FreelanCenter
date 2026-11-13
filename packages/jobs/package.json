@@ -14,9 +14,9 @@
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.20.5"
   },
   "dependencies": {
-    "inngest": "4.22.0"
+    "inngest": "4.26.2"
   }
 }

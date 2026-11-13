@@ -10,9 +10,9 @@
     "spike:test": "vitest run"
   },
   "dependencies": {
-    "inngest": "4.22.0"
+    "inngest": "4.26.2"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.20.5"
   }
 }
