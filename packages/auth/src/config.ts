@@ -8,8 +8,19 @@ export type EmailTransport = 'resend' | 'capture';
 export interface AuthConfig {
   /** Public origin of the dashboard, e.g. `https://app.example.com` (BETTER_AUTH_URL). */
   baseURL: string;
-  /** >= 32 characters; signs cookies and encrypts TOTP secrets and OAuth tokens. */
+  /**
+   * BETTER_AUTH_SECRET, >= 32 characters. Without `secrets` it signs cookies and encrypts TOTP secrets and OAuth
+   * tokens. With `secrets` it is the legacy key: it still decrypts everything written before versioned keys
+   * existed (unlabelled ciphertext), so it must stay set for as long as such rows exist.
+   */
   secret: string;
+  /**
+   * BETTER_AUTH_SECRETS, optional: versioned keys `<version>:<secret>,...`, the first one current (P3 auth
+   * hardening, S0 finding S0-1). New ciphertext is labelled with the current version and every listed version
+   * can still be read, so a key can be rotated without breaking enrolled two-factor factors. Cookies are signed
+   * with the current key, so changing the current version signs everyone out once.
+   */
+  secrets: Array<{ version: number; value: string }> | null;
   appName: string;
   /**
    * The one request header that carries the real client IP (Spike F F-5). On Vercel this is
@@ -37,6 +48,31 @@ export const TURNSTILE_TEST_KEYS = {
   /** The only response token the test secrets accept. */
   dummyToken: 'XXXX.DUMMY.TOKEN.XXXX',
 } as const;
+
+/**
+ * `<version>:<secret>,...` (Better Auth's own format), validated strictly: a malformed entry, a repeated version or
+ * a key under 32 characters stops the start-up instead of weakening encryption. Values never appear in errors.
+ */
+export function parseVersionedSecrets(raw: string | undefined): AuthConfig['secrets'] {
+  const value = raw?.trim();
+  if (!value) return null;
+  const seen = new Set<number>();
+  return value.split(',').map((entry, index) => {
+    const separator = entry.indexOf(':');
+    const versionText = separator === -1 ? '' : entry.slice(0, separator).trim();
+    const key = separator === -1 ? '' : entry.slice(separator + 1).trim();
+    if (!/^\d{1,6}$/.test(versionText)) {
+      throw new AuthConfigError(`BETTER_AUTH_SECRETS entry ${index + 1} must be <version>:<secret>`);
+    }
+    const version = Number(versionText);
+    if (seen.has(version)) throw new AuthConfigError(`BETTER_AUTH_SECRETS repeats version ${version}`);
+    seen.add(version);
+    if (key.length < 32) {
+      throw new AuthConfigError(`BETTER_AUTH_SECRETS version ${version} must be at least 32 characters`);
+    }
+    return { version, value: key };
+  });
+}
 
 const DEFAULT_IP_HEADER_VERCEL = 'x-vercel-forwarded-for';
 const DEFAULT_IP_HEADER_LOCAL = 'x-forwarded-for';
@@ -66,6 +102,8 @@ export function loadAuthConfig(env: Record<string, string | undefined> = process
 
   const secret = required('BETTER_AUTH_SECRET');
   if (secret.length < 32) throw new AuthConfigError('BETTER_AUTH_SECRET must be at least 32 characters');
+  // Better Auth would read BETTER_AUTH_SECRETS by itself if it were not passed, so it is always validated here.
+  const secrets = parseVersionedSecrets(env.BETTER_AUTH_SECRETS);
 
   const clientIpHeader = (
     env.AUTH_CLIENT_IP_HEADER?.trim() || (env.VERCEL ? DEFAULT_IP_HEADER_VERCEL : DEFAULT_IP_HEADER_LOCAL)
@@ -96,6 +134,7 @@ export function loadAuthConfig(env: Record<string, string | undefined> = process
   return {
     baseURL,
     secret,
+    secrets,
     appName: env.APP_NAME?.trim() || 'FreelanCenter',
     clientIpHeader,
     turnstileSecretKey,

@@ -1,5 +1,5 @@
 /**
- * Product auth (ADR-006): Better Auth 1.7.12 on the `identity` schema through the `app_auth` role.
+ * Product auth (ADR-006): Better Auth 1.7.14 (Spike F re-run on every upgrade) on the `identity` schema through the `app_auth` role.
  *
  * Every setting in the ADR-006 "mandatory configuration" table is pinned here and asserted by
  * `test/integration/config.test.ts`; Spike F found two unsafe library defaults (F-1, F-2) that were only visible
@@ -107,6 +107,8 @@ export function createAuth(deps: AuthDeps) {
     baseURL: config.baseURL,
     basePath: '/api/auth',
     secret: config.secret,
+    // Validated in config.ts from the same BETTER_AUTH_SECRETS that Better Auth would otherwise read by itself.
+    secrets: config.secrets ?? undefined,
     trustedOrigins: [config.baseURL],
     database: prismaAdapter(prisma, { provider: 'postgresql' }),
     telemetry: { enabled: false },
@@ -186,7 +188,7 @@ export function createAuth(deps: AuthDeps) {
       }),
     ],
     hooks: {
-      // S8-1: with a signed-in session, Better Auth 1.7.12's verify-totp / verify-backup-code have no lockout and
+      // S8-1: with a signed-in session, Better Auth 1.7 (re-checked on 1.7.14)'s verify-totp / verify-backup-code have no lockout and
       // no attempt limit (only the 10/min rate limit), so for a user who already has 2FA they would be an
       // online oracle for the current code, which also unlocks the admin console's step-up. Over HTTP they
       // only serve enrolment (session, 2FA not yet on) and the sign-in challenge (no session). The admin
@@ -329,7 +331,7 @@ export function createAuth(deps: AuthDeps) {
         },
       },
       account: {
-        // S4-6: `encryptOAuthTokens` encrypts access/refresh tokens but Better Auth 1.7.12 stores the provider
+        // S4-6: `encryptOAuthTokens` encrypts access/refresh tokens but Better Auth 1.7 (re-checked on 1.7.14) stores the provider
         // `id_token` (a signed JWT with e-mail and name) in plain text. The product never reads it after the
         // callback, so it is never persisted.
         create: {

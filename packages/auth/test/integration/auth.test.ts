@@ -605,3 +605,65 @@ describe('10. concurrency through the transaction pooler', () => {
     expect(reads.filter((r) => r.expected !== r.got)).toHaveLength(0);
   });
 });
+
+describe('9. versioned keys keep enrolled factors across a key rotation (FR-AUTH-03, P3 S0 finding S0-1)', () => {
+  const address = email('erin');
+  const V2 = 'product-auth-suite-rotated-key-v2-0123456789abcdef';
+  const V3 = 'product-auth-suite-rotated-key-v3-0123456789abcdef';
+  let secret = '';
+  let id = '';
+
+  const challenge = async (instance: ReturnType<typeof makeAuth>['auth']) => {
+    const c = new Browser(instance);
+    const r = await c.req('/sign-in/email', { body: { email: address, password: PASSWORD } });
+    expect((r.json as { twoFactorRedirect?: boolean }).twoFactorRedirect).toBe(true);
+    return c;
+  };
+  const storedSecret = async () =>
+    (await q<{ secret: string }>('SELECT secret FROM identity.two_factors WHERE user_id = $1', [id]))[0]!
+      .secret;
+
+  beforeAll(async () => {
+    let b: Browser;
+    ({ b, id } = await verifiedUser(address));
+    const r = await b.req('/two-factor/enable', { body: { password: PASSWORD } });
+    secret = secretFromUri((r.json as { totpURI: string }).totpURI);
+    expect((await b.req('/two-factor/verify-totp', { body: { code: totp(secret) } })).status).toBe(200);
+  });
+
+  it('a factor enrolled under the single key is unlabelled and still verifies after a versioned key is added', async () => {
+    expect((await storedSecret()).startsWith('$ba$')).toBe(false);
+    const rotated = makeAuth({ secrets: [{ version: 2, value: V2 }] }).auth;
+    const c = await challenge(rotated);
+    expect((await c.req('/two-factor/verify-totp', { body: { code: totp(secret) } })).status).toBe(200);
+    expect(c.sessionCookieName()).toBeDefined();
+  });
+
+  it('a factor written under a versioned key is labelled with it and survives the next rotation', async () => {
+    const v2 = makeAuth({ secrets: [{ version: 2, value: V2 }] }).auth;
+    const b = await challenge(v2);
+    expect((await b.req('/two-factor/verify-totp', { body: { code: totp(secret) } })).status).toBe(200);
+    // Re-enrol under v2 (a signed-in user may turn 2FA off and on again), so the row is written with the v2 key.
+    expect((await b.req('/two-factor/disable', { body: { password: PASSWORD } })).status).toBe(200);
+    const r = await b.req('/two-factor/enable', { body: { password: PASSWORD } });
+    secret = secretFromUri((r.json as { totpURI: string }).totpURI);
+    expect((await b.req('/two-factor/verify-totp', { body: { code: totp(secret) } })).status).toBe(200);
+    expect((await storedSecret()).startsWith('$ba$2$')).toBe(true);
+
+    const v3 = makeAuth({
+      secrets: [
+        { version: 3, value: V3 },
+        { version: 2, value: V2 },
+      ],
+    }).auth;
+    const c = await challenge(v3);
+    expect((await c.req('/two-factor/verify-totp', { body: { code: totp(secret) } })).status).toBe(200);
+  });
+
+  it('a retired version can no longer read its factors (why a version is removed only after re-encryption)', async () => {
+    const v3Only = makeAuth({ secrets: [{ version: 3, value: V3 }] }).auth;
+    const c = await challenge(v3Only);
+    expect((await c.req('/two-factor/verify-totp', { body: { code: totp(secret) } })).status).not.toBe(200);
+    expect(c.sessionCookieName()).toBeUndefined();
+  });
+});

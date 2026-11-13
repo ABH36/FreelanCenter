@@ -28,7 +28,7 @@ Better Auth 1.7.12 + Prisma 7.10 (`adapter-pg`) through transaction-mode PgBounc
 | `account.encryptOAuthTokens: true`, plus dropping `id_token` in the account hooks | provider access/id tokens are otherwise stored in plain text (F-10); 1.7.12 never encrypts `id_token` (S4-6) |
 | `telemetry.enabled: false`                                                        | no undeclared processor                                                                                      |
 | plugin subpath imports only                                                       | the plugins barrel is very slow to load (F-8)                                                                |
-| exact version pin; re-run Spike F on every Better Auth upgrade                    | two unsafe defaults (F-1, F-2) were only visible by testing                                                  |
+| exact version pin (1.7.14 since P3); re-run Spike F on every Better Auth upgrade  | two unsafe defaults (F-1, F-2) were only visible by testing                                                  |
 
 ## Still not verified
 
@@ -51,6 +51,21 @@ Better Auth 1.7.12 issues a session on three paths its two-factor hook does not 
 - The session row exists for the milliseconds of the request, as in the plugin's password flow (`auth.session.created` and `auth.session.revoked` are written for it); it cannot be avoided because the callback treats a missing session as an error and could not then issue a challenge.
 - Evidence: `packages/auth/test/integration/google-2fa.test.ts` (product auth suite, 3x in CI; Google faked at `fetch` with a throw-away signing key), unit tests, and the live Google round trip in `docs/reports/PHASE_1_DG22_GOOGLE_TOTP.md`.
 - **Re-check on every Better Auth upgrade**, like S4-6 and S8-1: (a) whether the plugin now covers the callback itself (then remove the hook), (b) the list of session-creating paths (`grep createSession` in the package; the hook lists `/callback/`, `/sign-in/social`, `/verify-email`; anything new such as magic link, email OTP or passkey must be added or must not be enabled), (c) that the product suite's DG-22 tests still pass.
+
+## P3 addition: Better Auth 1.7.14 and versioned keys (pending the Owner's approval with the auth hardening report)
+
+- **Upgrade 1.7.12 → 1.7.14** (released 2026-10-26, past the SEC-13 two-week age; Dependabot #71). Spike F: 36/36 on four fresh-volume runs (`spikes/spike-f-better-auth/results/spike-f-results.json`). Product auth suite green, including the S8-1, S8-2/DG-22 and S4-6 tests. Re-checks required by this ADR:
+  - (a) The two-factor plugin still challenges only `/sign-in/email|username|phone-number`, so the DG-22 hook stays.
+  - (b) The same 18 files call `createSession` in both versions.
+  - (c) The `/two-factor/verify-totp` and `/verify-backup-code` endpoints are unchanged. The only new TOTP behaviour reads secrets imported as `base32:` from other providers, which is not used here.
+  - The other changed runtime files in our paths are refactors with no change in behaviour.
+- **Versioned keys** (`BETTER_AUTH_SECRETS`, Better Auth's `secrets` option), optional, with `BETTER_AUTH_SECRET` kept as the required legacy key:
+  - New ciphertext is labelled `$ba$<version>$`; unlabelled ciphertext still decrypts with the legacy key.
+  - A key can therefore be rotated without breaking enrolled factors.
+  - Mandatory: `loadAuthConfig` validates the variable strictly (format, unique versions, ≥ 32 characters, no key in error messages) and always passes it explicitly. Better Auth would otherwise read the environment variable unvalidated.
+  - Evidence: unit tests, product auth suite section 9 (a factor survives two rotations, and a retired version cannot read its factors).
+  - Runbook: module 01.
+  - Reason: P3 S0 finding S0-1. A factor enrolled under one key was unreadable under another, and the only way out was a manual reset.
 
 ## Consequences
 

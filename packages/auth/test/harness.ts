@@ -50,6 +50,7 @@ export function testConfig(overrides: Partial<AuthConfig> = {}): AuthConfig {
   return {
     baseURL: ORIGIN,
     secret: 'product-auth-suite-local-only-secret-0123456789',
+    secrets: null,
     appName: 'Platform',
     clientIpHeader: IP_HEADER,
     turnstileSecretKey: TURNSTILE_TEST_KEYS.secretPass,
