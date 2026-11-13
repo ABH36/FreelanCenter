@@ -5,10 +5,25 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    # SEC-13: a release is taken only once it is at least two weeks old (time for a bad or compromised release to be
+    # found and pulled). Dependabot itself waits, so its pull requests already respect the rule.
+    cooldown:
+      default-days: 14
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # The runtime is Node 22 (.nvmrc, engines). Node type definitions follow the runtime major, never run ahead.
+      - dependency-name: '@types/node'
+        update-types: [version-update:semver-major]
+      # ADR-001 pins TypeScript 5.9.3. A major (6.x) is a toolchain decision: evaluated in its own slice with an ADR
+      # note, not through a weekly bump.
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    # Actions stay pinned by commit SHA (DG-04); the same two-week rule applies.
+    cooldown:
+      default-days: 14
