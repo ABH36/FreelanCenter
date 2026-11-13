@@ -89,6 +89,10 @@ Harness: `tests/quality` runs the real `serveHost` from `apps/sites` over HTTP, 
 2. **Go-live plan for DG-27 and DG-28**, decided in `docs/governance/DASHBOARD_GO_LIVE_PLAN.md`: a private technical go-live first, which unblocks the in-region measurement and the live preview check; the public go-live needs DG-10 and DG-11. Please confirm.
 3. **Acceptance test** by the Owner through the Claude extension (`docs/reports/PHASE_2_ACCEPTANCE_TEST.md`): design review of the three templates, the preview-link journey and the dashboard, with the report sent back.
 
+## 7a. Acceptance test outcome (2026-11-13)
+
+The Owner ran four rounds through the Claude extension (`PHASE_2_ACCEPTANCE_TEST.md`). Every finding was answered: fixed with a test, or kept open by design with the reason (the phone menu stays open after a tap because tenant sites run no JavaScript; gallery captions come with the editor). After the run-4 fix the tester would send all three templates to a client. Owner decisions: brand **FreelanCenter**; the sender is named on expired and withdrawn preview pages. PR #61 merged; the two S10 migrations and template version 2 are live (section "Live application" of the acceptance report). **Condition C2 is closed** except real photography, which needs the Owner's photos.
+
 ## 8. Proposed verdict and exit conditions
 
 **Approved with conditions.** Phase 2 is complete as far as it can be without live traffic, a production dashboard and real content. The conditions are tracked, have an owner and cannot be closed by more code in Phase 2:
