@@ -4,6 +4,8 @@
 Code: [spikes/spike-f-better-auth](../../spikes/spike-f-better-auth) · Raw results: `spikes/spike-f-better-auth/results/spike-f-results.json`
 Reproduce: `cd spikes/spike-f-better-auth && pnpm spike:up && pnpm spike:generate && pnpm spike:test` (needs Docker).
 
+**Re-run 2026-11-13 (P3 auth hardening): Better Auth 1.7.14**, 36/36 on four fresh-volume runs; the pin in `package.json` and the version recorded in `results/spike-f-results.json` moved with it. The tables below describe the original 1.7.12 run.
+
 ## Question
 
 ADR-006 chose Better Auth as a working assumption but recorded as unverified: Prisma 7 compatibility, persistence that does not weaken the SRS 5.3 RLS pattern, TOTP, session rotation, and Next 16 integration. Phase 1 Task 0(b) and gap DG-05 require a proof of sign-up, email verification, login, OAuth, TOTP and rotation before auth schema work depends on it.

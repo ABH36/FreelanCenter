@@ -78,7 +78,7 @@ afterAll(async () => {
   fs.mkdirSync('results', { recursive: true });
   fs.writeFileSync(
     'results/spike-f-results.json',
-    JSON.stringify({ executedAt: new Date().toISOString(), betterAuth: '1.7.12', results }, null, 2) + '\n',
+    JSON.stringify({ executedAt: new Date().toISOString(), betterAuth: '1.7.14', results }, null, 2) + '\n',
   );
   await authDb.$disconnect();
   await appDb.$disconnect();

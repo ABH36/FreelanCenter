@@ -1,6 +1,6 @@
 {
-  "executedAt": "2026-10-22T12:30:36.025Z",
-  "betterAuth": "1.7.12",
+  "executedAt": "2026-11-13T18:04:28.414Z",
+  "betterAuth": "1.7.14",
   "results": {
     "roleSplit": {
       "app_user->identity.users": "42501",
@@ -23,8 +23,8 @@
     "httpsCookie": "__Secure-better-auth.session_token=<redacted>; Max-Age=604800; Path=/; HttpOnly; Secure; SameSite=Lax",
     "sessionTokenAtRest": "plain",
     "signInTimingMs": {
-      "existingMedian": 219,
-      "unknownMedian": 196
+      "existingMedian": 233,
+      "unknownMedian": 179
     },
     "totpLockout": {
       "wrongCodeStatuses": [
@@ -65,7 +65,7 @@
       "sessionReads": 120,
       "signInErrors": 0,
       "mismatches": 0,
-      "totalMs": 5133,
+      "totalMs": 7593,
       "poolSize": 2
     },
     "csrf": {
