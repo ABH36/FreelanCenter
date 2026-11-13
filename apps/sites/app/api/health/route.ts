@@ -6,7 +6,7 @@ const logger = createLogger({ app: 'sites' });
 
 export function GET(request: Request) {
   const correlationId = getCorrelationIdFromHeaders(request.headers);
-  const deploymentSurface = process.env.PLATFORM_DEPLOYMENT_SURFACE ?? 'local';
+  const deploymentSurface = process.env.PLATFORM_DEPLOYMENT_SURFACE ?? process.env.VERCEL_ENV ?? 'local';
 
   return runWithContext({ correlationId, app: 'sites', deploymentSurface }, () => {
     logger.info('Health check received', {

@@ -33,6 +33,7 @@ import {
   deriveInvitationKey,
 } from '@platform/workspaces';
 import { authRuntime, getSession, logger } from './auth';
+import { instrument } from './perf';
 
 /** Preference only (the last workspace opened); every request re-checks membership server-side (FR-AUTH-08). */
 export const ACTIVE_WORKSPACE_COOKIE = 'active_workspace';
@@ -117,7 +118,17 @@ function build(): WorkspaceRuntime {
   const audit = createAuditService({ db, logger });
   // P2 S6b: preview links are signed with the secret apps/sites verifies with; off when not configured.
   const templates = createTemplateService({ db, preview: previewSettingsFromEnv(process.env), logger });
-  return { service, projects, templates, notifications, audit, jobs, outbox, ready };
+  // DG-28: measured requests (x-perf-request) log the time of each service call; others are untouched.
+  return {
+    service: instrument(logger, 'workspaces', service),
+    projects: instrument(logger, 'projects', projects),
+    templates: instrument(logger, 'templates', templates),
+    notifications: instrument(logger, 'notifications', notifications),
+    audit: instrument(logger, 'audit', audit),
+    jobs,
+    outbox,
+    ready,
+  };
 }
 
 export function workspaceRuntime(): WorkspaceRuntime {

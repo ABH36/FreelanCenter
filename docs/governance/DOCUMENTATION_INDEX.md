@@ -24,7 +24,7 @@ If two documents conflict, stop and follow the higher-ranked source; raise an AD
 | -------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | P1 auth/workspace/db       | SRS §5.1/5.3/6.1–6.3; modules 01–03; ADR-003/006/007; Spike B; gap register; environment policy                |
 | Template/renderer          | SRS §5.2/6.4; module 04; ADR-004/009; security module; PHASE_2_REPORT and PHASE_2_ACCEPTANCE_TEST              |
-| Builder/publish            | SRS §6.5–6.6; modules 05–06; contracts; module 15; DASHBOARD_GO_LIVE_PLAN (P3 S0)                              |
+| Builder/publish            | SRS §6.5–6.6; modules 05–06; contracts; module 15; DASHBOARD_GO_LIVE_PLAN, PHASE_3_S0_PRIVATE_GO_LIVE          |
 | AI                         | SRS §8/6.7; module 07; ADR-008; Spike C; modules 03/15/16                                                      |
 | Onboarding/leads           | SRS §6.8–6.9; modules 08–09; contracts; privacy inventory                                                      |
 | Marketplace/billing        | SRS §6.10–6.11; modules 10–11; ADR-011; payment spike; module 15                                               |

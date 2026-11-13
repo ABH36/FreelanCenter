@@ -15,6 +15,7 @@ import {
   createCaptureProvider,
   createResendProvider,
 } from '@platform/providers';
+import { timed } from './perf';
 
 export const logger = createLogger({ app: 'dashboard' });
 
@@ -82,5 +83,5 @@ export const getSession = cache(async () => {
   // Read the request first: it marks the route dynamic, so nothing here runs during `next build`.
   const requestHeaders = await headers();
   const auth = await getAuth();
-  return auth.api.getSession({ headers: requestHeaders });
+  return timed(logger, 'auth.getSession', () => auth.api.getSession({ headers: requestHeaders }));
 });
