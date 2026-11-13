@@ -1,6 +1,6 @@
 # Phase 2 report: Template Engine and Renderer (final audit report)
 
-**Status:** all Phase 2 slices are merged except this one (S9); this is the report for the Phase 2 audit. **Proposed verdict: approved with conditions** (section 8), the same shape as Phases 0 and 1. Nothing is marked "verified" until the audit and the Owner's acceptance test. **Date:** 2026-11-12 · **Plan:** `docs/IMPLEMENTATION_PLAN.md`, Phase 2 · **Module:** `docs/modules/04-template-engine-renderer.md` · **SRS acceptance (section 12):** "a JSON config fetched from the DB renders a fully styled, responsive, accessible page with no per-site build; three templates meet NFR-PERF-03; malformed configs never crash (safe fallback and error report); schema migration test passes."
+**Status:** all Phase 2 slices are merged; **Phase 2 approved with conditions by the Owner on 2026-11-13** (section 7b), the same shape as Phases 0 and 1. Nothing is marked "verified" until the audit and the Owner's acceptance test. **Date:** 2026-11-12 · **Plan:** `docs/IMPLEMENTATION_PLAN.md`, Phase 2 · **Module:** `docs/modules/04-template-engine-renderer.md` · **SRS acceptance (section 12):** "a JSON config fetched from the DB renders a fully styled, responsive, accessible page with no per-site build; three templates meet NFR-PERF-03; malformed configs never crash (safe fallback and error report); schema migration test passes."
 
 ## 1. What Phase 2 delivers
 
@@ -92,6 +92,14 @@ Harness: `tests/quality` runs the real `serveHost` from `apps/sites` over HTTP, 
 ## 7a. Acceptance test outcome (2026-11-13)
 
 The Owner ran four rounds through the Claude extension (`PHASE_2_ACCEPTANCE_TEST.md`). Every finding was answered: fixed with a test, or kept open by design with the reason (the phone menu stays open after a tap because tenant sites run no JavaScript; gallery captions come with the editor). After the run-4 fix the tester would send all three templates to a client. Owner decisions: brand **FreelanCenter**; the sender is named on expired and withdrawn preview pages. PR #61 merged; the two S10 migrations and template version 2 are live (section "Live application" of the acceptance report). **Condition C2 is closed** except real photography, which needs the Owner's photos.
+
+## 7b. Owner decisions closing Phase 2 (2026-11-13)
+
+1. **FR-TPL-04 (C3): acknowledged, with a direction.** The Owner wants the design to be dynamic so each user can shape the look of their site. That is how the renderer already works: every site's theme (colours, fonts, radius, spacing, button style, motion) is compiled into CSS variables from that site's own configuration on every request, with no build; layouts come from 24 block variants and section backgrounds. What the user is missing is the controls: the theme editor (FR-BLD-04) and section management (FR-BLD-03) arrive in Phase 3, which will also widen the set of design tokens. Free-form custom CSS is not part of v1 (safety, accessibility and support cost); if wanted later it is a separate, reviewed decision. The static stylesheet stays; Tailwind is not needed on tenant sites.
+2. **Go-live plan approved:** Stage A (private technical go-live of the dashboard) is the first slice of Phase 3; it closes C1 (NFR-PERF-04 in region, a valid live preview link).
+3. **Real photography:** later, when the Owner has the photos.
+
+**Verdict: Phase 2 approved with conditions** (C1 in Phase 3 S0; C4 in Phase 3; C5 in Phase 5; photography when available).
 
 ## 8. Proposed verdict and exit conditions
 
