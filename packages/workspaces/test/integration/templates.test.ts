@@ -26,6 +26,7 @@ let adminRole: pg.Pool;
 let platformAdmin: { userId: string; sessionId: string };
 let slug: string;
 let templateId: string;
+const auditLog = (actor: string, workspaceId: string) => audit.listAuditLog(actor, workspaceId);
 const tokenOf = (url: string) => url.split('/p/')[1] as string;
 const code = async (p: Promise<unknown>) => {
   try {
@@ -226,29 +227,75 @@ const revokedAsVisitor = async (id: string) =>
   (await visitor.query<{ r: boolean }>('SELECT app.is_preview_link_revoked($1::uuid) AS r', [id])).rows[0]!.r;
 
 describe('revoking a link (P2 S8b)', () => {
-  it('the token carries the id of a stored row, which the list shows without the token or the name', async () => {
+  it('the list shows who each link is for and gives the same link again while it is active (P2 S10)', async () => {
     const ws = await workspaceWith();
     const link = await templates.createPreviewLink(ws.owner.id, {
       workspaceId: ws.id,
       templateId,
-      prospectName: 'Hidden Prospect',
+      prospectName: 'City Cabs Indore',
+      prospectCity: 'Indore',
       days: 3,
     });
     const verdict = verifyPreviewToken({ current: SECRET }, tokenOf(link.url));
-    expect(verdict.ok && verdict.claims.lid).toBe(link.id);
+    expect(verdict.ok && verdict.claims).toMatchObject({
+      lid: link.id,
+      name: 'City Cabs Indore',
+      city: 'Indore',
+    });
     const list = await templates.listPreviewLinks(ws.owner.id, ws.id);
     expect(list).toHaveLength(1);
     expect(list[0]).toMatchObject({
       id: link.id,
       templateName: 'Service Test Template',
       personalised: true,
+      prospectName: 'City Cabs Indore',
+      prospectCity: 'Indore',
       status: 'active',
       revokedAt: null,
     });
-    const dump = JSON.stringify(list);
-    expect(dump).not.toContain('Hidden Prospect');
-    expect(dump).not.toContain(tokenOf(link.url));
+    // Re-signed from the stored claims: exactly the link that was handed out (the token itself is never stored).
+    expect(list[0]!.url).toBe(link.url);
+    // The audit log still never holds the prospect or the link.
+    const audit = JSON.stringify((await auditLog(ws.owner.id, ws.id)).items);
+    expect(audit).not.toContain('City Cabs');
+    expect(audit).not.toContain(tokenOf(link.url));
     expect(await revokedAsVisitor(link.id)).toBe(false);
+  });
+
+  it('a turned-off or expired link is listed without a link to copy', async () => {
+    const ws = await workspaceWith();
+    const link = await templates.createPreviewLink(ws.owner.id, { workspaceId: ws.id, templateId, days: 1 });
+    await templates.revokePreviewLink(ws.owner.id, { workspaceId: ws.id, linkId: link.id });
+    expect((await templates.listPreviewLinks(ws.owner.id, ws.id))[0]).toMatchObject({
+      status: 'revoked',
+      url: null,
+    });
+  });
+
+  it('a city with markup is refused with a field message', async () => {
+    const ws = await workspaceWith();
+    expect(
+      await code(
+        templates.createPreviewLink(ws.owner.id, {
+          workspaceId: ws.id,
+          templateId,
+          prospectCity: '<b>x</b>',
+          days: 1,
+        }),
+      ),
+    ).toBe('INVALID_INPUT');
+  });
+
+  it('View demo: any member gets a one-hour link to the template as designed, with no stored row', async () => {
+    const ws = await workspaceWith(['viewer']);
+    const url = await templates.demoLink(ws.members.viewer!.id, ws.id, templateId);
+    const v = verifyPreviewToken({ current: SECRET }, tokenOf(url));
+    expect(v.ok && v.claims.exp - v.claims.iat).toBe(3600);
+    expect(v.ok && v.claims.lid).toBeUndefined();
+    expect(await templates.listPreviewLinks(ws.owner.id, ws.id)).toEqual([]);
+    const stranger = await createUser();
+    expect(await code(templates.demoLink(stranger.id, ws.id, templateId))).toBe('NOT_FOUND');
+    expect(await code(templates.demoLink(ws.owner.id, ws.id, 'nope'))).toBe('NOT_FOUND');
   });
 
   it('owner, admin and editor can revoke; visitors then see it revoked; the audit row names only the link', async () => {

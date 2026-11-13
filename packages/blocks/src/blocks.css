@@ -147,6 +147,34 @@
 .pb-bg-accent :focus-visible {
   outline-color: currentColor;
 }
+/* Surfaces on a coloured band: a card, a stat card or a full-bleed hero sits on the page's own surface or background, so
+   it keeps the page's text colours instead of the band's on-colour (which suits the band only). */
+.pb-card,
+.pb-stats--cards .pb-stat,
+.pb-hero--full-bleed {
+  color: var(--color-text);
+  --color-muted: var(--color-muted-base);
+}
+.pb-hero--full-bleed {
+  background: var(--color-background);
+}
+.pb-bg-primary :is(.pb-card, .pb-stats--cards .pb-stat, .pb-hero--full-bleed) a:not(.pb-btn),
+.pb-bg-secondary :is(.pb-card, .pb-stats--cards .pb-stat, .pb-hero--full-bleed) a:not(.pb-btn),
+.pb-bg-accent :is(.pb-card, .pb-stats--cards .pb-stat, .pb-hero--full-bleed) a:not(.pb-btn) {
+  color: var(--color-link);
+}
+.pb-bg-primary :is(.pb-card, .pb-stats--cards .pb-stat, .pb-hero--full-bleed) :focus-visible,
+.pb-bg-secondary :is(.pb-card, .pb-stats--cards .pb-stat, .pb-hero--full-bleed) :focus-visible,
+.pb-bg-accent :is(.pb-card, .pb-stats--cards .pb-stat, .pb-hero--full-bleed) :focus-visible {
+  outline-color: var(--color-text);
+}
+/* Big numbers of a plain stats row take the band's text colour (the primary colour would vanish on a primary band
+   and is too dim on a dark one). */
+.pb-bg-primary .pb-stats:not(.pb-stats--cards) .pb-stat dd,
+.pb-bg-secondary .pb-stats:not(.pb-stats--cards) .pb-stat dd,
+.pb-bg-accent .pb-stats:not(.pb-stats--cards) .pb-stat dd {
+  color: inherit;
+}
 .pb-fallback {
   background: var(--color-surface);
   border-block: 1px dashed var(--color-border);
@@ -209,6 +237,25 @@
 }
 .pb-image--placeholder {
   background: linear-gradient(135deg, var(--color-surface), var(--color-border));
+  display: grid;
+  place-items: center;
+}
+/* In a full-bleed hero the photo is behind the text: its hint sits in the corner, above the shading. */
+.pb-hero__bg .pb-image__hint {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 1;
+  opacity: 1;
+  border: 1px solid var(--color-border);
+}
+.pb-image__hint {
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  background: var(--color-background);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  opacity: 0.85;
 }
 
 /* Cards and grids */
@@ -238,6 +285,16 @@
 .pb-price {
   font-weight: 700;
   color: var(--color-text);
+}
+/* The amount never breaks; the period sits on its own line under it ("₹3,900" / "/ 3 months"). */
+.pb-price__amount {
+  white-space: nowrap;
+}
+.pb-price--big .pb-price__period {
+  display: block;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 400;
 }
 .pb-price--big {
   font-size: var(--text-2xl);
@@ -274,6 +331,19 @@
   .pb-services--icon-grid {
     grid-template-columns: repeat(auto-fit, minmax(max(12rem, calc((100% - 3.75rem) / 4)), 1fr));
   }
+  .pb-services--icon-grid:has(> :nth-child(5):last-child),
+  .pb-services--icon-grid:has(> :nth-child(6):last-child),
+  .pb-services--icon-grid:has(> :nth-child(9):last-child) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+/* Cards of a row start their text at the same height. */
+.pb-grid {
+  align-items: start;
+}
+.pb-grid > .pb-card {
+  height: 100%;
+  align-content: start;
 }
 .pb-services--list {
   grid-template-columns: 1fr;
@@ -304,6 +374,14 @@
 }
 .pb-quotes blockquote {
   margin: 0 0 1rem;
+}
+/* Browsers indent <figure> by 40 px; a review card has the same inner spacing as every other card. */
+.pb-quotes figure {
+  margin: 0;
+}
+.pb-quote__role {
+  display: block;
+  font-size: var(--text-sm);
 }
 .pb-stars {
   color: var(--color-accent);
@@ -459,9 +537,27 @@
 }
 .pb-faq__item summary {
   cursor: pointer;
-  padding: 1rem 0;
+  padding: 1rem 2.5rem 1rem 0;
   font-weight: 700;
   min-height: 2.75rem;
+  list-style: none;
+  position: relative;
+}
+.pb-faq__item summary::-webkit-details-marker {
+  display: none;
+}
+.pb-faq__item summary::after {
+  content: '+';
+  position: absolute;
+  right: 0.25rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--color-link);
+}
+.pb-faq__item[open] summary::after {
+  content: '−';
 }
 .pb-faq__item p {
   padding-bottom: 1rem;
@@ -709,6 +805,31 @@
   }
 }
 
+.pb-header:has(.pb-nav__mobile[open]) {
+  position: relative;
+}
+.pb-header__bar > .pb-btn {
+  white-space: nowrap;
+}
+/* On phones the contact bar at the bottom already carries the main action: the header keeps the business name
+   readable instead of squeezing it next to a second, wrapped button (acceptance run 3, N-2 and N-9). */
+@media (max-width: 899px) {
+  .pb-root:has(.pb-float) .pb-header__bar > .pb-btn {
+    display: none;
+  }
+}
+/* On large screens the round WhatsApp button sits in its own lane at the right edge, never on page content: only the
+   right padding grows, and only by what the empty margin beside the 72rem container does not already give
+   (acceptance run 4, R-1: the earlier rule grew on both sides as the window got narrower). */
+@media (min-width: 900px) {
+  .pb-root:has(.pb-float) .pb-container {
+    padding-inline-end: max(1.25rem, calc(5rem - max(0px, (100vw - 72rem) / 2)));
+  }
+}
+:where(.pb-root) [id] {
+  scroll-margin-top: 5rem;
+}
+
 /* Floating contact buttons */
 .pb-float {
   position: fixed;
@@ -735,7 +856,52 @@
   background: #0b7a3e;
 }
 .pb-float__btn--call {
-  background: #1d4ed8;
+  background: var(--color-primary);
+}
+:where(.pb-root) a.pb-float__btn--call {
+  color: var(--color-on-primary);
+}
+.pb-float__label {
+  font-weight: 700;
+}
+@media (max-width: 899px) {
+  .pb-float {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    flex-direction: row;
+    gap: 0;
+    box-shadow: 0 -2px 10px rgb(0 0 0 / 0.2);
+  }
+  .pb-float__btn {
+    flex: 1;
+    display: flex;
+    gap: 0.5rem;
+    width: auto;
+    height: 3.25rem;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .pb-float__btn .pb-icon {
+    width: 1.4rem;
+    height: 1.4rem;
+  }
+  .pb-root:has(.pb-float) {
+    padding-bottom: 3.25rem;
+  }
+}
+@media (min-width: 900px) {
+  .pb-float__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .pb-float__btn--call:not(:only-child) {
+    display: none;
+  }
 }
 .pb-float__btn .pb-icon {
   width: 1.75rem;
@@ -746,6 +912,19 @@
   .pb-header {
     display: none;
   }
+}
+
+.pb-sample {
+  display: inline-block;
+  margin: 0 0 0.4rem;
+  padding: 0.05rem 0.5rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+  margin-inline-end: 0.5rem;
 }
 
 /* Notice above the header (preview links: demo content, not a live website) */

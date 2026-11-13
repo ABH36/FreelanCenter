@@ -50,7 +50,12 @@ describe('expiry and lifetime', () => {
   it('expires exactly at exp and reports "expired" only for a validly signed token', () => {
     const t = mint({ lifetimeSeconds: 3600 });
     expect(verifyPreviewToken({ current: SECRET }, t, at(3599)).ok).toBe(true);
-    expect(verifyPreviewToken({ current: SECRET }, t, at(3600))).toEqual({ ok: false, reason: 'expired' });
+    // An expired verdict carries the (genuinely signed) claims, so the page can name who sent the link.
+    expect(verifyPreviewToken({ current: SECRET }, t, at(3600))).toMatchObject({
+      ok: false,
+      reason: 'expired',
+      claims: { tpl: TPL },
+    });
     expect(verifyPreviewToken({ current: OTHER }, t, at(99999))).toEqual({ ok: false, reason: 'signature' });
   });
 
@@ -203,5 +208,33 @@ describe('link id (P2 S8b)', () => {
         reason: 'malformed',
       });
     }
+  });
+});
+
+describe('prospect city and canonical encoding (P2 S10)', () => {
+  it('round-trips the city and refuses markup or over-long cities', () => {
+    const v = verifyPreviewToken({ current: SECRET }, mint({ prospectCity: '  Indore ' }), at(60));
+    expect(v.ok && v.claims.city).toBe('Indore');
+    expect(() => mint({ prospectCity: '<b>x</b>' })).toThrow(/city/);
+    expect(() => mint({ prospectCity: 'x'.repeat(41) })).toThrow(/city/);
+    const base = { tpl: TPL, iat: T0.getTime() / 1000, exp: T0.getTime() / 1000 + 3600 };
+    expect(verifyPreviewToken({ current: SECRET }, forge({ ...base, city: 7 }), at(60)).ok).toBe(false);
+  });
+  it('a different spelling of the same signature bytes (the spare bits of the last character) is refused', () => {
+    const token = mint();
+    const last = token.at(-1)!;
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+    const i = alphabet.indexOf(last);
+    // Same top bits, different spare bits: decodes to identical bytes.
+    const sibling = alphabet[(i & ~3) | ((i + 1) & 3)]!;
+    const variant = token.slice(0, -1) + sibling;
+    expect(Buffer.from(variant.split('.')[2]!, 'base64url')).toEqual(
+      Buffer.from(token.split('.')[2]!, 'base64url'),
+    );
+    expect(verifyPreviewToken({ current: SECRET }, token, at(60)).ok).toBe(true);
+    expect(verifyPreviewToken({ current: SECRET }, variant, at(60))).toEqual({
+      ok: false,
+      reason: 'malformed',
+    });
   });
 });

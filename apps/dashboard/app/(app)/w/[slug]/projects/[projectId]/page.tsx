@@ -52,7 +52,7 @@ export default async function ProjectPage({
           <StatusBadge status={project.status} />
         </div>
         <p className="mt-1 text-sm text-slate-600">
-          Address:{' '}
+          Site address (where the site will go live; nothing is published yet):{' '}
           {sub ? (
             <span className="font-mono" data-testid="project-address">
               {sub.hostname}
@@ -70,6 +70,14 @@ export default async function ProjectPage({
             </>
           ) : null}
         </p>
+        {ws.can['templates.preview'] ? (
+          <Link
+            href={`/w/${ws.slug}/templates?project=${project.id}`}
+            className="mt-3 inline-flex rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-50"
+          >
+            Share a template preview for {project.name}
+          </Link>
+        ) : null}
       </div>
 
       <Panel

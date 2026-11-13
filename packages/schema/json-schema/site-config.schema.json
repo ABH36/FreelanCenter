@@ -1033,6 +1033,10 @@
                           "type": "string",
                           "maxLength": 600
                         },
+                        "itemLabel": {
+                          "type": "string",
+                          "maxLength": 120
+                        },
                         "tiers": {
                           "maxItems": 6,
                           "type": "array",

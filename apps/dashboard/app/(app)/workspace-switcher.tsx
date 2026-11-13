@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useMenu } from '@/components/use-menu';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { switchWorkspaceAction } from '@/app/actions/workspaces';
@@ -16,14 +17,28 @@ export function currentSlug(pathname: string): string | null {
 }
 
 /** FR-AUTH-08: switch between memberships. Switching posts to the server, which re-checks membership. */
-export function WorkspaceSwitcher({ workspaces }: { workspaces: SwitcherItem[] }) {
+export function WorkspaceSwitcher({
+  workspaces,
+  fallbackSlug = null,
+}: {
+  workspaces: SwitcherItem[];
+  fallbackSlug?: string | null;
+}) {
   const [open, setOpen] = useState(false);
-  const slug = currentSlug(usePathname());
+  const pathname = usePathname();
+  const slug = currentSlug(pathname) ?? (pathname.startsWith('/settings') ? fallbackSlug : null);
   const current = workspaces.find((w) => w.slug === slug);
+  const root = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  useMenu(open, setOpen, root, button);
   return (
-    <div className="relative min-w-0">
+    <div ref={root} className="relative min-w-0">
       <button
+        ref={button}
         type="button"
+        aria-label={
+          current ? `Workspace: ${current.name} (${current.role}). Switch workspace` : 'Select a workspace'
+        }
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen(!open)}

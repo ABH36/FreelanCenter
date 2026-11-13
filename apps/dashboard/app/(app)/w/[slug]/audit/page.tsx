@@ -2,7 +2,45 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Panel } from '@/components/ui';
-import { auditService, currentWorkspace, requireUserId } from '@/lib/workspaces';
+import {
+  auditService,
+  currentWorkspace,
+  projectService,
+  requireUserId,
+  templateService,
+} from '@/lib/workspaces';
+
+/** Times in India Standard Time, the product's home time zone (acceptance C-15). */
+const ist = (d: Date) =>
+  d.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+
+/** Readable names for the events people look for most; the raw name is shown under it. */
+const ACTION_LABELS: Record<string, string> = {
+  'workspace.created': 'Workspace created',
+  'workspace.renamed': 'Workspace renamed',
+  'member.invited': 'Member invited',
+  'invitation.accepted': 'Invitation accepted',
+  'invitation.revoked': 'Invitation revoked',
+  'member.role_changed': 'Member role changed',
+  'member.removed': 'Member removed',
+  'project.created': 'Project created',
+  'project.updated': 'Project updated',
+  'project.transitioned': 'Project status changed',
+  'template.preview_link.created': 'Preview link created',
+  'template.preview_link.revoked': 'Preview link turned off',
+  'audit.exported': 'Audit log exported',
+};
+const actionLabel = (action: string) =>
+  ACTION_LABELS[action] ?? action.replace(/[._]/g, ' ').replace(/^./, (c) => c.toUpperCase());
 
 export const metadata: Metadata = { title: 'Audit log' };
 
@@ -31,6 +69,38 @@ export default async function AuditPage({
     service.listAuditLog(userId, ws.id, { ...filters, cursor: one(sp.cursor) }),
     service.listDeadLetters(userId, ws.id),
   ]);
+  // Names for the targets on this page (acceptance run 3, C-15): templates, the prospect of a preview link, projects.
+  // Looked up through the member's own services, so nothing outside the workspace can be named.
+  const names = new Map<string, string>();
+  const templates = await templateService();
+  for (const t of await templates.catalog(userId, ws.id)) names.set(t.templateId, t.name);
+  if (ws.can['templates.preview']) {
+    for (const l of await templates.listPreviewLinks(userId, ws.id)) {
+      names.set(l.id, `link for ${l.prospectName ?? 'a prospect'} (${l.templateName})`);
+    }
+  }
+  const projectIds = [...new Set(items.map((r) => r.projectId).filter((id): id is string => Boolean(id)))];
+  if (projectIds.length) {
+    for (const [id, name] of await (await projectService()).projectNames(userId, ws.id, projectIds))
+      names.set(id, name);
+  }
+  names.set(ws.id, ws.name);
+  const targetLabel = (_type: string | null, id: string | null) =>
+    id ? ` ${names.get(id) ?? id.slice(0, 8)}` : '';
+  /** Readable target kinds; a preview-link event names the link (and so the prospect) from its metadata. */
+  const TYPE_LABEL: Record<string, string> = {
+    template: 'Template',
+    template_preview_link: 'Preview link',
+    project: 'Project',
+    workspace: 'Workspace',
+    membership: 'Member',
+    invitation: 'Invitation',
+  };
+  const typeLabel = (type: string | null) => (type ? (TYPE_LABEL[type] ?? type.replace(/_/g, ' ')) : '—');
+  const linkOf = (metadata: unknown) => {
+    const id = (metadata as { linkId?: unknown } | null)?.linkId;
+    return typeof id === 'string' && names.has(id) ? ` · ${names.get(id)}` : '';
+  };
   const query = new URLSearchParams(Object.entries(filters).filter(([, v]) => v)).toString();
 
   return (
@@ -77,7 +147,7 @@ export default async function AuditPage({
         <table className="w-full min-w-[40rem] text-left text-sm">
           <thead className="bg-slate-50 text-xs text-slate-500">
             <tr>
-              <th className="px-3 py-2 font-medium">When (UTC)</th>
+              <th className="px-3 py-2 font-medium">When (IST)</th>
               <th className="px-3 py-2 font-medium">Action</th>
               <th className="px-3 py-2 font-medium">Result</th>
               <th className="px-3 py-2 font-medium">Who</th>
@@ -94,10 +164,11 @@ export default async function AuditPage({
             ) : (
               items.map((r) => (
                 <tr key={r.id}>
-                  <td className="px-3 py-2 whitespace-nowrap text-xs">
-                    {r.createdAt.toISOString().slice(0, 19).replace('T', ' ')}
+                  <td className="px-3 py-2 whitespace-nowrap text-xs">{ist(r.createdAt)}</td>
+                  <td className="px-3 py-2 text-xs">
+                    <span className="font-medium">{actionLabel(r.action)}</span>
+                    <span className="block font-mono text-[11px] text-slate-500">{r.action}</span>
                   </td>
-                  <td className="px-3 py-2 font-mono text-xs">{r.action}</td>
                   <td
                     className={`px-3 py-2 text-xs ${r.result === 'success' ? 'text-emerald-700' : 'text-red-700'}`}
                   >
@@ -109,10 +180,16 @@ export default async function AuditPage({
                   <td className="px-3 py-2 text-xs">
                     {r.projectId ? (
                       <Link href={`/w/${ws.slug}/projects/${r.projectId}`} className="hover:underline">
-                        {r.targetType}
+                        {typeLabel(r.targetType)}
+                        {targetLabel(r.targetType, r.targetId)}
+                        {linkOf(r.metadata)}
                       </Link>
                     ) : (
-                      (r.targetType ?? '—')
+                      <span className="break-words">
+                        {typeLabel(r.targetType)}
+                        {targetLabel(r.targetType, r.targetId)}
+                        {linkOf(r.metadata)}
+                      </span>
                     )}
                   </td>
                 </tr>
@@ -140,8 +217,8 @@ export default async function AuditPage({
           <ul className="space-y-1 text-xs">
             {letters.map((l) => (
               <li key={l.id}>
-                <span className="font-mono">{l.createdAt.toISOString().slice(0, 19).replace('T', ' ')}</span>{' '}
-                {l.functionId} {l.targetType ? `(${l.targetType})` : ''}: {l.error}
+                <span className="font-mono">{ist(l.createdAt)}</span> {l.functionId}{' '}
+                {l.targetType ? `(${l.targetType})` : ''}: {l.error}
               </li>
             ))}
           </ul>

@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: 'Projects' };
 
 type Search = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (typeof v === 'string' ? v : '');
-const inputClass = 'rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm';
+const inputClass = 'min-w-0 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm';
 
 /**
  * FR-PRJ-04: search, filters and pages are plain GET parameters (bookmarkable, no JS needed). The service
@@ -52,58 +52,65 @@ export default async function ProjectsPage({
         ) : null}
       </div>
 
-      <form
-        method="get"
-        className="flex flex-wrap items-end gap-2"
-        role="search"
-        aria-label="Filter projects"
-      >
-        <input
-          name="q"
-          defaultValue={filters.q}
-          placeholder="Search name or city"
-          aria-label="Search"
-          className={inputClass}
-        />
-        <input
-          name="client"
-          defaultValue={filters.client}
-          placeholder="Client name, phone, e-mail"
-          aria-label="Client"
-          className={inputClass}
-        />
-        <select name="status" defaultValue={filters.status} aria-label="Status" className={inputClass}>
-          <option value="active">All but archived</option>
-          <option value="all">Everything</option>
-          {PROJECT_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {STATUS_LABEL[s]}
-            </option>
-          ))}
-        </select>
-        <select name="category" defaultValue={filters.category} aria-label="Category" className={inputClass}>
-          <option value="">Any category</option>
-          {Object.entries(PROJECT_CATEGORIES).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-        <button
-          type="submit"
-          className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-50"
+      {items.length === 0 && !filtered && !filters.cursor ? null : (
+        <form
+          method="get"
+          className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto_auto_auto]"
+          role="search"
+          aria-label="Filter projects"
         >
-          Apply
-        </button>
-        {filtered ? (
-          <Link
-            href={`/w/${ws.slug}/projects`}
-            className="px-2 py-1.5 text-sm text-slate-600 hover:underline"
+          <input
+            name="q"
+            defaultValue={filters.q}
+            placeholder="Search name or city"
+            aria-label="Search"
+            className={inputClass}
+          />
+          <input
+            name="client"
+            defaultValue={filters.client}
+            placeholder="Client name or phone"
+            aria-label="Client"
+            className={inputClass}
+          />
+          <select name="status" defaultValue={filters.status} aria-label="Status" className={inputClass}>
+            <option value="active">All but archived</option>
+            <option value="all">Everything</option>
+            {PROJECT_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {STATUS_LABEL[s]}
+              </option>
+            ))}
+          </select>
+          <select
+            name="category"
+            defaultValue={filters.category}
+            aria-label="Category"
+            className={inputClass}
           >
-            Clear
-          </Link>
-        ) : null}
-      </form>
+            <option value="">Any category</option>
+            {Object.entries(PROJECT_CATEGORIES).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <button
+            type="submit"
+            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-50"
+          >
+            Apply
+          </button>
+          {filtered ? (
+            <Link
+              href={`/w/${ws.slug}/projects`}
+              className="px-2 py-1.5 text-sm text-slate-600 hover:underline"
+            >
+              Clear
+            </Link>
+          ) : null}
+        </form>
+      )}
 
       {items.length === 0 ? (
         <EmptyState
@@ -112,6 +119,16 @@ export default async function ProjectsPage({
             filtered || filters.cursor
               ? 'Try other filters.'
               : `Each project is one client's website in ${ws.name}. It gets its own address right away.`
+          }
+          action={
+            !filtered && !filters.cursor && ws.can['projects.create'] && ws.scope.writable ? (
+              <Link
+                href={`/w/${ws.slug}/projects/new`}
+                className="rounded-md bg-[var(--color-primary)] px-3 py-2 text-sm font-medium text-white hover:opacity-90"
+              >
+                Add your first project
+              </Link>
+            ) : undefined
           }
         />
       ) : (

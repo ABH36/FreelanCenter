@@ -43,6 +43,16 @@ const en = {
   notFoundText: 'The page you are looking for does not exist or has moved.',
   backHome: 'Back to the home page',
   previewBanner: 'Preview of the "{name}" template: demo content, not a live website.',
+  previewBannerFor:
+    'Website preview for "{prospect}": sample content based on the "{name}" template, not a live website yet.',
+  open247: 'Open 24 hours, 7 days a week',
+  sample: 'Sample',
+  photoHere: 'Your photo here',
+  whatsappGreeting: 'Hi {name}, I found your website and would like to know more.',
+  whatsappTaxi: 'Hi {name}, I need a cab from ___ to ___ on ___ at ___.',
+  whatsappGym: 'Hi {name}, I would like to book a free trial class.',
+  whatsappEvent: 'Hi {name}, we are planning an event on ___ in ___ for about ___ guests.',
+  whatsappPlan: 'Hi {name}, I am interested in the {plan} plan.',
 } as const;
 
 export type StringKey = keyof typeof en;
@@ -85,6 +95,16 @@ const hi: Record<StringKey, string> = {
   notFoundText: 'आप जो पेज ढूँढ रहे हैं वह मौजूद नहीं है या हटा दिया गया है।',
   backHome: 'होम पेज पर वापस जाएँ',
   previewBanner: '"{name}" टेम्पलेट का प्रीव्यू: डेमो सामग्री, लाइव वेबसाइट नहीं।',
+  previewBannerFor:
+    '"{prospect}" के लिए वेबसाइट प्रीव्यू: "{name}" टेम्पलेट पर आधारित नमूना सामग्री, अभी लाइव वेबसाइट नहीं।',
+  open247: '24 घंटे, सातों दिन खुला',
+  sample: 'नमूना',
+  photoHere: 'आपकी फ़ोटो यहाँ',
+  whatsappGreeting: 'नमस्ते {name}, मैंने आपकी वेबसाइट देखी और मुझे और जानकारी चाहिए।',
+  whatsappTaxi: 'नमस्ते {name}, मुझे ___ से ___ तक ___ को ___ बजे कैब चाहिए।',
+  whatsappGym: 'नमस्ते {name}, मैं एक फ़्री ट्रायल क्लास बुक करना चाहता/चाहती हूँ।',
+  whatsappEvent: 'नमस्ते {name}, हम ___ को ___ में लगभग ___ मेहमानों के लिए कार्यक्रम की योजना बना रहे हैं।',
+  whatsappPlan: 'नमस्ते {name}, मुझे {plan} प्लान में रुचि है।',
 };
 
 export const STRINGS: Record<Locale, Record<StringKey, string>> = { en, hi };

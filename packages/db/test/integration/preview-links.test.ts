@@ -231,3 +231,75 @@ describe('the visitor role (app_public)', () => {
     }
   });
 });
+
+describe('who a link was made for (P2 S10)', () => {
+  const makeFor = (prospectName: string | null, prospectCity: string | null) =>
+    db.withTenant(A.scope, async (tx) => {
+      const id = uuidv7();
+      await tx.templatePreviewLink.create({
+        data: {
+          id,
+          workspaceId: A.scope.workspaceId,
+          templateId,
+          createdBy: A.scope.actorUserId,
+          personalised: prospectName !== null,
+          prospectName,
+          prospectCity,
+          expiresAt: new Date(Date.now() + 86_400_000),
+        },
+        select: { id: true },
+      });
+      return id;
+    });
+
+  it('stores the prospect name and city, bounded and without markup (23514)', async () => {
+    const id = await makeFor('City Cabs Indore', 'Indore');
+    const row = await db.withTenant(A.scope, (tx) => tx.templatePreviewLink.findFirst({ where: { id } }));
+    expect(row).toMatchObject({ prospectName: 'City Cabs Indore', prospectCity: 'Indore' });
+    await expectPgError(makeFor('x'.repeat(61), null), '23514');
+    await expectPgError(makeFor('<b>x</b>', null), '23514');
+    await expectPgError(makeFor(null, 'y'.repeat(41)), '23514');
+  });
+
+  it('cannot be changed afterwards, not even by the link owner (42501)', async () => {
+    const id = await makeFor('Sharma Fitness', 'Pune');
+    await expectPgError(
+      db.withTenant(A.scope, (tx) =>
+        tx.templatePreviewLink.update({ where: { id }, data: { prospectName: 'Other' } }),
+      ),
+      '42501',
+    );
+  });
+
+  it('another workspace never sees it', async () => {
+    const id = await makeFor('Private Prospect', 'Indore');
+    expect(await db.withTenant(B.scope, (tx) => tx.templatePreviewLink.findMany({ where: { id } }))).toEqual(
+      [],
+    );
+  });
+});
+
+describe('who sent a link (P2 S10, acceptance C-25)', () => {
+  it('the visitor role gets the workspace name for a link, and nothing for an unknown id', async () => {
+    const id = await make(A.scope);
+    const { rows } = await visitor.query<{ name: string | null }>(
+      'SELECT app.preview_link_sender($1::uuid) AS name',
+      [id],
+    );
+    const own = await db.withTenant(A.scope, (tx) => tx.workspace.findFirst({ select: { name: true } }));
+    expect(rows[0]!.name).toBe(own!.name);
+    const none = await visitor.query<{ name: string | null }>(
+      'SELECT app.preview_link_sender($1::uuid) AS name',
+      [uuidv7()],
+    );
+    expect(none.rows[0]!.name).toBeNull();
+  });
+  it('app_user cannot call it (EXECUTE is granted to app_public only)', async () => {
+    const app = pool(urls.app, 1);
+    try {
+      await expectPgError(app.query('SELECT app.preview_link_sender($1::uuid)', [uuidv7()]), '42501');
+    } finally {
+      await app.end();
+    }
+  });
+});

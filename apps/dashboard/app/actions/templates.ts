@@ -21,16 +21,18 @@ export async function createPreviewLinkAction(_prev: ActionState, form: FormData
       workspaceId: field(form, 'workspaceId'),
       templateId: field(form, 'templateId'),
       prospectName: field(form, 'prospectName'),
+      prospectCity: field(form, 'prospectCity'),
       days: field(form, 'days'),
     });
     revalidatePath('/', 'layout');
+    const prospect = field(form, 'prospectName').trim();
     const until = new Date(link.expiresAt).toLocaleDateString('en-IN', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
     });
     return {
-      ok: `Link ready for "${link.templateName}". It works until ${until}.`,
+      ok: `Link ready${prospect ? ` for ${prospect}` : ''} (${link.templateName}). It works until ${until}. Copy it below; it also stays in Your preview links.`,
       link: link.url,
       linkLabel: 'Preview link',
       linkNote:

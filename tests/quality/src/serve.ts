@@ -22,25 +22,30 @@ const PORT = Number(process.env.QUALITY_PORT ?? 4010);
 
 type Config = { business: Record<string, unknown>; pages: Record<string, unknown>[] };
 
+const BACKGROUNDS = ['none', 'surface', 'primary', 'secondary', 'accent'] as const;
+
 /**
- * Every block variant in the registry on one extra page (`/all-blocks`), so axe and the screenshots cover all of them under
- * each template's theme, not just the variants the three templates happen to use. `<slug>-hi` is the same site in Hindi.
+ * Every block variant in the registry on extra pages, so axe and the screenshots cover all of them under each
+ * template's theme, not just the variants the three templates happen to use: `/all-blocks` on the page background and
+ * `/all-blocks-<tone>` with every section on a surface, primary, secondary or accent band (text colours must hold on
+ * each). `<slug>-hi` is the same site in Hindi.
  */
 function withGallery(config: Config, language: 'en' | 'hi'): Config {
-  const sections = registry.list().flatMap((def) =>
-    def.variants.map((v) => ({
-      id: `${def.type}-${v.id}`,
-      type: def.type,
-      variant: v.id,
-      visible: true,
-      props: def.defaults(v.id),
-    })),
-  );
-  return {
-    ...config,
-    business: { ...config.business, language },
-    pages: [...config.pages, { id: 'all-blocks', path: '/all-blocks', title: 'All blocks', sections }],
-  };
+  const pages = BACKGROUNDS.map((bg) => {
+    const name = bg === 'none' ? 'all-blocks' : `all-blocks-${bg}`;
+    const sections = registry.list().flatMap((def) =>
+      def.variants.map((v) => ({
+        id: `${def.type}-${v.id}${bg === 'none' ? '' : `-${bg}`}`,
+        type: def.type,
+        variant: v.id,
+        visible: true,
+        props: def.defaults(v.id),
+        ...(bg === 'none' ? {} : { style: { bg } }),
+      })),
+    );
+    return { id: name, path: `/${name}`, title: 'All blocks', sections };
+  });
+  return { ...config, business: { ...config.business, language }, pages: [...config.pages, ...pages] };
 }
 
 const bySlug = new Map<string, unknown>();

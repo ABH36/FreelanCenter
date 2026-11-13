@@ -30,7 +30,7 @@ export default async function HomePage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Welcome{firstName ? `, ${firstName}` : ''}</h1>
         <p className="mt-1 text-sm text-slate-600">
-          A workspace holds your team, client projects and billing. Create one to get started, or open an
+          A workspace holds your team and your client projects. Create one to get started, or open an
           invitation link you received.
         </p>
       </div>

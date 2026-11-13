@@ -50,7 +50,7 @@
             }
           ],
           "social": {
-            "instagram": "https://instagram.com/example",
+            "instagram": "",
             "facebook": "",
             "youtube": ""
           }
@@ -58,7 +58,7 @@
         "theme": {
           "colors": {
             "primary": "#E11D2E",
-            "secondary": "#111827",
+            "secondary": "#15151C",
             "accent": "#FACC15",
             "background": "#0B0B0F",
             "surface": "#15151C",
@@ -95,11 +95,11 @@
               {
                 "id": "hero",
                 "type": "hero",
-                "variant": "split-image",
+                "variant": "centered",
                 "visible": true,
                 "props": {
                   "headline": "Build strength that lasts",
-                  "subheadline": "Coached training, serious equipment and a community that shows up. Walk in for a free trial class today.",
+                  "subheadline": "Coached training, serious equipment and a community that shows up, right here in Indore. Walk in for a free trial class today.",
                   "primaryCta": {
                     "label": "Book a free trial",
                     "action": "whatsapp"
@@ -108,10 +108,6 @@
                     "label": "See plans",
                     "action": "scroll",
                     "target": "#pricing"
-                  },
-                  "image": {
-                    "assetId": "gym-hero",
-                    "alt": "Members training with free weights in a bright gym"
                   }
                 },
                 "style": {
@@ -244,7 +240,7 @@
                   "tiers": [
                     {
                       "name": "Monthly",
-                      "price": "Rs 1,500",
+                      "price": "₹1,500",
                       "period": "month",
                       "features": [
                         "Full gym access",
@@ -258,7 +254,7 @@
                     },
                     {
                       "name": "Quarterly",
-                      "price": "Rs 3,900",
+                      "price": "₹3,900",
                       "period": "3 months",
                       "features": [
                         "Everything in Monthly",
@@ -273,7 +269,7 @@
                     },
                     {
                       "name": "Annual",
-                      "price": "Rs 12,000",
+                      "price": "₹12,000",
                       "period": "year",
                       "features": [
                         "Everything in Quarterly",
@@ -300,12 +296,12 @@
                   "heading": "Meet your coaches",
                   "members": [
                     {
-                      "name": "Rohit Sharma",
+                      "name": "Arjun Mehta",
                       "role": "Head coach, strength",
                       "bio": "National-level powerlifter with ten years of coaching.",
                       "image": {
                         "assetId": "gym-coach-1",
-                        "alt": "Rohit, head strength coach"
+                        "alt": "Arjun, head strength coach"
                       }
                     },
                     {
@@ -318,12 +314,12 @@
                       }
                     },
                     {
-                      "name": "Imran Khan",
+                      "name": "Farhan Siddiqui",
                       "role": "Nutrition and fat loss",
                       "bio": "Builds practical meal plans around home food.",
                       "image": {
                         "assetId": "gym-coach-3",
-                        "alt": "Imran, nutrition coach"
+                        "alt": "Farhan, nutrition coach"
                       }
                     }
                   ]
@@ -614,14 +610,6 @@
             "maxLength": 600
           },
           {
-            "key": "hero-photo",
-            "label": "Main photo",
-            "help": "A bright photo of your gym floor.",
-            "kind": "image",
-            "path": "pages.0.sections.0.props.image",
-            "required": false
-          },
-          {
             "key": "services",
             "label": "Your programmes",
             "kind": "list",
@@ -740,7 +728,7 @@
           }
         ]
       },
-      "contentHash": "818100aa5309925719ef7f93088ccbc5aa6669f93084138bfeaf7ee177a9e1df"
+      "contentHash": "ff5d146faebedf1fed1329058800f54701cc997e9148c27a52766ba33a882888"
     },
     {
       "slug": "taxi-quick",
@@ -786,7 +774,7 @@
           ],
           "social": {
             "instagram": "",
-            "facebook": "https://facebook.com/example",
+            "facebook": "",
             "youtube": ""
           }
         },
@@ -830,7 +818,7 @@
               {
                 "id": "hero",
                 "type": "hero",
-                "variant": "full-bleed",
+                "variant": "split-image",
                 "visible": true,
                 "props": {
                   "headline": "Reliable cabs, on time, every time",
@@ -957,7 +945,7 @@
               {
                 "id": "review",
                 "type": "testimonials",
-                "variant": "single",
+                "variant": "cards",
                 "visible": true,
                 "props": {
                   "heading": "Riders recommend us",
@@ -967,6 +955,18 @@
                       "author": "Meera T.",
                       "role": "Airport transfer",
                       "rating": 5
+                    },
+                    {
+                      "quote": "Booked an outstation trip for the family. Fixed fare, clean car, and the driver knew every halt on the way.",
+                      "author": "Sanjay P.",
+                      "role": "Outstation trip",
+                      "rating": 5
+                    },
+                    {
+                      "quote": "I use them for office runs every week. Always on time, and the bill is exactly what was quoted.",
+                      "author": "Neha K.",
+                      "role": "City rides",
+                      "rating": 4
                     }
                   ]
                 },
@@ -1030,10 +1030,11 @@
                 "props": {
                   "heading": "Our rates",
                   "intro": "Per-kilometre rates for outstation trips. City and airport fares are fixed by route; ask us for a quote.",
+                  "itemLabel": "Car",
                   "tiers": [
                     {
                       "name": "Hatchback",
-                      "price": "Rs 11",
+                      "price": "₹11",
                       "period": "km",
                       "features": [
                         "4 seats",
@@ -1043,7 +1044,7 @@
                     },
                     {
                       "name": "Sedan",
-                      "price": "Rs 13",
+                      "price": "₹13",
                       "period": "km",
                       "features": [
                         "4 seats",
@@ -1053,7 +1054,7 @@
                     },
                     {
                       "name": "SUV",
-                      "price": "Rs 18",
+                      "price": "₹18",
                       "period": "km",
                       "features": [
                         "6 to 7 seats",
@@ -1370,13 +1371,13 @@
           }
         ]
       },
-      "contentHash": "b12b3dcd3db0763a7196e515e49b3abed022493a99885abb8576dbd96ece74a5"
+      "contentHash": "5171bd38657fedb51aae7afe577dd8dd3f4924dbfa0d7ff629f9620a37190b92"
     },
     {
       "slug": "wedding-royal",
       "name": "Wedding Royal",
       "category": "wedding-event",
-      "description": "An elegant, photo-led two-page site for wedding and event planners with a gallery and a consultation form.",
+      "description": "An elegant, photo-led two-page site for wedding and event planners, with a hero photo, a gallery page and free-consultation booking on WhatsApp.",
       "schemaVersion": "1.0",
       "config": {
         "schemaVersion": "1.0",
@@ -1421,8 +1422,8 @@
             }
           ],
           "social": {
-            "instagram": "https://instagram.com/example",
-            "facebook": "https://facebook.com/example",
+            "instagram": "",
+            "facebook": "",
             "youtube": ""
           }
         },
@@ -1466,19 +1467,23 @@
               {
                 "id": "hero",
                 "type": "hero",
-                "variant": "centered",
+                "variant": "full-bleed",
                 "visible": true,
                 "props": {
                   "headline": "Your wedding, planned with love",
                   "subheadline": "From the first meeting to the last dance, we design, decorate and run your celebration so your family can enjoy every moment.",
                   "primaryCta": {
-                    "label": "Plan a consultation",
+                    "label": "Book a free consultation",
                     "action": "whatsapp"
                   },
                   "secondaryCta": {
                     "label": "See our work",
                     "action": "link",
                     "target": "/gallery"
+                  },
+                  "image": {
+                    "assetId": "wedding-hero",
+                    "alt": "A couple during their pheras under a decorated mandap"
                   }
                 },
                 "style": {
@@ -1557,7 +1562,7 @@
               {
                 "id": "work",
                 "type": "gallery",
-                "variant": "masonry",
+                "variant": "grid",
                 "visible": true,
                 "props": {
                   "heading": "A few of our celebrations",
@@ -1746,7 +1751,7 @@
                   "headline": "Like what you see?",
                   "subheadline": "Tell us about your date and we will share ideas that fit your family.",
                   "cta": {
-                    "label": "Message us",
+                    "label": "Book a free consultation",
                     "action": "whatsapp"
                   }
                 },
@@ -1778,7 +1783,7 @@
             }
           ],
           "cta": {
-            "label": "Free consultation",
+            "label": "Book a free consultation",
             "action": "whatsapp"
           }
         },
@@ -1917,6 +1922,14 @@
             "maxLength": 600
           },
           {
+            "key": "hero-photo",
+            "label": "Main photo",
+            "help": "Your most beautiful wedding photo; it fills the top of the site.",
+            "kind": "image",
+            "path": "pages.0.sections.0.props.image",
+            "required": false
+          },
+          {
             "key": "services",
             "label": "Services you offer",
             "kind": "list",
@@ -1990,7 +2003,7 @@
           }
         ]
       },
-      "contentHash": "bdf1b6284b8d11ed469a3f96a85b7fe63c623da7132a1787ff187f1e5f6ca71e"
+      "contentHash": "9f9b946f078740973af0157599c89fe09465fb95bef5d4f4fe86945ac1c293fb"
     }
   ]
 }

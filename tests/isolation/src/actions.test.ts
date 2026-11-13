@@ -227,6 +227,7 @@ const CALLS: Record<string, (actor: string, s: Selectors) => Promise<unknown>> =
   revokePreviewLink: (a, s) =>
     templates.revokePreviewLink(a, { workspaceId: s.workspaceId, linkId: s.previewLinkId }),
   listPreviewLinks: (a, s) => templates.listPreviewLinks(a, s.workspaceId),
+  demoLink: (a, s) => templates.demoLink(a, s.workspaceId, catalogTemplateId),
   catalog: (a, s) => templates.catalog(a, s.workspaceId),
   listProjects: (a, s) => projects.listProjects(a, s.workspaceId),
   getProject: (a, s) => projects.getProject(a, s.workspaceId, s.projectId),
@@ -240,6 +241,7 @@ const CALLS: Record<string, (actor: string, s: Selectors) => Promise<unknown>> =
 };
 const READS = new Set([
   'listPreviewLinks',
+  'demoLink',
   'invitationLink',
   'resolveBySlug',
   'listMembers',

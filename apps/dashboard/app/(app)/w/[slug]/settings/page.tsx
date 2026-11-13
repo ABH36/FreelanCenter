@@ -18,7 +18,14 @@ export default async function SettingsPage({ params }: { params: Promise<{ slug:
           <dt className="text-slate-500">Address</dt>
           <dd className="font-mono">/w/{ws.slug}</dd>
           <dt className="text-slate-500">Created</dt>
-          <dd>{ws.createdAt.toUTCString()}</dd>
+          <dd>
+            {ws.createdAt.toLocaleString('en-IN', {
+              timeZone: 'Asia/Kolkata',
+              dateStyle: 'medium',
+              timeStyle: 'short',
+            })}{' '}
+            IST
+          </dd>
         </dl>
         {ws.can['workspace.update'] && writable ? (
           <ActionForm
@@ -40,7 +47,8 @@ export default async function SettingsPage({ params }: { params: Promise<{ slug:
 
       {ws.can['workspace.delete'] ? (
         <Panel
-          title="Delete workspace"
+          tone="danger"
+          title="Danger zone: delete workspace"
           description="Deletion is scheduled 30 days ahead. Until then the workspace is read-only and you can cancel. After that its projects, sites and data are purged."
         >
           {ws.deletionScheduledFor ? (

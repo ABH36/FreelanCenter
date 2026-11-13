@@ -4,9 +4,9 @@ import { usePathname } from 'next/navigation';
 import { currentSlug } from './workspace-switcher';
 
 /** Workspace items appear inside a workspace route; the account item is always there. */
-export function AppNav() {
+export function AppNav({ fallbackSlug = null }: { fallbackSlug?: string | null }) {
   const pathname = usePathname();
-  const slug = currentSlug(pathname);
+  const slug = currentSlug(pathname) ?? (pathname.startsWith('/settings') ? fallbackSlug : null);
   const items = [
     ...(slug
       ? [
@@ -21,7 +21,10 @@ export function AppNav() {
     { href: '/settings/security', label: 'Account security', exact: false },
   ];
   return (
-    <nav aria-label="Main" className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-col md:pb-0">
+    <nav
+      aria-label="Main"
+      className="flex gap-1 overflow-x-auto px-3 pb-3 [mask-image:linear-gradient(to_right,black_85%,transparent)] md:flex-col md:pb-0 md:[mask-image:none]"
+    >
       {items.map((item) => {
         const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
         return (

@@ -53,3 +53,4 @@ apps/sites/public/fonts/
 tests/quality/.cache/
 tests/quality/test-results/
 tests/quality/playwright-report/
+.next-acceptance/

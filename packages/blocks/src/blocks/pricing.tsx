@@ -17,6 +17,13 @@ export const pricing: BlockDefinition<PropsOf<'pricing'>> = {
     { path: 'heading', label: 'Heading', kind: 'text', maxLength: 120 },
     { path: 'intro', label: 'Introduction', kind: 'longtext', maxLength: 600 },
     {
+      path: 'itemLabel',
+      label: 'First column heading (table)',
+      kind: 'text',
+      maxLength: 120,
+      help: 'What the rows are, for example Car or Course. Default: Plan.',
+    },
+    {
       path: 'tiers',
       required: true,
       label: 'Plans',
@@ -66,7 +73,7 @@ export const pricing: BlockDefinition<PropsOf<'pricing'>> = {
             <table className="pb-table">
               <thead>
                 <tr>
-                  <th scope="col">{t(ctx.locale, 'plan')}</th>
+                  <th scope="col">{props.itemLabel ?? t(ctx.locale, 'plan')}</th>
                   <th scope="col">{t(ctx.locale, 'price')}</th>
                   <th scope="col">{t(ctx.locale, 'included')}</th>
                 </tr>
@@ -97,8 +104,8 @@ export const pricing: BlockDefinition<PropsOf<'pricing'>> = {
               {tier.highlighted ? <p className="pb-badge">{t(ctx.locale, 'recommended')}</p> : null}
               <h3 className="pb-h3">{tier.name}</h3>
               <p className="pb-price pb-price--big">
-                {tier.price}
-                {tier.period ? <span className="pb-muted"> / {tier.period}</span> : null}
+                <span className="pb-price__amount">{tier.price}</span>
+                {tier.period ? <span className="pb-price__period pb-muted"> / {tier.period}</span> : null}
               </p>
               <ul className="pb-checks">
                 {tier.features.map((f, j) => (
@@ -108,7 +115,12 @@ export const pricing: BlockDefinition<PropsOf<'pricing'>> = {
                   </li>
                 ))}
               </ul>
-              <CtaButton cta={tier.cta} ctx={ctx} variant={tier.highlighted ? 'primary' : 'secondary'} />
+              <CtaButton
+                cta={tier.cta}
+                ctx={ctx}
+                variant={tier.highlighted ? 'primary' : 'secondary'}
+                plan={tier.name}
+              />
             </li>
           ))}
         </ul>

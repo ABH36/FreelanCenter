@@ -96,7 +96,7 @@ export function loadAuthConfig(env: Record<string, string | undefined> = process
   return {
     baseURL,
     secret,
-    appName: env.APP_NAME?.trim() || 'Platform',
+    appName: env.APP_NAME?.trim() || 'FreelanCenter',
     clientIpHeader,
     turnstileSecretKey,
     google: googleId && googleSecret ? { clientId: googleId, clientSecret: googleSecret } : null,

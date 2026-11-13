@@ -46,7 +46,7 @@ describe('visitor role app_public', () => {
     }
   });
 
-  it('app_public executes exactly the host resolver, the two read-only catalogue functions and the preview-link revocation check, with narrow result shapes', async () => {
+  it('app_public executes exactly the host resolver, the two read-only catalogue functions and the two preview-link functions, with narrow result shapes', async () => {
     const { rows } = await w.admin.query<{ fn: string; result: string }>(
       `SELECT n.nspname || '.' || p.proname AS fn, pg_get_function_result(p.oid) AS result
          FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
@@ -67,6 +67,7 @@ describe('visitor role app_public', () => {
         result:
           'TABLE(template_id uuid, slug text, name text, category text, description text, visibility text, version integer, content_hash text, updated_at timestamp with time zone)',
       },
+      { fn: 'app.preview_link_sender', result: 'text' },
       { fn: 'app.resolve_host', result: 'TABLE(outcome text, workspace_id uuid, project_id uuid)' },
     ]);
   });

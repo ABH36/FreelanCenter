@@ -85,7 +85,7 @@ const MUTATIONS: Mutation[] = [
     revert:
       'SET ROLE svc_definer; REVOKE EXECUTE ON FUNCTION app.allocate_platform_subdomain(uuid, text) FROM app_public; RESET ROLE',
     mustFail: [
-      'app_public executes exactly the host resolver, the two read-only catalogue functions and the preview-link revocation check',
+      'app_public executes exactly the host resolver, the two read-only catalogue functions and the two preview-link functions',
     ],
   },
   // P2 S5b: platform templates are written only by the operator functions; a tenant policy or grant that lets a

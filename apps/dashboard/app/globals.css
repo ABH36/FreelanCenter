@@ -6,3 +6,23 @@ body {
   color: var(--color-text);
   font-family: var(--font-body);
 }
+
+/* "Skip to content": off screen until it has keyboard focus, then clearly visible (acceptance run 3, C-18). */
+.skip-link {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 50;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 0.875rem;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgb(15 23 42 / 0.2);
+  transform: translateY(-200%);
+}
+.skip-link:focus {
+  transform: none;
+  outline: 2px solid var(--color-primary);
+}

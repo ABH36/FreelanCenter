@@ -421,3 +421,75 @@ describe('personalising with a long name', () => {
     expect(logs.filter((l) => l.message === 'sites.preview.render_failed')).toEqual([]);
   });
 });
+
+describe('making the demo the prospect’s (P2 S10, acceptance run 2)', () => {
+  it('uses the prospect’s city everywhere and drops the demo street, state, postcode and map position', async () => {
+    const { get } = setup();
+    const res = await get(
+      `/p/${mint('taxi-quick', { prospectName: 'City Cabs Indore', prospectCity: 'Indore' })}`,
+    );
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain('City Cabs Indore');
+    expect(html).toContain('Indore');
+    expect(html).not.toContain('Jaipur');
+    expect(html).not.toContain('Station Road');
+  });
+  it('the banner names the prospect, and demo social accounts are never linked', async () => {
+    const { get } = setup();
+    const html = await (
+      await get(`/p/${mint('wedding-royal', { prospectName: 'Royal Vivah Events' })}`)
+    ).text();
+    expect(html).toContain('Website preview for "Royal Vivah Events"');
+    expect(html).not.toMatch(/instagram\.com|facebook\.com/);
+  });
+  it('reviews and team members are marked as samples in a preview', async () => {
+    const { get } = setup();
+    const html = await (await get(`/p/${mint('gym-bold')}`)).text();
+    expect(html).toContain('class="pb-sample"');
+  });
+  it('a city that would push a text over its limit still renders (the careful fallback is used)', async () => {
+    const { get } = setup();
+    const res = await get(
+      `/p/${mint('gym-bold', { prospectName: 'W'.repeat(60), prospectCity: 'X'.repeat(40) })}`,
+    );
+    expect(res.status).toBe(200);
+  });
+});
+
+describe('who sent the link (P2 S10, acceptance C-25)', () => {
+  const LID = '01920000-0000-7000-8000-0000000000c1';
+  it('the withdrawn and expired pages name the sender (escaped); a forged link never asks', async () => {
+    const asked: string[] = [];
+    const sender = async (id: string) => {
+      asked.push(id);
+      return 'Tester One <Digital>';
+    };
+    revoked.add(LID);
+    const { get } = setup({ preview: { sender } });
+    const gone = await (await get(`/p/${mint('gym-bold', { linkId: LID })}`)).text();
+    expect(gone).toContain('Ask Tester One &lt;Digital&gt; for a new link.');
+    revoked.delete(LID);
+    const old = mint('gym-bold', { linkId: LID });
+    now = new Date('2026-11-20T12:00:00Z');
+    const expired = await get(`/p/${old}`);
+    expect(expired.status).toBe(410);
+    expect(await expired.text()).toContain('Ask Tester One &lt;Digital&gt; for a new link.');
+    asked.length = 0;
+    await get(`/p/${old.slice(0, -2)}AA`);
+    expect(asked).toEqual([]);
+  });
+  it('a failing sender lookup still shows the page, without a name', async () => {
+    revoked.add(LID);
+    const { get } = setup({
+      preview: {
+        sender: async () => {
+          throw new Error('db down');
+        },
+      },
+    });
+    const res = await get(`/p/${mint('gym-bold', { linkId: LID })}`);
+    expect(res.status).toBe(410);
+    expect(await res.text()).toContain('The sender has turned this link off');
+  });
+});

@@ -149,7 +149,7 @@ export default async function NotificationsPage({
                           aria-label={`${NOTIFICATION_CATEGORIES[c].label}: e-mail`}
                         />
                       ) : (
-                        <span className="text-xs text-slate-400">not available</span>
+                        <span className="text-xs text-slate-500">not available</span>
                       )}
                     </td>
                   </tr>

@@ -114,7 +114,10 @@ const phoneSchema = z
   .pipe(
     z
       .string()
-      .regex(/^\+?[0-9][0-9 ()-]{5,22}$/, 'Enter a phone number with digits, spaces, "-" or "+".')
+      .regex(
+        /^\+?[0-9][0-9 ()-]{5,22}$/,
+        'Enter a full phone number (at least 6 digits); you can use spaces, "-" and "+".',
+      )
       .nullable(),
   );
 const contactSchema = z.object({

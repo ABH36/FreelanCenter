@@ -12,7 +12,8 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   snapshotPathTemplate: '{testDir}/__screenshots__/{arg}-{projectName}{ext}',
-  expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.002, animations: 'disabled' } },
+  // A loaded machine needs more than the default 5 s for two identical full-page screenshots in a row.
+  expect: { timeout: 20_000, toHaveScreenshot: { maxDiffPixelRatio: 0.002, animations: 'disabled' } },
   webServer: {
     command: 'node .cache/serve.mjs',
     url: `http://127.0.0.1:${PORT}/healthz`,
@@ -20,7 +21,15 @@ export default defineConfig({
     env: { QUALITY_PORT: String(PORT) },
   },
   projects: [
-    { name: 'mobile', use: { ...devices['Pixel 7'] } },
-    { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } } },
+    { name: 'mobile', grepInvert: /@browser/, use: { ...devices['Pixel 7'] } },
+    {
+      name: 'desktop',
+      grepInvert: /@browser/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
+    },
+    // NFR-BROW-01: Firefox, and WebKit (the engine of Safari and every iOS browser) on a phone. Only the @browser
+    // smoke and accessibility checks run here; screenshots are Chromium-only.
+    { name: 'firefox', grep: /@browser/, use: { ...devices['Desktop Firefox'] } },
+    { name: 'webkit-mobile', grep: /@browser/, use: { ...devices['iPhone 13'] } },
   ],
 });

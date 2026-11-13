@@ -4,6 +4,7 @@
  * UI, the API (forged workspace id in a server action, audit export) or direct database access as `app_user`.
  */
 import { randomUUID } from 'node:crypto';
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { SITES_DOMAIN, SITES_PORT } from '../playwright.config';
 import { appPool, asTenant, authPool, userIdByEmail } from './local-stack';
@@ -49,7 +50,7 @@ async function onboard(browser: Browser, label: string): Promise<Actor> {
   // Verified accounts are signed in on return; the first screen is the workspace creator.
   await expect(page.getByRole('heading', { name: 'Create your first workspace' })).toBeVisible();
   await page.getByLabel('Workspace name').fill(`Agency ${label} ${run}`);
-  await page.getByLabel('Address').fill(slug);
+  await page.getByLabel('Web address').fill(slug);
   await page.getByRole('button', { name: 'Create workspace' }).click();
   await page.waitForURL(`**/w/${slug}**`);
 
@@ -205,7 +206,7 @@ test('A shares a template preview; a prospect opens it without signing in and st
 }) => {
   await a.page.goto(`/w/${a.slug}/templates`);
   const card = a.page.locator('li', { has: a.page.getByRole('heading', { name: 'Gym Bold' }) });
-  await card.getByLabel("Prospect's business name (optional)").fill('Sharma Fitness');
+  await card.getByLabel('Business name').fill('Sharma Fitness');
   await card.getByRole('button', { name: 'Create preview link' }).click();
   const link = await card.getByLabel('Preview link').inputValue();
   expect(link).toMatch(/^http:\/\/preview\.sites\.localhost:3001\/p\/v1\.[\w-]+\.[\w-]+$/);
@@ -221,7 +222,7 @@ test('A shares a template preview; a prospect opens it without signing in and st
     const res = await page.goto(link);
     expect(res?.status()).toBe(200);
     expect(res?.headers()['x-robots-tag']).toBe('noindex, nofollow');
-    await expect(page.locator('.pb-banner')).toContainText('Preview of the "Gym Bold" template');
+    await expect(page.locator('.pb-banner')).toContainText('Website preview for "Sharma Fitness"');
     await expect(page.locator('.pb-brand').first()).toHaveText('Sharma Fitness');
     // Every in-site link stays inside the preview: the first menu item keeps the token in the address.
     await page.getByRole('link', { name: 'Pricing' }).first().click();
@@ -248,7 +249,7 @@ test('A turns a preview link off; the prospect sees it withdrawn, and a link tha
   const make = async (name: string) => {
     // The link box keeps showing the previous link until the new one arrives: wait for it to change.
     const before = (await box.count()) > 0 ? await box.inputValue() : '';
-    await card.getByLabel("Prospect's business name (optional)").fill(name);
+    await card.getByLabel('Business name').fill(name);
     await card.getByRole('button', { name: 'Create preview link' }).click();
     await expect(box).toBeVisible();
     await expect(box).not.toHaveValue(before);
@@ -263,8 +264,11 @@ test('A turns a preview link off; the prospect sees it withdrawn, and a link tha
   // Wait for the list to show all three links (the Gym link of the journey above and these two): until then a
   // click could land on a different row.
   await expect(turnOffButtons).toHaveCount(3);
-  a.page.once('dialog', (d) => void d.accept());
   await turnOffButtons.nth(1).click(); // the older of the two: the first link made
+  // An in-page confirmation (not the browser's confirm()): it names what will happen.
+  const dialog = a.page.getByRole('dialog');
+  await expect(dialog).toContainText('Turn off the link for Revoke Me Travels');
+  await dialog.getByRole('button', { name: 'Turn off' }).click();
   // Exact: the panel's footnote also contains the words "turned off", which would match at once.
   await expect(a.page.getByText('Turned off', { exact: true })).toHaveCount(1);
 
@@ -283,12 +287,71 @@ test('A turns a preview link off; the prospect sees it withdrawn, and a link tha
   }
 });
 
-test('the preview link shows up in A’s audit log without the link or the prospect name', async () => {
+test('the audit log names preview-link events, and the stored log holds neither the link nor the prospect', async () => {
   await a.page.goto(`/w/${a.slug}/audit`);
   await expect(a.page.getByText(/template\.preview_link\.created/).first()).toBeVisible();
   await expect(a.page.getByText(/template\.preview_link\.revoked/).first()).toBeVisible();
-  const html = await a.page.content();
-  expect(html).not.toContain('Sharma Fitness');
-  expect(html).not.toContain('Revoke Me Travels');
-  expect(html).not.toMatch(/\/p\/v1\./);
+  // The page names the target for the people allowed to read it (joined from the workspace's own link list)...
+  await expect(a.page.getByText(/link for Revoke Me Travels/).first()).toBeVisible();
+  expect(await a.page.content()).not.toMatch(/\/p\/v1\./);
+  // ...but the audit records themselves (the export) never contain the prospect or the link.
+  const csv = await (await a.context.request.get(`/w/${a.slug}/audit/export`)).text();
+  expect(csv).toContain('template.preview_link.revoked');
+  expect(csv).not.toContain('Revoke Me Travels');
+  expect(csv).not.toContain('Sharma Fitness');
+  expect(csv).not.toMatch(/\/p\/v1\./);
+});
+
+// P2 (NFR-A11Y-01: WCAG 2.1 AA for the dashboard and the reference templates): the dashboard pages a freelancer uses
+// every day, signed in, with data on them.
+test('the dashboard pages pass axe (WCAG 2.1 A and AA)', async () => {
+  const pages = [
+    `/w/${a.slug}`,
+    `/w/${a.slug}/projects`,
+    `/w/${a.slug}/projects/new`,
+    `/w/${a.slug}/projects/${projectId}`,
+    `/w/${a.slug}/templates`,
+    `/w/${a.slug}/members`,
+    `/w/${a.slug}/notifications`,
+    `/w/${a.slug}/audit`,
+    `/w/${a.slug}/settings`,
+    `/settings/security`,
+  ];
+  const found: string[] = [];
+  for (const path of pages) {
+    await a.page.goto(path);
+    await expect(a.page.locator('main, h1').first()).toBeVisible();
+    const result = await new AxeBuilder({ page: a.page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+    for (const v of result.violations) {
+      found.push(
+        `${path} ${v.id} (${v.impact}): ${v.nodes
+          .slice(0, 3)
+          .map((n) => n.target.join(' '))
+          .join(' | ')}`,
+      );
+    }
+  }
+  expect(found).toEqual([]);
+});
+
+test('the public pages pass axe: sign-in and sign-up', async ({ page }) => {
+  const found: string[] = [];
+  for (const path of ['/sign-in', '/sign-up']) {
+    await page.goto(path);
+    await expect(page.locator('h1').first()).toBeVisible();
+    const result = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+    for (const v of result.violations) {
+      found.push(
+        `${path} ${v.id} (${v.impact}): ${v.nodes
+          .slice(0, 3)
+          .map((n) => n.target.join(' '))
+          .join(' | ')}`,
+      );
+    }
+  }
+  expect(found).toEqual([]);
 });

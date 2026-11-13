@@ -37,13 +37,15 @@ export function CtaButton({
   cta,
   ctx,
   variant = 'primary',
+  plan,
 }: {
   cta: Cta | undefined;
   ctx: RenderContext;
   variant?: 'primary' | 'secondary';
+  plan?: string;
 }) {
   if (!cta) return null;
-  const link = resolveCta(cta, ctx.business, ctx.basePath);
+  const link = resolveCta(cta, ctx.business, ctx.basePath, ctx.locale, plan);
   if (!link) return null;
   return (
     <Link href={link.href} external={link.external} className={`pb-btn pb-btn--${variant}`}>
@@ -100,8 +102,12 @@ export function Picture({
   );
   const largest = widths[widths.length - 1];
   if (!largest) {
+    // No picture yet (assets arrive in P3): a decorative box, so a screen reader does not announce a photo that
+    // nobody can see; previews label the slot so the prospect knows a real photo goes there.
     return (
-      <div className={`pb-image pb-image--placeholder ${className}`} role="img" aria-label={image.alt} />
+      <div className={`pb-image pb-image--placeholder ${className}`} aria-hidden="true">
+        {ctx.mode === 'preview' ? <span className="pb-image__hint">{t(ctx.locale, 'photoHere')}</span> : null}
+      </div>
     );
   }
   const smallest = widths[0] ?? largest;

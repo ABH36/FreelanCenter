@@ -1,5 +1,6 @@
 import { BLOCKS } from '@platform/schema';
 import { Picture, SectionHeading } from '../parts';
+import { t } from '../strings';
 import type { BlockDefinition, PropsOf } from '../types';
 
 export const team: BlockDefinition<PropsOf<'team'>> = {
@@ -43,6 +44,7 @@ export const team: BlockDefinition<PropsOf<'team'>> = {
                   className="pb-team__photo"
                 />
               ) : null}
+              {ctx.mode === 'preview' ? <span className="pb-sample">{t(ctx.locale, 'sample')}</span> : null}
               <h3 className="pb-h3">{m.name}</h3>
               <p className="pb-muted">{m.role}</p>
               {m.bio ? <p>{m.bio}</p> : null}

@@ -36,10 +36,14 @@ export default async function MembersPage({ params }: { params: Promise<{ slug: 
   return (
     <>
       <h1 className="text-2xl font-semibold tracking-tight">Members</h1>
-      <Panel title={`People (${members.length})`}>
+      <Panel
+        title={`People (${members.length})`}
+        description="Owner: everything, including deleting the workspace. Admin: members, projects and settings. Editor: projects and preview links. Viewer: can look, cannot change."
+      >
         <ul className="divide-y divide-slate-100">
           {members.map((m) => {
             const self = m.userId === userId;
+            const soleOwner = members.filter((x) => x.role === 'owner').length === 1;
             const canManage = writable && manager && !self && (m.role !== 'owner' || ws.role === 'owner');
             return (
               <li
@@ -67,7 +71,7 @@ export default async function MembersPage({ params }: { params: Promise<{ slug: 
                         >
                           {assignable.map((r) => (
                             <option key={r} value={r}>
-                              {r}
+                              {r.charAt(0).toUpperCase() + r.slice(1)}
                             </option>
                           ))}
                         </select>
@@ -88,7 +92,7 @@ export default async function MembersPage({ params }: { params: Promise<{ slug: 
                       {m.role}
                     </span>
                   )}
-                  {self && writable ? (
+                  {self && writable && !(m.role === 'owner' && soleOwner) ? (
                     <ActionForm
                       action={leaveWorkspaceAction}
                       hidden={{ workspaceId: ws.id }}
@@ -141,7 +145,7 @@ export default async function MembersPage({ params }: { params: Promise<{ slug: 
                     .filter((r) => r !== 'owner')
                     .map((r) => (
                       <option key={r} value={r}>
-                        {r}
+                        {r.charAt(0).toUpperCase() + r.slice(1)}
                       </option>
                     ))}
                 </select>

@@ -6,7 +6,7 @@ const home = [
   section(
     'hero',
     'hero',
-    'full-bleed',
+    'split-image',
     {
       headline: 'Reliable cabs, on time, every time',
       subheadline:
@@ -95,7 +95,7 @@ const home = [
   section(
     'review',
     'testimonials',
-    'single',
+    'cards',
     {
       heading: 'Riders recommend us',
       items: [
@@ -105,6 +105,20 @@ const home = [
           author: 'Meera T.',
           role: 'Airport transfer',
           rating: 5,
+        },
+        {
+          quote:
+            'Booked an outstation trip for the family. Fixed fare, clean car, and the driver knew every halt on the way.',
+          author: 'Sanjay P.',
+          role: 'Outstation trip',
+          rating: 5,
+        },
+        {
+          quote:
+            'I use them for office runs every week. Always on time, and the bill is exactly what was quoted.',
+          author: 'Neha K.',
+          role: 'City rides',
+          rating: 4,
         },
       ],
     },
@@ -135,15 +149,16 @@ const rates = [
     'pricing',
     'table',
     {
+      itemLabel: 'Car',
       heading: 'Our rates',
       intro:
         'Per-kilometre rates for outstation trips. City and airport fares are fixed by route; ask us for a quote.',
       tiers: [
-        { name: 'Hatchback', price: 'Rs 11', period: 'km', features: ['4 seats', 'AC', 'Small luggage'] },
-        { name: 'Sedan', price: 'Rs 13', period: 'km', features: ['4 seats', 'AC', 'Large boot'] },
+        { name: 'Hatchback', price: '₹11', period: 'km', features: ['4 seats', 'AC', 'Small luggage'] },
+        { name: 'Sedan', price: '₹13', period: 'km', features: ['4 seats', 'AC', 'Large boot'] },
         {
           name: 'SUV',
-          price: 'Rs 18',
+          price: '₹18',
           period: 'km',
           features: ['6 to 7 seats', 'AC', 'Roof carrier on request'],
         },
@@ -243,7 +258,7 @@ export const taxi: TemplateDefinition = {
         country: 'IN',
       },
       hours: [{ days: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'], open: '00:00', close: '23:59' }],
-      social: { instagram: '', facebook: 'https://facebook.com/example', youtube: '' },
+      social: { instagram: '', facebook: '', youtube: '' },
     },
     theme: {
       colors: {

@@ -27,10 +27,16 @@ for (const slug of SLUGS) {
   });
 }
 
+const TONES = ['', '-surface', '-primary', '-secondary', '-accent'] as const;
+
 for (const slug of ALL_SITES) {
-  test(`@a11y ${slug}: every block variant, no axe violations`, async ({ page }) => {
-    await page.goto(`http://${slug}.quality.localhost:${PORT}/all-blocks`);
-    expect(await page.locator('main section').count()).toBeGreaterThanOrEqual(24);
-    expect(await violations(page)).toEqual([]);
-  });
+  for (const tone of TONES) {
+    test(`@a11y ${slug}: every block variant${tone ? ' on a ' + tone.slice(1) + ' band' : ''}, no axe violations`, async ({
+      page,
+    }) => {
+      await page.goto(`http://${slug}.quality.localhost:${PORT}/all-blocks${tone}`);
+      expect(await page.locator('main section').count()).toBeGreaterThanOrEqual(24);
+      expect(await violations(page)).toEqual([]);
+    });
+  }
 }

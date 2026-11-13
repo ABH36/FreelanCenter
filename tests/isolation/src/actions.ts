@@ -96,4 +96,10 @@ export const PAGE_LOADERS: Record<string, { service: string; selectors: Selector
   'page:/w/[slug]/audit': { service: 'listAuditLog', selectors: ['workspaceId'] },
   'page:/w/[slug]/audit (dead letters)': { service: 'listDeadLetters', selectors: ['workspaceId'] },
   'route:/w/[slug]/audit/export': { service: 'exportAuditLog', selectors: ['workspaceId'] },
+  // P2 S10: "View demo" on a template card.
+  'route:/w/[slug]/templates/[templateId]/demo': { service: 'demoLink', selectors: ['workspaceId'] },
+  'page:/w/[slug]/templates (prefill from a project)': {
+    service: 'getProject',
+    selectors: ['workspaceId', 'projectId'],
+  },
 };

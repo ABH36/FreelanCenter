@@ -10,7 +10,7 @@ MSYS_NO_PATHCONV=1 docker run --rm --ipc=host -v "$ROOT:/repo:ro" -v "$ROOT/test
   set -e
   W=/work; mkdir -p $W/tests/quality $W/packages/templates $W/apps/sites
   cp -r /repo/tests/quality/src /repo/tests/quality/playwright.config.ts /repo/tests/quality/.cache $W/tests/quality/
-  rm -rf $W/tests/quality/src/__screenshots__ $W/tests/quality/src/a11y.spec.ts
+  rm -rf $W/tests/quality/src/__screenshots__ $W/tests/quality/src/a11y.spec.ts $W/tests/quality/src/browsers.spec.ts $W/tests/quality/src/modes.spec.ts
   cp -r /repo/packages/templates/seed $W/packages/templates/seed
   cp -r /repo/apps/sites/public $W/apps/sites/public
   cd $W/tests/quality
