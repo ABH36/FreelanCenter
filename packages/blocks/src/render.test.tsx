@@ -207,7 +207,9 @@ describe('CTA and links', () => {
   const biz = config().business;
   it('resolves each action from the business contact details', () => {
     expect(resolveCta({ label: 'W', action: 'whatsapp' }, biz)).toEqual({
-      href: 'https://wa.me/919800000001?text=Hi%20Iron%20Pulse%20Fitness%2C%20I%20found%20your%20website%20and%20would%20like%20to%20know%20more.',
+      href:
+        'https://wa.me/919800000001?text=' +
+        encodeURIComponent('Hi Iron Pulse Fitness, I would like to book a free trial class.'),
       label: 'W',
       external: true,
     });

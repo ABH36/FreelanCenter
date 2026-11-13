@@ -50,6 +50,7 @@ const en = {
   photoHere: 'Your photo here',
   whatsappGreeting: 'Hi {name}, I found your website and would like to know more.',
   whatsappTaxi: 'Hi {name}, I need a cab from ___ to ___ on ___ at ___.',
+  whatsappGym: 'Hi {name}, I would like to book a free trial class.',
   whatsappEvent: 'Hi {name}, we are planning an event on ___ in ___ for about ___ guests.',
   whatsappPlan: 'Hi {name}, I am interested in the {plan} plan.',
 } as const;
@@ -101,6 +102,7 @@ const hi: Record<StringKey, string> = {
   photoHere: 'आपकी फ़ोटो यहाँ',
   whatsappGreeting: 'नमस्ते {name}, मैंने आपकी वेबसाइट देखी और मुझे और जानकारी चाहिए।',
   whatsappTaxi: 'नमस्ते {name}, मुझे ___ से ___ तक ___ को ___ बजे कैब चाहिए।',
+  whatsappGym: 'नमस्ते {name}, मैं एक फ़्री ट्रायल क्लास बुक करना चाहता/चाहती हूँ।',
   whatsappEvent: 'नमस्ते {name}, हम ___ को ___ में लगभग ___ मेहमानों के लिए कार्यक्रम की योजना बना रहे हैं।',
   whatsappPlan: 'नमस्ते {name}, मुझे {plan} प्लान में रुचि है।',
 };

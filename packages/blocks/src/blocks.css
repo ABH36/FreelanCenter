@@ -818,10 +818,12 @@
     display: none;
   }
 }
-/* On large screens the round WhatsApp button sits in its own lane at the right edge, never on page content. */
+/* On large screens the round WhatsApp button sits in its own lane at the right edge, never on page content: only the
+   right padding grows, and only by what the empty margin beside the 72rem container does not already give
+   (acceptance run 4, R-1: the earlier rule grew on both sides as the window got narrower). */
 @media (min-width: 900px) {
   .pb-root:has(.pb-float) .pb-container {
-    padding-inline: max(1.25rem, calc(5.75rem - (100vw - 72rem) / 2));
+    padding-inline-end: max(1.25rem, calc(5rem - max(0px, (100vw - 72rem) / 2)));
   }
 }
 :where(.pb-root) [id] {

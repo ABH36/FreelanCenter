@@ -4,6 +4,7 @@ import {
   type ReactNode,
   useActionState,
   useEffect,
+  useId,
   useRef,
   useState,
 } from 'react';
@@ -44,6 +45,13 @@ export function ActionForm({
   const submitted = useRef<[string, string][]>([]);
   const confirmed = useRef(false);
 
+  const messageId = useId();
+  const okRef = useRef<HTMLParagraphElement>(null);
+  // After a success the row may lose its button ("Turn off"): focus moves to the confirmation, not to the page body.
+  useEffect(() => {
+    if (state.ok && !state.link) okRef.current?.focus();
+  }, [state]);
+
   useEffect(() => {
     const form = formRef.current;
     if (!form || !state.error) return;
@@ -72,8 +80,13 @@ export function ActionForm({
       ))
         continue;
       const bad = invalid.includes(el.name);
-      if (bad) el.setAttribute('aria-invalid', 'true');
-      else el.removeAttribute('aria-invalid');
+      if (bad) {
+        el.setAttribute('aria-invalid', 'true');
+        el.setAttribute('aria-describedby', messageId);
+      } else {
+        el.removeAttribute('aria-invalid');
+        if (el.getAttribute('aria-describedby') === messageId) el.removeAttribute('aria-describedby');
+      }
       if (bad && !first) first = el;
     }
     first?.focus();
@@ -129,7 +142,7 @@ export function ActionForm({
         </dialog>
       ) : null}
       {state.error ? (
-        <p role="alert" className="mt-1 text-xs text-red-700">
+        <p id={messageId} role="alert" className="mt-1 text-xs text-red-700">
           {state.error}
           {Object.values(state.fieldErrors ?? {}).length
             ? ` ${Object.values(state.fieldErrors ?? {}).join(' ')}`
@@ -137,7 +150,7 @@ export function ActionForm({
         </p>
       ) : null}
       {state.ok ? (
-        <p role="status" className="mt-1 text-xs text-emerald-700">
+        <p ref={okRef} tabIndex={-1} role="status" className="mt-1 text-xs text-emerald-700 outline-none">
           {state.ok}
         </p>
       ) : null}

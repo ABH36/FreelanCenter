@@ -84,8 +84,23 @@ export default async function AuditPage({
     for (const [id, name] of await (await projectService()).projectNames(userId, ws.id, projectIds))
       names.set(id, name);
   }
+  names.set(ws.id, ws.name);
   const targetLabel = (_type: string | null, id: string | null) =>
     id ? ` ${names.get(id) ?? id.slice(0, 8)}` : '';
+  /** Readable target kinds; a preview-link event names the link (and so the prospect) from its metadata. */
+  const TYPE_LABEL: Record<string, string> = {
+    template: 'Template',
+    template_preview_link: 'Preview link',
+    project: 'Project',
+    workspace: 'Workspace',
+    membership: 'Member',
+    invitation: 'Invitation',
+  };
+  const typeLabel = (type: string | null) => (type ? (TYPE_LABEL[type] ?? type.replace(/_/g, ' ')) : '—');
+  const linkOf = (metadata: unknown) => {
+    const id = (metadata as { linkId?: unknown } | null)?.linkId;
+    return typeof id === 'string' && names.has(id) ? ` · ${names.get(id)}` : '';
+  };
   const query = new URLSearchParams(Object.entries(filters).filter(([, v]) => v)).toString();
 
   return (
@@ -165,13 +180,15 @@ export default async function AuditPage({
                   <td className="px-3 py-2 text-xs">
                     {r.projectId ? (
                       <Link href={`/w/${ws.slug}/projects/${r.projectId}`} className="hover:underline">
-                        {r.targetType}
+                        {typeLabel(r.targetType)}
                         {targetLabel(r.targetType, r.targetId)}
+                        {linkOf(r.metadata)}
                       </Link>
                     ) : (
-                      <span className="break-all">
-                        {r.targetType ?? '—'}
+                      <span className="break-words">
+                        {typeLabel(r.targetType)}
                         {targetLabel(r.targetType, r.targetId)}
+                        {linkOf(r.metadata)}
                       </span>
                     )}
                   </td>

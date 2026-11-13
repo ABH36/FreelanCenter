@@ -45,11 +45,13 @@ export function whatsappHref(
 ): string {
   const key = plan
     ? 'whatsappPlan'
-    : business.category === 'taxi'
-      ? 'whatsappTaxi'
-      : business.category === 'wedding-event'
-        ? 'whatsappEvent'
-        : 'whatsappGreeting';
+    : business.category === 'gym'
+      ? 'whatsappGym'
+      : business.category === 'taxi'
+        ? 'whatsappTaxi'
+        : business.category === 'wedding-event'
+          ? 'whatsappEvent'
+          : 'whatsappGreeting';
   const text = t(locale, key, { name: business.name, plan: plan ?? '' });
   return `https://wa.me/${digitsOnly}?text=${encodeURIComponent(text)}`;
 }

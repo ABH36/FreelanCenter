@@ -84,3 +84,28 @@ for (const slug of SLUGS) {
     expect(seen.size).toBeGreaterThan(8);
   });
 }
+
+// Acceptance run 4 (R-1): laptop and tablet-landscape widths keep normal page padding and the business name whole.
+for (const slug of SLUGS) {
+  for (const width of [900, 1024, 1180, 1280]) {
+    test(`@a11y ${slug}: at ${width} px the page keeps normal padding and the full business name`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 800 });
+      await page.goto(`http://${slug}.quality.localhost:${PORT}/`);
+      const m = await page.evaluate(() => {
+        const c = document.querySelector('main .pb-container') as HTMLElement;
+        const s = getComputedStyle(c);
+        const brand = document.querySelector('.pb-header .pb-brand') as HTMLElement;
+        return {
+          left: parseFloat(s.paddingLeft),
+          right: parseFloat(s.paddingRight),
+          brandCut: brand.scrollWidth > brand.clientWidth + 1,
+        };
+      });
+      expect(m.left).toBeLessThanOrEqual(24);
+      expect(m.right).toBeLessThanOrEqual(96);
+      expect(m.brandCut).toBe(false);
+    });
+  }
+}
