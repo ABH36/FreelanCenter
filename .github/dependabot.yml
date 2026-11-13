@@ -9,7 +9,15 @@ updates:
     # found and pulled). Dependabot itself waits, so its pull requests already respect the rule.
     cooldown:
       default-days: 14
+    # spikes/ holds the historical evidence of the ADR spikes (A–G): their pins are part of what was proven and are
+    # never updated in place. A spike that must be re-run (Spike F on a Better Auth upgrade) is updated in its own slice.
+    exclude-paths:
+      - 'spikes/**'
     groups:
+      # ADR-006 pins Better Auth exactly, and every upgrade re-runs Spike F before it is merged. A dependency is put in
+      # the first group it matches, so this group keeps Better Auth out of the weekly batch: it always arrives alone.
+      better-auth:
+        patterns: ['better-auth', '@better-auth/*']
       minor-and-patch:
         update-types: [minor, patch]
     ignore:
