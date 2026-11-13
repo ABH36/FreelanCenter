@@ -9,10 +9,13 @@ export const metadata: Metadata = { title: 'Overview' };
 export default async function WorkspaceOverviewPage({ params }: { params: Promise<{ slug: string }> }) {
   const ws = await currentWorkspace((await params).slug);
   const userId = await requireUserId();
-  const overview = await (await workspaces()).getOverview(userId, ws.id);
-  const sharedPreview = ws.can['templates.preview']
-    ? (await (await templateService()).listPreviewLinks(userId, ws.id)).length > 0
-    : false;
+  // Independent reads run together (DG-28: one after the other they put the overview over the 500 ms p95 budget).
+  const [overview, sharedPreview] = await Promise.all([
+    workspaces().then((service) => service.getOverview(userId, ws.id)),
+    ws.can['templates.preview']
+      ? templateService().then(async (service) => (await service.listPreviewLinks(userId, ws.id)).length > 0)
+      : Promise.resolve(false),
+  ]);
   const stats = [
     { label: 'Members', value: overview.members, href: `/w/${ws.slug}/members` },
     { label: 'Projects', value: overview.projects, href: `/w/${ws.slug}/projects` },
