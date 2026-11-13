@@ -34,7 +34,7 @@ const origin = arg('origin', 'https://dashboard-liard-tau-14.vercel.app');
 const slug = arg('slug');
 const deployment = arg('deployment');
 const CLIENTS = Number(arg('clients', 10));
-const ROUNDS = Number(arg('rounds', 10));
+const ROUNDS = Number(arg('rounds', 20));
 const out = arg('out');
 if (!slug || !/^[a-z0-9-]+$/.test(slug)) fail('pass --slug <workspace-slug>');
 if (!deployment) fail('pass --deployment <dpl_id> (the deployment whose logs hold the server timings)');
@@ -91,8 +91,14 @@ const routes = {
 const health = [];
 for (let i = 0; i < 30; i++) health.push((await get('/api/health')).ms);
 
-// Warm-up (not measured): one pass, so cold starts are not counted against the budget.
-for (const p of Object.values(routes)) await get(p);
+// Warm-up (not measured): CLIENTS concurrent passes, so the platform has scaled out to the measured concurrency and
+// instance cold starts (new function instance, first pooled connections) are not counted as page time. A single
+// sequential pass warmed one instance only, and the burst then put cold-start time into the first seconds (S0 run 2).
+await Promise.all(
+  Array.from({ length: CLIENTS }, async () => {
+    for (let pass = 0; pass < 2; pass++) for (const p of Object.values(routes)) await get(p);
+  }),
+);
 
 const runId = `s0-${Date.now().toString(36)}`;
 const runStart = new Date(Date.now() - 60_000).toISOString();
