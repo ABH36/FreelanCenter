@@ -68,6 +68,15 @@ export const SERVER_ACTIONS: Record<string, ActionRegistration> = {
     noSelector:
       'takes only a TOTP code; the principal (user + session id) comes from the server-side session and the database refuses anyone who is not an active platform admin with MFA',
   },
+  // P3 S3: the editor (module 05). Every one resolves the project through the actor's own workspace (RLS).
+  startDraftAction: { service: 'createDraftFromTemplate', selectors: ['workspaceId', 'projectId'] },
+  reloadDraftAction: { service: 'getDraft', selectors: ['workspaceId', 'projectId'] },
+  saveDraftChangeAction: { service: 'applyChange', selectors: ['workspaceId', 'projectId'] },
+  undoDraftAction: { service: 'undo', selectors: ['workspaceId', 'projectId'] },
+  redoDraftAction: { service: 'redo', selectors: ['workspaceId', 'projectId'] },
+  editLockAction: { service: 'acquireLock', selectors: ['workspaceId', 'projectId'] },
+  takeOverEditLockAction: { service: 'takeOverLock', selectors: ['workspaceId', 'projectId'] },
+  releaseEditLockAction: { service: 'releaseLock', selectors: ['workspaceId', 'projectId'] },
   setWorkspaceStatusAction: {
     service: 'setWorkspaceStatus',
     noSelector:
@@ -98,6 +107,15 @@ export const PAGE_LOADERS: Record<string, { service: string; selectors: Selector
   'route:/w/[slug]/audit/export': { service: 'exportAuditLog', selectors: ['workspaceId'] },
   // P2 S10: "View demo" on a template card.
   'route:/w/[slug]/templates/[templateId]/demo': { service: 'demoLink', selectors: ['workspaceId'] },
+  // P3 S3: the editor page and its live preview (rendered in the dashboard, Owner decision 2026-11-15).
+  'page:/w/[slug]/projects/[projectId]/editor': {
+    service: 'getDraft',
+    selectors: ['workspaceId', 'projectId'],
+  },
+  'route:/w/[slug]/projects/[projectId]/preview': {
+    service: 'getDraft',
+    selectors: ['workspaceId', 'projectId'],
+  },
   'page:/w/[slug]/templates (prefill from a project)': {
     service: 'getProject',
     selectors: ['workspaceId', 'projectId'],

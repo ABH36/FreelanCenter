@@ -17,6 +17,7 @@ import {
   type WorkspaceService,
   WorkspaceError,
   createAuditService,
+  createBuilderService,
   createInvitationEmailHandler,
   createNotificationService,
   createOutbox,
@@ -71,6 +72,37 @@ const templates = createTemplateService({
 });
 let catalogTemplateId = '';
 const audit = createAuditService({ db });
+// P3 S3: the draft service behind the editor actions, and a catalogue template with a complete SiteConfig.
+const builder = createBuilderService({ db });
+let draftTemplateId = '';
+const DRAFT_CONFIG = {
+  schemaVersion: '1.0',
+  business: {
+    name: 'IDOR Studio',
+    category: 'generic',
+    phone: '+919800000000',
+    address: { line1: '1 Main Road', city: 'Indore', state: 'MP', postalCode: '452001', country: 'IN' },
+  },
+  theme: {
+    colors: {
+      primary: '#E11D2E',
+      secondary: '#111827',
+      accent: '#FACC15',
+      background: '#0B0B0F',
+      surface: '#15151C',
+      text: '#F9FAFB',
+    },
+    typography: { heading: 'Poppins', body: 'Inter', scale: 'comfortable' },
+    radius: 'lg',
+    spacing: 'regular',
+    buttons: { style: 'solid', shape: 'pill', hover: 'lift' },
+    motion: { preset: 'subtle', reducedMotionRespected: true },
+  },
+  pages: [{ id: 'home', path: '/', title: 'Home', sections: [] }],
+  navigation: { items: [{ label: 'Home', target: '/' }] },
+  footer: { variant: 'simple', showPlatformBadge: true, floatingAction: 'none' },
+  integrations: { analyticsId: null, metaPixelId: null, chatbot: { enabled: false } },
+};
 
 type Selectors = Record<Selector, string>;
 interface Tenant {
@@ -117,6 +149,12 @@ async function seed(): Promise<Tenant> {
     to: 'in_review',
   });
   const inbox = await notifications.listNotifications(ownerId, id);
+  // P3 S3: the project has a draft, so every editor probe reaches a real draft in its own workspace.
+  await builder.createDraftFromTemplate(ownerId, {
+    workspaceId: id,
+    projectId: project.id,
+    templateId: draftTemplateId,
+  });
   const link = await templates.createPreviewLink(ownerId, {
     workspaceId: id,
     templateId: catalogTemplateId,
@@ -145,6 +183,11 @@ beforeAll(async () => {
       [unique('idor-tpl').slice(0, 40), 'e'.repeat(64)],
     );
     catalogTemplateId = rows[0]!.template_id;
+    const draftTemplate = await migrator.query<{ template_id: string }>(
+      `SELECT template_id FROM app.operator_publish_builtin_template($1, 'Isolation Draft Template', 'generic', 'Template for the editor probes.', '1.0', $2::jsonb, '{"fields":[]}'::jsonb, $3)`,
+      [unique('idor-draft').slice(0, 40), JSON.stringify(DRAFT_CONFIG), 'd'.repeat(64)],
+    );
+    draftTemplateId = draftTemplate.rows[0]!.template_id;
   } finally {
     await migrator.end();
   }
@@ -238,6 +281,32 @@ const CALLS: Record<string, (actor: string, s: Selectors) => Promise<unknown>> =
   listAuditLog: (a, s) => audit.listAuditLog(a, s.workspaceId),
   listDeadLetters: (a, s) => audit.listDeadLetters(a, s.workspaceId),
   exportAuditLog: (a, s) => audit.exportAuditLog(a, { workspaceId: s.workspaceId }),
+  // P3 S3: the editor actions and loaders.
+  createDraftFromTemplate: (a, s) =>
+    builder.createDraftFromTemplate(a, {
+      workspaceId: s.workspaceId,
+      projectId: s.projectId,
+      templateId: draftTemplateId,
+    }),
+  getDraft: async (a, s) => {
+    const d = await builder.getDraft(a, s.workspaceId, s.projectId);
+    return { projectId: d.projectId, revision: d.revision };
+  },
+  applyChange: (a, s) =>
+    builder.applyChange(a, {
+      workspaceId: s.workspaceId,
+      projectId: s.projectId,
+      changeId: crypto.randomUUID(),
+      expectedRevision: 1,
+      operations: [{ op: 'updateBusiness', value: { name: 'IDOR probe' } }],
+    }),
+  undo: (a, s) =>
+    builder.undo(a, { workspaceId: s.workspaceId, projectId: s.projectId, expectedRevision: 1 }),
+  redo: (a, s) =>
+    builder.redo(a, { workspaceId: s.workspaceId, projectId: s.projectId, expectedRevision: 1 }),
+  acquireLock: (a, s) => builder.acquireLock(a, { workspaceId: s.workspaceId, projectId: s.projectId }),
+  takeOverLock: (a, s) => builder.takeOverLock(a, { workspaceId: s.workspaceId, projectId: s.projectId }),
+  releaseLock: (a, s) => builder.releaseLock(a, { workspaceId: s.workspaceId, projectId: s.projectId }),
 };
 const READS = new Set([
   'listPreviewLinks',
@@ -255,6 +324,7 @@ const READS = new Set([
   'projectNames',
   'listAuditLog',
   'listDeadLetters',
+  'getDraft',
 ]);
 
 const call = (method: string) => async (actor: string, s: Selectors) => {
@@ -288,6 +358,10 @@ async function victimState() {
       l.id,
       l.status,
     ]),
+    // P3 S3: B's draft (revision and content) and who holds its edit lock.
+    draft: await builder
+      .getDraft(B.ownerId, B.own.workspaceId, B.own.projectId)
+      .then((d) => [d.revision, d.config.business.name, d.lock?.holderUserId ?? null]),
   };
 }
 
