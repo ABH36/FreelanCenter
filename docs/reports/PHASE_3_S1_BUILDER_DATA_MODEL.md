@@ -72,14 +72,18 @@ Migration `20261114180000_p3_s1_builder_data_model`. It adds 3 types, 5 tables a
 - Contracts: `docs/governance/CROSS_MODULE_CONTRACTS.md` already defines `SiteDraft` (mutable, with revision) and `SiteVersion` (immutable). This slice implements both without changing them.
 - Docs updated: module 05 and module 06 (data model), and `docs/data-classification.md`.
 
-## 7. Live migration (separate approval)
+## 7. Live application (2026-11-14, Owner-approved)
 
-After the PR is merged, the live database gets this migration only with the Owner's approval, following the Phase 2 S8b procedure:
+Run from the developer machine against the Supabase `ap-south-1` project as `migrator` (not a superuser, no BYPASSRLS), after PR #77 was merged (6e7857b). No secret was printed or stored: the scripts print counts and booleans only.
 
-1. A read-only pre-check.
-2. `prisma migrate deploy`.
-3. Status and drift checks.
-4. `db:verify --target env`.
-5. A record in this section.
+| Step                                                     | Result                                                                                                                                                                                                                                                                                                                                                          |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Read-only pre-check (read-only transaction, rolled back) | remote host; 10 migrations, all finished, none rolled back, latest `20261114120000_p2_s10_preview_link_sender` (live matched `main`); the S1 migration was not recorded; none of the 5 tables, 3 types or 7 functions existed; the functions the migration uses (`current_actor_user`, `workspace_writable`, `current_member_role`, `uuid_generate_v7`) existed |
+| `prisma migrate deploy` (`DB_TARGET=env`)                | applied `20261114180000_p3_s1_builder_data_model`                                                                                                                                                                                                                                                                                                               |
+| `prisma migrate status`                                  | database schema is up to date (11 migrations)                                                                                                                                                                                                                                                                                                                   |
+| Live database vs `schema.prisma`                         | no difference detected                                                                                                                                                                                                                                                                                                                                          |
+| `db:verify --target env`                                 | **38 passed, 0 failed**, including that `app_public` cannot read any of the 5 builder tables                                                                                                                                                                                                                                                                    |
+| `test:live`                                              | 2 files: 6 passed, 1 skipped (unchanged)                                                                                                                                                                                                                                                                                                                        |
+| Production after the merge                               | `/api/health` 200 (production), `/sign-in` 200, function region `bom1`                                                                                                                                                                                                                                                                                          |
 
-Until then, production keeps running without these tables. Nothing in production uses them yet.
+Nothing else on the live database changed: no existing table, role, policy or row was touched. The production code does not use the new tables yet; S2 is the first slice that does.
