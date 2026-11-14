@@ -30,7 +30,7 @@ export {
 } from './audit';
 export { INVITATION_MAIL_KIND, type DeliveryDeps, createInvitationEmailHandler } from './delivery';
 export { type HostCacheDeps, createHostCacheInvalidationHandler } from './host-cache';
-export { LAST_OWNER_SQLSTATE, WorkspaceError, type WorkspaceErrorCode } from './errors';
+export { LAST_OWNER_SQLSTATE, WorkspaceError, type WorkspaceErrorCode, isWorkspaceError } from './errors';
 export {
   PROJECT_STATUSES,
   PROJECT_TRANSITIONS,

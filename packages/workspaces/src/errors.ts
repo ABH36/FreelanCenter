@@ -127,3 +127,15 @@ export function translate(error: unknown): never {
   if (codes.includes('42501')) throw new WorkspaceError('FORBIDDEN');
   throw error;
 }
+
+/**
+ * `instanceof WorkspaceError` fails when the error crosses two copies of this module, which Next.js bundling can
+ * produce between a route handler and the shared runtime (P3 S3: the editor preview answered 500 instead of 404).
+ * Route handlers use this check instead.
+ */
+export function isWorkspaceError(error: unknown): error is WorkspaceError {
+  if (error instanceof WorkspaceError) return true;
+  if (!(error instanceof Error) || error.name !== 'WorkspaceError') return false;
+  const code = (error as unknown as { code?: unknown }).code;
+  return typeof code === 'string' && Object.hasOwn(MESSAGES, code);
+}

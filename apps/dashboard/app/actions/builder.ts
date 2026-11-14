@@ -7,7 +7,7 @@
  */
 import { redirect } from 'next/navigation';
 import type { DraftView } from '@platform/workspaces';
-import { WorkspaceError } from '@platform/workspaces';
+import { isWorkspaceError } from '@platform/workspaces';
 import { type ActionState, field, runAction } from '@/lib/actions';
 import { builderService, requireUserId, withRequestContext } from '@/lib/workspaces';
 
@@ -19,7 +19,7 @@ async function run<T>(fn: (userId: string) => Promise<T>): Promise<EditorResult<
   try {
     return { ok: true, value: await withRequestContext(() => fn(userId)) };
   } catch (error) {
-    if (error instanceof WorkspaceError) {
+    if (isWorkspaceError(error)) {
       return { ok: false, code: error.code, error: error.message, fieldErrors: error.fieldErrors };
     }
     throw error;

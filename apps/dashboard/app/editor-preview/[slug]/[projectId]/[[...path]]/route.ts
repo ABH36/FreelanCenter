@@ -8,11 +8,11 @@
  * The response runs no script: the renderer emits none and the policy allows none. It may be framed by the dashboard
  * only (`frame-ancestors 'self'`); every other dashboard page keeps `frame-ancestors 'none'` (next.config.ts excludes
  * only this path from the global header). Registered with the IDOR harness as
- * `route:/w/[slug]/projects/[projectId]/preview`.
+ * `route:/editor-preview/[slug]/[projectId]`.
  */
 import { createHash } from 'node:crypto';
 import { renderDocument } from '@platform/blocks';
-import { WorkspaceError } from '@platform/workspaces';
+import { isWorkspaceError } from '@platform/workspaces';
 import { builderService, requireUserId, withRequestContext, workspaces } from '@/lib/workspaces';
 
 /** Fonts are copied into public/preview-fonts by scripts/copy-preview-fonts.mjs (same allow-list as the sites app). */
@@ -57,7 +57,8 @@ export async function GET(
       origin: new URL(request.url).origin,
       mode: 'draft',
       noindex: true,
-      basePath: `/w/${ws.slug}/projects/${draft.projectId}/preview`,
+      // Three segments: the renderer accepts at most three in a base path (built for `/p/<token>`).
+      basePath: `/editor-preview/${ws.slug}/${draft.projectId}`,
       fontBase: PREVIEW_FONT_BASE,
       banner: 'Draft preview: not published',
     });
@@ -75,7 +76,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    if (error instanceof WorkspaceError) {
+    if (isWorkspaceError(error)) {
       return text(error.code === 'NO_DRAFT' ? 'This project has no site yet.' : 'Not found', 404);
     }
     throw error;

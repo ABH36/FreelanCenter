@@ -119,6 +119,7 @@ test("UI: user B cannot open, list or search A's data", async () => {
     `/w/${a.slug}`,
     `/w/${a.slug}/projects`,
     `/w/${a.slug}/projects/${projectId}`,
+    `/w/${a.slug}/projects/${projectId}/editor`,
     `/w/${a.slug}/members`,
     `/w/${a.slug}/audit`,
     `/w/${a.slug}/settings`,
@@ -302,14 +303,73 @@ test('the audit log names preview-link events, and the stored log holds neither 
   expect(csv).not.toMatch(/\/p\/v1\./);
 });
 
+// P3 S3 (FR-PRJ-01, FR-BLD-01/02/06): the editor. A starts the project's site from a template, edits the business name,
+// sees it autosaved and in the live preview, and undoes it. The preview is rendered by the dashboard (Owner decision
+// 2026-11-15) and may be framed by the dashboard only; no other dashboard page may be framed at all.
+test('A starts the site from a template, edits it with autosave and live preview, and undoes the change', async () => {
+  test.setTimeout(180_000);
+  const page = a.page;
+  await page.goto(`/w/${a.slug}/projects/${projectId}`);
+  await page.getByRole('link', { name: 'Edit site' }).click();
+  await expect(page.getByRole('heading', { name: 'Choose a template' })).toBeVisible();
+  await page.getByRole('button', { name: 'Start with Gym Bold' }).click();
+  await page.waitForURL(/\/editor$/);
+  await expect(page.getByRole('heading', { name: 'Business details', level: 2 })).toBeVisible();
+
+  const preview = page.frameLocator('iframe[title="Site preview"]');
+  await expect(preview.locator('h1').first()).toBeVisible();
+  const name = page.getByRole('textbox', { name: 'Name', exact: true });
+  const before = await name.inputValue();
+  const renamed = `Pulse ${run}`;
+  // The lock is taken on open; editing is enabled once the heartbeat confirms it.
+  await expect(name).toBeEnabled({ timeout: 30_000 });
+  await name.fill(renamed);
+  await expect(page.getByTestId('save-status')).toHaveText('All changes saved', { timeout: 30_000 });
+  await expect(preview.getByText(renamed).first()).toBeVisible();
+
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.getByTestId('save-status')).toHaveText('Undone', { timeout: 30_000 });
+  await expect(name).toHaveValue(before);
+  await expect(preview.getByText(before).first()).toBeVisible();
+});
+
+test('the preview may be framed by the dashboard only and runs no script; the editor page cannot be framed', async () => {
+  const editor = await a.page.request.get(`/w/${a.slug}/projects/${projectId}/editor`);
+  expect(editor.headers()['content-security-policy']).toContain("frame-ancestors 'none'");
+  expect(editor.headers()['x-frame-options']).toBe('DENY');
+  const preview = await a.page.request.get(`/editor-preview/${a.slug}/${projectId}`);
+  expect(preview.status()).toBe(200);
+  const csp = preview.headers()['content-security-policy'] ?? '';
+  expect(csp).toContain("frame-ancestors 'self'");
+  expect(csp).toContain("default-src 'none'");
+  expect(csp).not.toContain('script-src');
+  expect(csp).not.toContain("frame-ancestors 'none'");
+  expect(preview.headers()['x-frame-options']).toBe('SAMEORIGIN');
+  expect(preview.headers()['x-robots-tag']).toContain('noindex');
+  expect(await preview.text()).not.toMatch(/<script/i);
+});
+
+test("B cannot open A's editor or A's draft preview", async () => {
+  const editor = await b.page.goto(`/w/${a.slug}/projects/${projectId}/editor`);
+  expect(editor?.status()).toBe(404);
+  const preview = await b.page.request.get(`/editor-preview/${a.slug}/${projectId}`);
+  expect(preview.status()).toBe(404);
+  // Through B's own workspace slug, A's project id is not found either.
+  const viaOwn = await b.page.request.get(`/editor-preview/${b.slug}/${projectId}`);
+  expect(viaOwn.status()).toBe(404);
+});
+
 // P2 (NFR-A11Y-01: WCAG 2.1 AA for the dashboard and the reference templates): the dashboard pages a freelancer uses
 // every day, signed in, with data on them.
 test('the dashboard pages pass axe (WCAG 2.1 A and AA)', async () => {
+  // Eleven pages on a development server that compiles each on first use (P3 S3 added the editor).
+  test.setTimeout(300_000);
   const pages = [
     `/w/${a.slug}`,
     `/w/${a.slug}/projects`,
     `/w/${a.slug}/projects/new`,
     `/w/${a.slug}/projects/${projectId}`,
+    `/w/${a.slug}/projects/${projectId}/editor`,
     `/w/${a.slug}/templates`,
     `/w/${a.slug}/members`,
     `/w/${a.slug}/notifications`,
@@ -321,7 +381,10 @@ test('the dashboard pages pass axe (WCAG 2.1 A and AA)', async () => {
   for (const path of pages) {
     await a.page.goto(path);
     await expect(a.page.locator('main, h1').first()).toBeVisible();
+    // The editor's preview iframe holds template content, which tests/quality checks for every template and block
+    // (a11y.spec.ts); here the dashboard's own UI is under test.
     const result = await new AxeBuilder({ page: a.page })
+      .exclude('iframe[title="Site preview"]')
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
       .analyze();
     for (const v of result.violations) {

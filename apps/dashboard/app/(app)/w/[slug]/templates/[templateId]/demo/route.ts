@@ -4,7 +4,7 @@
  * non-member, an unknown slug and an unknown template all get 404. Registered with the IDOR harness as
  * `route:/w/[slug]/templates/[templateId]/demo`.
  */
-import { WorkspaceError } from '@platform/workspaces';
+import { isWorkspaceError } from '@platform/workspaces';
 import { requireUserId, templateService, withRequestContext, workspaces } from '@/lib/workspaces';
 
 export async function GET(
@@ -24,7 +24,7 @@ export async function GET(
       headers: { Location: url, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' },
     });
   } catch (error) {
-    if (error instanceof WorkspaceError) return new Response('Not found', { status: 404 });
+    if (isWorkspaceError(error)) return new Response('Not found', { status: 404 });
     throw error;
   }
 }

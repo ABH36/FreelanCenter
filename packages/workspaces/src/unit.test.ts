@@ -63,3 +63,19 @@ describe('invitation mail', () => {
     expect(mail.text).toContain('an editor');
   });
 });
+
+describe('isWorkspaceError (P3 S3: errors that cross two copies of the module)', () => {
+  it('recognises the class and a same-named copy with a known code, nothing else', async () => {
+    const { WorkspaceError, isWorkspaceError } = await import('./errors');
+    expect(isWorkspaceError(new WorkspaceError('NOT_FOUND'))).toBe(true);
+    class CopiedWorkspaceError extends Error {
+      code = 'NOT_FOUND';
+      override name = 'WorkspaceError';
+    }
+    expect(isWorkspaceError(new CopiedWorkspaceError('Not found.'))).toBe(true);
+    const unknownCode = Object.assign(new Error('x'), { name: 'WorkspaceError', code: 'NOT_A_CODE' });
+    expect(isWorkspaceError(unknownCode)).toBe(false);
+    expect(isWorkspaceError(new Error('Not found.'))).toBe(false);
+    expect(isWorkspaceError({ name: 'WorkspaceError', code: 'NOT_FOUND' })).toBe(false);
+  });
+});

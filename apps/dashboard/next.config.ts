@@ -23,7 +23,7 @@ const config: NextConfig = {
       {
         // Every path except the editor preview (P3 S3), which the editor page frames and which sets its own strict policy
         // in the route (frame-ancestors 'self', no script source). Sign-in, settings and every other page stay unframeable.
-        source: '/:path((?!w/[^/]+/projects/[^/]+/preview(?:/|$)).*)',
+        source: '/:path((?!editor-preview(?:/|$)).*)',
         headers: [
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },

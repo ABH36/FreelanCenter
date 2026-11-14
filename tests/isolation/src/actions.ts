@@ -112,7 +112,7 @@ export const PAGE_LOADERS: Record<string, { service: string; selectors: Selector
     service: 'getDraft',
     selectors: ['workspaceId', 'projectId'],
   },
-  'route:/w/[slug]/projects/[projectId]/preview': {
+  'route:/editor-preview/[slug]/[projectId]': {
     service: 'getDraft',
     selectors: ['workspaceId', 'projectId'],
   },

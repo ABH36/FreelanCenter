@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { buildJsonSchemas } from './index';
+import { BLOCK_TYPES, buildJsonSchemas, editorFormSchemas } from './index';
 
 const dir = join(dirname(fileURLToPath(import.meta.url)), '..', 'json-schema');
 const render = (v: unknown) => `${JSON.stringify(v, null, 2)}\n`;
@@ -29,5 +29,15 @@ describe('JSON Schema export (FR-TPL-01)', () => {
     for (const [name, schema] of Object.entries(built)) {
       expect(readFileSync(join(dir, name), 'utf8')).toBe(render(schema));
     }
+  });
+});
+
+describe('editorFormSchemas (P3 S3)', () => {
+  it('has an object schema for the business details and for every block type', () => {
+    const schemas = editorFormSchemas();
+    expect((schemas.business as { type?: string }).type).toBe('object');
+    expect(Object.keys(schemas.blocks).sort()).toEqual([...BLOCK_TYPES].sort());
+    for (const schema of Object.values(schemas.blocks))
+      expect((schema as { type?: string }).type).toBe('object');
   });
 });
