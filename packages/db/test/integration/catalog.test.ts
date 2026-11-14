@@ -98,6 +98,7 @@ describe('row-level security coverage', () => {
     const tables = await tenantTables(admin);
     expect(tables).toEqual([
       'audit_logs',
+      'change_sets',
       'client_contacts',
       'domains',
       'invitations',
@@ -106,7 +107,11 @@ describe('row-level security coverage', () => {
       'notification_preferences',
       'notifications',
       'outbox_events',
+      'project_edit_locks',
       'projects',
+      'site_drafts',
+      'site_pointers',
+      'site_versions',
       'template_preview_links',
       'template_versions',
       'templates',
@@ -391,7 +396,7 @@ describe('functions', () => {
     }
     // Invoker functions owned by migrator (the owner always holds EXECUTE): the slug list for app_user's CHECK,
     // and the trigger functions, which no request role can call directly.
-    for (const fn of ['is_reserved_slug', 'reserved_slugs', 'project_transition_roles']) {
+    for (const fn of ['is_reserved_slug', 'reserved_slugs', 'project_transition_roles', 'project_editable']) {
       expect(await executors(fn), fn).toEqual(['app_user', 'migrator']);
     }
     for (const fn of [
@@ -403,6 +408,13 @@ describe('functions', () => {
       'template_versions_reject_change',
       'template_preview_links_guard',
       'template_preview_links_reject_delete',
+      // P3 S1: the builder tables' guards.
+      'site_drafts_guard',
+      'change_sets_guard',
+      'site_versions_stamp',
+      'site_versions_reject_change',
+      'site_pointers_guard',
+      'project_edit_locks_guard',
     ]) {
       expect(await executors(fn), fn).toEqual(['migrator']);
     }

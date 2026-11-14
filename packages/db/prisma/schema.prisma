@@ -282,6 +282,11 @@ model Workspace {
   templates            Template[]
   templatePreviewLinks TemplatePreviewLink[]
   templateVersions     TemplateVersion[]
+  siteDrafts           SiteDraft[]
+  changeSets           ChangeSet[]
+  siteVersions         SiteVersion[]
+  sitePointers         SitePointer[]
+  projectEditLocks     ProjectEditLock[]
 
   @@map("workspaces")
   @@schema("app")
@@ -331,31 +336,36 @@ model Invitation {
 /// One client's site inside a workspace (FR-PRJ-01..05). Template references arrive with P2. The status changes
 /// only along the transition table (`app.project_transition_roles`, trigger `projects_guard`; FR-PRJ-02).
 model Project {
-  id                String          @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  workspaceId       String          @map("workspace_id") @db.Uuid
+  id                String            @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  workspaceId       String            @map("workspace_id") @db.Uuid
   name              String
   category          String?
   city              String?
-  status            ProjectStatus   @default(draft)
-  templateId        String?         @map("template_id") @db.Uuid
-  templateVersionId String?         @map("template_version_id") @db.Uuid
-  clientContactId   String?         @map("client_contact_id") @db.Uuid
+  status            ProjectStatus     @default(draft)
+  templateId        String?           @map("template_id") @db.Uuid
+  templateVersionId String?           @map("template_version_id") @db.Uuid
+  clientContactId   String?           @map("client_contact_id") @db.Uuid
   /// Idempotency key of the create or duplicate request that made this project (cross-module contracts).
-  creationKey       String?         @map("creation_key") @db.Uuid
+  creationKey       String?           @map("creation_key") @db.Uuid
   /// The project this one was duplicated from (FR-PRJ-05); same workspace by composite FK.
-  duplicatedFromId  String?         @map("duplicated_from_id") @db.Uuid
-  statusChangedAt   DateTime        @default(now()) @map("status_changed_at") @db.Timestamptz(6)
-  createdBy         String?         @map("created_by") @db.Uuid
-  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt         DateTime?       @map("deleted_at") @db.Timestamptz(6)
-  workspace         Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  duplicatedFromId  String?           @map("duplicated_from_id") @db.Uuid
+  statusChangedAt   DateTime          @default(now()) @map("status_changed_at") @db.Timestamptz(6)
+  createdBy         String?           @map("created_by") @db.Uuid
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime?         @map("deleted_at") @db.Timestamptz(6)
+  workspace         Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
   /// Composite FK: the primary contact must belong to the same workspace (SRS 5.3 item 4).
-  primaryContact    ClientContact?  @relation("ProjectPrimaryContact", fields: [workspaceId, clientContactId], references: [workspaceId, id], onDelete: Restrict, map: "projects_workspace_id_client_contact_id_fkey")
-  duplicatedFrom    Project?        @relation("ProjectDuplicates", fields: [workspaceId, duplicatedFromId], references: [workspaceId, id], onDelete: Restrict, map: "projects_workspace_id_duplicated_from_id_fkey")
-  duplicates        Project[]       @relation("ProjectDuplicates")
-  contacts          ClientContact[] @relation("ProjectContacts")
+  primaryContact    ClientContact?    @relation("ProjectPrimaryContact", fields: [workspaceId, clientContactId], references: [workspaceId, id], onDelete: Restrict, map: "projects_workspace_id_client_contact_id_fkey")
+  duplicatedFrom    Project?          @relation("ProjectDuplicates", fields: [workspaceId, duplicatedFromId], references: [workspaceId, id], onDelete: Restrict, map: "projects_workspace_id_duplicated_from_id_fkey")
+  duplicates        Project[]         @relation("ProjectDuplicates")
+  contacts          ClientContact[]   @relation("ProjectContacts")
   domains           Domain[]
+  siteDrafts        SiteDraft[]
+  changeSets        ChangeSet[]
+  siteVersions      SiteVersion[]
+  sitePointers      SitePointer[]
+  projectEditLocks  ProjectEditLock[]
 
   @@unique([workspaceId, id])
   @@unique([workspaceId, creationKey])
@@ -624,5 +634,150 @@ model TemplatePreviewLink {
   @@unique([workspaceId, id])
   @@index([workspaceId, createdAt(sort: Desc)])
   @@map("template_preview_links")
+  @@schema("app")
+}
+
+// ===================================================================================== P3 S1: builder data model
+// Triggers, policies and grants live in migration 20261114180000_p3_s1_builder_data_model. The database sets the
+// revision, the actor columns and the lock times; the client values for those columns are overwritten.
+
+enum ChangeSetSource {
+  manual
+  ai
+  client
+
+  @@map("change_set_source")
+  @@schema("app")
+}
+
+enum ChangeSetStatus {
+  proposed
+  applied
+  rejected
+  undone
+
+  @@map("change_set_status")
+  @@schema("app")
+}
+
+enum SiteVersionKind {
+  staging
+  live
+
+  @@map("site_version_kind")
+  @@schema("app")
+}
+
+/// The one mutable working config of a project. Every update moves `revision` by exactly one (optimistic
+/// concurrency: update WHERE revision = expected).
+model SiteDraft {
+  id                       String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  workspaceId              String    @map("workspace_id") @db.Uuid
+  projectId                String    @map("project_id") @db.Uuid
+  config                   Json      @db.JsonB
+  schemaVersion            String    @map("schema_version")
+  /// Usually a platform template version (workspace NULL), so deliberately not a foreign key.
+  basedOnTemplateVersionId String?   @map("based_on_template_version_id") @db.Uuid
+  revision                 Int       @default(1)
+  createdBy                String?   @map("created_by") @db.Uuid
+  createdAt                DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedBy                String?   @map("updated_by") @db.Uuid
+  updatedAt                DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  workspace                Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  project                  Project   @relation(fields: [workspaceId, projectId], references: [workspaceId, id], onDelete: Restrict)
+
+  @@unique([workspaceId, id])
+  @@unique([workspaceId, projectId])
+  @@map("site_drafts")
+  @@schema("app")
+}
+
+/// Every change to a draft. Status moves proposed → applied | rejected, applied → undone; undo is a new
+/// change set that applies `inverse` and names the one it undoes. Never deleted.
+model ChangeSet {
+  id             String          @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  workspaceId    String          @map("workspace_id") @db.Uuid
+  projectId      String          @map("project_id") @db.Uuid
+  source         ChangeSetSource
+  status         ChangeSetStatus @default(proposed)
+  operations     Json            @db.JsonB
+  inverse        Json?           @db.JsonB
+  summary        String?
+  baseRevision   Int             @map("base_revision")
+  resultRevision Int?            @map("result_revision")
+  undoesId       String?         @map("undoes_id") @db.Uuid
+  createdBy      String?         @map("created_by") @db.Uuid
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  decidedBy      String?         @map("decided_by") @db.Uuid
+  decidedAt      DateTime?       @map("decided_at") @db.Timestamptz(6)
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  project        Project         @relation(fields: [workspaceId, projectId], references: [workspaceId, id], onDelete: Restrict)
+  undoes         ChangeSet?      @relation("ChangeSetUndo", fields: [workspaceId, undoesId], references: [workspaceId, id], onDelete: Restrict)
+  undoneBy       ChangeSet[]     @relation("ChangeSetUndo")
+
+  @@unique([workspaceId, id])
+  @@index([workspaceId, projectId, createdAt(sort: Desc)])
+  @@map("change_sets")
+  @@schema("app")
+}
+
+/// An immutable published snapshot (Q7: no UPDATE/DELETE/TRUNCATE for any role).
+model SiteVersion {
+  id                  String          @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  workspaceId         String          @map("workspace_id") @db.Uuid
+  projectId           String          @map("project_id") @db.Uuid
+  kind                SiteVersionKind
+  config              Json            @db.JsonB
+  schemaVersion       String          @map("schema_version")
+  /// SHA-256 (hex) of the canonical config.
+  checksum            String
+  sourceDraftRevision Int             @map("source_draft_revision")
+  note                String?
+  createdBy           String?         @map("created_by") @db.Uuid
+  createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  workspace           Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  project             Project         @relation(fields: [workspaceId, projectId], references: [workspaceId, id], onDelete: Restrict)
+  pointers            SitePointer[]
+
+  @@unique([workspaceId, id])
+  @@index([workspaceId, projectId, createdAt(sort: Desc)])
+  @@map("site_versions")
+  @@schema("app")
+}
+
+/// The current staging and live version of a project. Publishing and rollback move a pointer.
+model SitePointer {
+  id            String          @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  workspaceId   String          @map("workspace_id") @db.Uuid
+  projectId     String          @map("project_id") @db.Uuid
+  kind          SiteVersionKind
+  siteVersionId String          @map("site_version_id") @db.Uuid
+  updatedBy     String?         @map("updated_by") @db.Uuid
+  updatedAt     DateTime        @default(now()) @map("updated_at") @db.Timestamptz(6)
+  workspace     Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  project       Project         @relation(fields: [workspaceId, projectId], references: [workspaceId, id], onDelete: Restrict)
+  siteVersion   SiteVersion     @relation(fields: [workspaceId, siteVersionId], references: [workspaceId, id], onDelete: Restrict)
+
+  @@unique([workspaceId, id])
+  @@unique([workspaceId, projectId, kind])
+  @@map("site_pointers")
+  @@schema("app")
+}
+
+/// One editor per project (FR-BLD-07): 2-minute lock renewed by a heartbeat; holder and times set by the database.
+model ProjectEditLock {
+  id           String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  workspaceId  String    @map("workspace_id") @db.Uuid
+  projectId    String    @map("project_id") @db.Uuid
+  holderUserId String    @map("holder_user_id") @db.Uuid
+  acquiredAt   DateTime  @default(now()) @map("acquired_at") @db.Timestamptz(6)
+  heartbeatAt  DateTime  @default(now()) @map("heartbeat_at") @db.Timestamptz(6)
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(6)
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  project      Project   @relation(fields: [workspaceId, projectId], references: [workspaceId, id], onDelete: Restrict)
+
+  @@unique([workspaceId, id])
+  @@unique([workspaceId, projectId])
+  @@map("project_edit_locks")
   @@schema("app")
 }
