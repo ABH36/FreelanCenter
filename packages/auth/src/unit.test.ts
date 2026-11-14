@@ -27,6 +27,42 @@ describe('loadAuthConfig', () => {
     });
   });
 
+  it('versioned keys (BETTER_AUTH_SECRETS) are optional and keep their order, the first one current', () => {
+    expect(loadAuthConfig(base).secrets).toBeNull();
+    const c = loadAuthConfig({
+      ...base,
+      BETTER_AUTH_SECRETS: ` 3:${'c'.repeat(32)}, 2:${'b'.repeat(40)} `,
+    });
+    expect(c.secrets).toEqual([
+      { version: 3, value: 'c'.repeat(32) },
+      { version: 2, value: 'b'.repeat(40) },
+    ]);
+    // The legacy key stays required: it is what still decrypts the unlabelled rows written before.
+    expect(c.secret).toBe(base.BETTER_AUTH_SECRET);
+    expect(() =>
+      loadAuthConfig({ ...base, BETTER_AUTH_SECRET: undefined, BETTER_AUTH_SECRETS: `1:${'a'.repeat(32)}` }),
+    ).toThrow(/BETTER_AUTH_SECRET is not set/);
+  });
+
+  it.each([
+    ['no version', 'a'.repeat(40), /entry 1 must be <version>:<secret>/],
+    ['a word as version', `v2:${'a'.repeat(40)}`, /entry 1 must be <version>:<secret>/],
+    ['a negative version', `-1:${'a'.repeat(40)}`, /entry 1 must be <version>:<secret>/],
+    ['a repeated version', `2:${'a'.repeat(40)},2:${'b'.repeat(40)}`, /repeats version 2/],
+    ['a short key', `2:${'a'.repeat(40)},1:short`, /version 1 must be at least 32/],
+    ['an empty entry', `2:${'a'.repeat(40)},`, /entry 2 must be <version>:<secret>/],
+  ])('refuses BETTER_AUTH_SECRETS with %s, without echoing a key', (_case, value, message) => {
+    let error: unknown;
+    try {
+      loadAuthConfig({ ...base, BETTER_AUTH_SECRETS: value });
+    } catch (e) {
+      error = e;
+    }
+    expect(error).toBeInstanceOf(AuthConfigError);
+    expect((error as Error).message).toMatch(message);
+    expect((error as Error).message).not.toContain('aaaaaaaa');
+  });
+
   it('on Vercel the client IP header defaults to x-vercel-forwarded-for', () => {
     expect(loadAuthConfig({ ...base, VERCEL: '1' }).clientIpHeader).toBe('x-vercel-forwarded-for');
   });

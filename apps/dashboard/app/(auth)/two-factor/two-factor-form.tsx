@@ -3,6 +3,10 @@ import { useState, type FormEvent } from 'react';
 import { authClient, authErrorMessage } from '@/lib/auth-client';
 import { Alert, AuthCard, Button, Field, TextLink } from '@/components/ui';
 
+export const TWO_FACTOR_UNAVAILABLE =
+  'We could not check codes for your account right now. If this keeps happening, contact support: ' +
+  'your two-factor setup may need to be reset after we confirm it is you.';
+
 /**
  * Second step of a sign-in for TOTP users (FR-AUTH-03): after a password sign-in, after Google and after the
  * e-mail-verification link (DG-22). Locks after 5 wrong codes for 15 min.
@@ -24,7 +28,9 @@ export function TwoFactorForm() {
         : await authClient.twoFactor.verifyBackupCode({ code, trustDevice });
     if (error) {
       setPending(false);
-      return setError(authErrorMessage(error));
+      // A wrong code is a 4xx with its own message. A server error here usually means the stored factor cannot be
+      // read (P3 S0 finding S0-1); retrying cannot help and the user needs to know where to go.
+      return setError(error.status === 500 ? TWO_FACTOR_UNAVAILABLE : authErrorMessage(error));
     }
     window.location.assign(returnTarget());
   }

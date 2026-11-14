@@ -1,7 +1,7 @@
 /**
  * TOTP challenge for sign-ins that do not go through the two-factor plugin's own hook (DG-22, ADR-006, S8-2).
  *
- * Better Auth 1.7.12's plugin challenges only `/sign-in/email|username|phone-number`. Google (`/callback/:id`,
+ * Better Auth 1.7's plugin (re-checked on 1.7.14) challenges only `/sign-in/email|username|phone-number`. Google (`/callback/:id`,
  * the ID-token form of `/sign-in/social`) and the auto sign-in after `/verify-email` create a full session for a
  * user whose 2FA is on. This module is the plugin's own hold, applied to those paths: the new session is deleted
  * before the response leaves, its cookies are stripped, and the same challenge state the plugin uses (signed

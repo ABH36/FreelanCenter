@@ -20,7 +20,7 @@ describe('ADR-006 mandatory configuration', () => {
     const pkg = JSON.parse(
       readFileSync(new URL('../../node_modules/better-auth/package.json', import.meta.url), 'utf8'),
     ) as { version: string };
-    expect(pkg.version).toBe('1.7.12');
+    expect(pkg.version).toBe('1.7.14');
   });
 
   it('pins every setting from the ADR-006 table', () => {
