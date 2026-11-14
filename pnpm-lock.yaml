@@ -49,6 +49,9 @@ importers:
       '@platform/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@platform/blocks':
+        specifier: workspace:*
+        version: link:../../packages/blocks
       '@platform/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -61,6 +64,9 @@ importers:
       '@platform/providers':
         specifier: workspace:*
         version: link:../../packages/providers
+      '@platform/schema':
+        specifier: workspace:*
+        version: link:../../packages/schema
       '@platform/ui':
         specifier: workspace:*
         version: link:../../packages/ui

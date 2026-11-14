@@ -4,7 +4,9 @@
   "private": true,
   "description": "Freelancer, creator, admin and client-portal UI (Next.js App Router)",
   "scripts": {
+    "predev": "node scripts/copy-preview-fonts.mjs",
     "dev": "next dev -p 3000",
+    "prebuild": "node scripts/copy-preview-fonts.mjs",
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "eslint .",
@@ -13,10 +15,12 @@
   },
   "dependencies": {
     "@platform/auth": "workspace:*",
+    "@platform/blocks": "workspace:*",
     "@platform/db": "workspace:*",
     "@platform/jobs": "workspace:*",
     "@platform/logger": "workspace:*",
     "@platform/providers": "workspace:*",
+    "@platform/schema": "workspace:*",
     "@platform/ui": "workspace:*",
     "@platform/workspaces": "workspace:*",
     "@sentry/nextjs": "11.10.0",

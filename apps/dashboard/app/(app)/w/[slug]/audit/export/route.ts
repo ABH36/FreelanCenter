@@ -3,7 +3,7 @@
  * member's own memberships; a non-member and an unknown slug both get 404. The export is audited by the service.
  * Registered with the IDOR harness as `route:/w/[slug]/audit/export`.
  */
-import { WorkspaceError } from '@platform/workspaces';
+import { isWorkspaceError } from '@platform/workspaces';
 import { auditService, requireUserId, withRequestContext, workspaces } from '@/lib/workspaces';
 
 export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
@@ -28,7 +28,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       },
     });
   } catch (error) {
-    if (error instanceof WorkspaceError) {
+    if (isWorkspaceError(error)) {
       return new Response(error.message, { status: error.code === 'FORBIDDEN' ? 403 : 404 });
     }
     throw error;

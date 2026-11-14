@@ -3,7 +3,7 @@
  * Not a server-action module itself (no use-server directive), so it may export plain helpers.
  */
 import 'server-only';
-import { WorkspaceError } from '@platform/workspaces';
+import { isWorkspaceError } from '@platform/workspaces';
 import { withRequestContext } from './workspaces';
 
 export interface ActionState {
@@ -27,7 +27,7 @@ export async function runAction(fn: () => Promise<ActionState | void>): Promise<
   try {
     return (await withRequestContext(fn)) ?? {};
   } catch (error) {
-    if (error instanceof WorkspaceError) return { error: error.message, fieldErrors: error.fieldErrors };
+    if (isWorkspaceError(error)) return { error: error.message, fieldErrors: error.fieldErrors };
     throw error;
   }
 }

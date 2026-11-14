@@ -14,12 +14,16 @@ const config: NextConfig = {
     '@platform/providers',
     '@platform/jobs',
     '@platform/workspaces',
+    '@platform/blocks',
+    '@platform/schema',
   ],
   async headers() {
     // Baseline hardening (SEC-03). A full per-surface CSP lands with the builder (P3).
     return [
       {
-        source: '/:path*',
+        // Every path except the editor preview (P3 S3), which the editor page frames and which sets its own strict policy
+        // in the route (frame-ancestors 'self', no script source). Sign-in, settings and every other page stay unframeable.
+        source: '/:path((?!editor-preview(?:/|$)).*)',
         headers: [
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
