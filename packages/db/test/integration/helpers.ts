@@ -148,6 +148,36 @@ export async function seedWorkspace(db: TenantDatabase, auth: pg.Pool): Promise<
         expiresAt: new Date(Date.now() + 7 * 86_400_000),
       },
     });
+    // P3 S1 builder tables: a draft, an applied change set, a staging version with its pointer and an edit lock.
+    const builder = { workspaceId: scope.workspaceId, projectId: project.id };
+    await tx.siteDraft.create({
+      data: { ...builder, config: { schemaVersion: '1.0' }, schemaVersion: '1.0' },
+    });
+    await tx.changeSet.create({
+      data: {
+        ...builder,
+        source: 'manual',
+        status: 'applied',
+        operations: [],
+        inverse: [],
+        baseRevision: 1,
+        resultRevision: 2,
+      },
+    });
+    const staging = await tx.siteVersion.create({
+      data: {
+        ...builder,
+        kind: 'staging',
+        config: { schemaVersion: '1.0' },
+        schemaVersion: '1.0',
+        checksum: createHash('sha256').update(`site-${slug}`).digest('hex'),
+        sourceDraftRevision: 1,
+      },
+    });
+    await tx.sitePointer.create({ data: { ...builder, kind: 'staging', siteVersionId: staging.id } });
+    await tx.projectEditLock.create({
+      data: { ...builder, holderUserId: ownerId, expiresAt: new Date(Date.now() + 60_000) },
+    });
     return { scope, ownerId, projectId: project.id, contactId: contact.id, domainId: domain.id, hostname };
   });
 }

@@ -25,6 +25,13 @@ Preflight blocks invalid schema, unsafe/missing form destination and other block
 - Cache invalidation must be host/version scoped; failure leaves prior live pointer active.
 - Approval policy is server-enforced per workspace.
 
+**Data model (P3 S1).**
+
+- `site_versions` is immutable for every role: there is no grant, and triggers refuse UPDATE, DELETE and TRUNCATE.
+- `site_pointers` holds one staging and one live pointer per project. A pointer accepts only a version of its own project and kind.
+- Publish policy Q15 is enforced in RLS: editors may publish staging only, and owners and admins publish live.
+- Visitors (`app_public`) cannot read any of these tables; S7 adds the published-version function.
+
 ## Evidence
 
 Integration tests for atomic publish, retry, stale revision, preview access, comments, approval and rollback; visual/JSON diff snapshots; public-host cache tests. Upstream: Modules 02/04/05. Downstream: domains, leads, SEO, export.

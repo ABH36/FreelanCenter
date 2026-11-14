@@ -259,6 +259,131 @@ export const TENANT_TABLES = {
       data: { revokedAt: new Date(), revokedBy: '01920000-0000-7000-8000-00000000f00d' },
     },
   },
+  // P3 S1: the builder data model. The database sets revisions, actors and lock times (migration triggers).
+  site_drafts: {
+    tenantKey: 'workspace_id',
+    prepare: project,
+    insert: async (tx, ctx, deps) =>
+      (
+        await tx.siteDraft.create({
+          data: {
+            workspaceId: ctx.workspaceId,
+            projectId: deps.projectId!,
+            config: { schemaVersion: '1.0' },
+            schemaVersion: '1.0',
+          },
+          select: { id: true },
+        })
+      ).id,
+    // A save moves the revision by exactly one (site_drafts_guard).
+    update: `config = config, revision = revision + 1`,
+    delete: 'denied',
+    prisma: { model: (tx) => delegate(tx.siteDraft), data: { config: {}, revision: 2 } },
+  },
+  change_sets: {
+    tenantKey: 'workspace_id',
+    prepare: project,
+    insert: async (tx, ctx, deps) =>
+      (
+        await tx.changeSet.create({
+          data: {
+            workspaceId: ctx.workspaceId,
+            projectId: deps.projectId!,
+            source: 'manual',
+            operations: [],
+            baseRevision: 1,
+          },
+          select: { id: true },
+        })
+      ).id,
+    // The only update there is: a decision on a proposed change (change_sets_guard).
+    update: `status = 'rejected'`,
+    delete: 'denied',
+    prisma: { model: (tx) => delegate(tx.changeSet), data: { status: 'rejected' } },
+  },
+  site_versions: {
+    tenantKey: 'workspace_id',
+    prepare: project,
+    insert: async (tx, ctx, deps) =>
+      (
+        await tx.siteVersion.create({
+          data: {
+            workspaceId: ctx.workspaceId,
+            projectId: deps.projectId!,
+            kind: 'staging',
+            config: { schemaVersion: '1.0' },
+            schemaVersion: '1.0',
+            checksum: token(),
+            sourceDraftRevision: 1,
+          },
+          select: { id: true },
+        })
+      ).id,
+    // Immutable (Q7): no UPDATE or DELETE grant, and triggers refuse it even for the owner.
+    update: 'denied',
+    delete: 'denied',
+    prisma: { model: (tx) => delegate(tx.siteVersion), data: { note: 'tampered' } },
+  },
+  site_pointers: {
+    tenantKey: 'workspace_id',
+    prepare: async (tx, ctx) => {
+      const { projectId } = await project(tx, ctx);
+      const version = await tx.siteVersion.create({
+        data: {
+          workspaceId: ctx.workspaceId,
+          projectId,
+          kind: 'staging',
+          config: { schemaVersion: '1.0' },
+          schemaVersion: '1.0',
+          checksum: token(),
+          sourceDraftRevision: 1,
+        },
+        select: { id: true },
+      });
+      return { projectId, siteVersionId: version.id };
+    },
+    insert: async (tx, ctx, deps) =>
+      (
+        await tx.sitePointer.create({
+          data: {
+            workspaceId: ctx.workspaceId,
+            projectId: deps.projectId!,
+            kind: 'staging',
+            siteVersionId: deps.siteVersionId!,
+          },
+          select: { id: true },
+        })
+      ).id,
+    update: `site_version_id = site_version_id`,
+    delete: 'denied',
+    prisma: {
+      model: (tx) => delegate(tx.sitePointer),
+      data: { siteVersionId: '01920000-0000-7000-8000-00000000f00d' },
+    },
+  },
+  project_edit_locks: {
+    tenantKey: 'workspace_id',
+    prepare: project,
+    insert: async (tx, ctx, deps) =>
+      (
+        await tx.projectEditLock.create({
+          data: {
+            workspaceId: ctx.workspaceId,
+            projectId: deps.projectId!,
+            holderUserId: ctx.ownerId,
+            expiresAt: new Date(Date.now() + 60_000),
+          },
+          select: { id: true },
+        })
+      ).id,
+    // A renewal: the guard sets the holder to the actor and moves the times.
+    update: `holder_user_id = holder_user_id`,
+    delete: 'allowed',
+    prisma: {
+      model: (tx) => delegate(tx.projectEditLock),
+      data: { holderUserId: '01920000-0000-7000-8000-00000000f00d' },
+    },
+  },
   audit_logs: {
     tenantKey: 'workspace_id',
     nullableTenantKey: true,

@@ -320,6 +320,16 @@ await withClient('public', async (c) => {
     'app_public cannot read the preview link table',
     await denied(c, 'SELECT id FROM app.template_preview_links LIMIT 1'),
   );
+  // P3 S1: visitors never read builder data directly (S7 adds the published-version function).
+  for (const table of [
+    'site_drafts',
+    'change_sets',
+    'site_versions',
+    'site_pointers',
+    'project_edit_locks',
+  ]) {
+    check(`app_public cannot read ${table}`, await denied(c, `SELECT id FROM app.${table} LIMIT 1`));
+  }
   check(
     'app_public cannot publish a platform template',
     await denied(
