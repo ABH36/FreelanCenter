@@ -34,7 +34,48 @@ type Device = 'phone' | 'tablet' | 'desktop';
 type LockInfo = { holderUserId: string; mine: boolean };
 export type ClientDraft = Omit<DraftView, 'lock'> & { lock: LockInfo | null };
 
-const DEVICE_WIDTH: Record<Device, string> = { phone: '390px', tablet: '820px', desktop: '100%' };
+/** The width the site is laid out at for each device; the preview scales it down to fit the column. */
+const DEVICE_WIDTH: Record<Device, number> = { phone: 390, tablet: 820, desktop: 1280 };
+const PREVIEW_HEIGHT = 640;
+
+/**
+ * Lays the site out at the real device width and scales it to the column, so phone, tablet and desktop differ even
+ * when the column is narrower than a tablet (extension check 2026-11-15: Tablet and Desktop looked the same).
+ */
+function ScaledPreview({ src, width }: { src: string; width: number }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [available, setAvailable] = useState(width);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => setAvailable(entry?.contentRect.width ?? width));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [width]);
+  const scale = Math.min(1, available / width);
+  return (
+    <div ref={box} className="w-full">
+      <div
+        className="mx-auto overflow-hidden rounded-md border border-slate-300 bg-white"
+        style={{ width: width * scale, height: PREVIEW_HEIGHT }}
+        data-testid="preview-frame"
+        data-device-width={width}
+      >
+        <iframe
+          key={src}
+          title="Site preview"
+          src={src}
+          sandbox="allow-same-origin"
+          className="block origin-top-left border-0"
+          style={{ width, height: PREVIEW_HEIGHT / scale, transform: `scale(${scale})` }}
+        />
+      </div>
+      <p className="mt-1 text-center text-xs text-slate-700">
+        {width}px wide{scale < 1 ? `, shown at ${Math.round(scale * 100)}%` : ''}
+      </p>
+    </div>
+  );
+}
 const SAVE_DELAY_MS = 1000;
 const HEARTBEAT_MS = 30_000;
 
@@ -95,7 +136,7 @@ export function Editor({
   const [selection, setSelection] = useState<Selection>({ kind: 'business' });
   const [working, setWorking] = useState<unknown>(initial.config.business);
   const [errors, setErrors] = useState<FieldErrors>({});
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState('All changes saved');
   const [problem, setProblem] = useState('');
   const [device, setDevice] = useState<Device>('desktop');
   const [busy, setBusy] = useState(false);
@@ -219,7 +260,7 @@ export function Editor({
       }
       setProblem('');
       await reload();
-      setStatus(direction === 'undo' ? 'Undone' : 'Redone');
+      setStatus(direction === 'undo' ? 'Undone · all changes saved' : 'Redone · all changes saved');
     },
     [editable, busy, flush, target, reload],
   );
@@ -348,7 +389,8 @@ export function Editor({
         </div>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[14rem_minmax(0,22rem)_minmax(0,1fr)]">
+      {/* Wide screens: list, form, preview side by side. Medium: list and form, preview below at full width. */}
+      <div className="grid gap-4 md:grid-cols-[13rem_minmax(0,1fr)] xl:grid-cols-[14rem_minmax(0,22rem)_minmax(0,1fr)]">
         <nav aria-label="Site parts" className="space-y-3">
           <button
             type="button"
@@ -413,16 +455,9 @@ export function Editor({
 
         <section
           aria-label="Live preview"
-          className="min-w-0 rounded-[var(--radius-base)] border border-slate-200 bg-slate-100 p-2"
+          className="min-w-0 rounded-[var(--radius-base)] border border-slate-200 bg-slate-100 p-2 md:col-span-2 xl:col-span-1"
         >
-          <iframe
-            key={previewSrc}
-            title="Site preview"
-            src={previewSrc}
-            sandbox="allow-same-origin"
-            className="mx-auto block h-[70vh] rounded-md border border-slate-300 bg-white"
-            style={{ width: DEVICE_WIDTH[device], maxWidth: '100%' }}
-          />
+          <ScaledPreview src={previewSrc} width={DEVICE_WIDTH[device]} />
         </section>
       </div>
     </div>

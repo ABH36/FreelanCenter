@@ -58,13 +58,17 @@ export default async function EditorPage({
   );
 
   if (!draft) {
-    const catalog = await (await templateService()).catalog(userId, ws.id);
+    // A template made for the project's category comes first (extension check 2026-11-15: a taxi project was turned
+    // into a gym site because Gym Bold came first). Any template may still be chosen.
+    const catalog = (await (await templateService()).catalog(userId, ws.id)).sort(
+      (x, y) => Number(y.category === project.category) - Number(x.category === project.category),
+    );
     return (
       <div className="space-y-6">
         {header}
         <Panel
           title="Choose a template"
-          description="The site starts from the template's design and demo content; you then change everything in the editor."
+          description="The site starts from the template's design and demo content (name, texts, prices). You then change all of it in the editor; nothing is published until you publish."
         >
           {canEdit ? (
             <ul className="grid gap-3 sm:grid-cols-2">
@@ -73,7 +77,14 @@ export default async function EditorPage({
                   key={t.templateId}
                   className="space-y-2 rounded-[var(--radius-base)] border border-slate-200 p-4"
                 >
-                  <h2 className="font-medium">{t.name}</h2>
+                  <h2 className="font-medium">
+                    {t.name}
+                    {project.category && t.category === project.category ? (
+                      <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                        Recommended for this project
+                      </span>
+                    ) : null}
+                  </h2>
                   <p className="text-sm text-slate-600">{t.description}</p>
                   <ActionForm
                     action={startDraftAction}

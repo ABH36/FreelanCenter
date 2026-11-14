@@ -327,8 +327,19 @@ test('A starts the site from a template, edits it with autosave and live preview
   await expect(page.getByTestId('save-status')).toHaveText('All changes saved', { timeout: 30_000 });
   await expect(preview.getByText(renamed).first()).toBeVisible();
 
+  // Phone, tablet and desktop lay the site out at different widths, scaled to fit (extension check 2026-11-15).
+  const frame = page.getByTestId('preview-frame');
+  for (const [device, width] of [
+    ['Phone', '390'],
+    ['Tablet', '820'],
+    ['Desktop', '1280'],
+  ] as const) {
+    await page.getByRole('button', { name: device }).click();
+    await expect(frame).toHaveAttribute('data-device-width', width);
+  }
+
   await page.getByRole('button', { name: 'Undo' }).click();
-  await expect(page.getByTestId('save-status')).toHaveText('Undone', { timeout: 30_000 });
+  await expect(page.getByTestId('save-status')).toHaveText(/^Undone/, { timeout: 30_000 });
   await expect(name).toHaveValue(before);
   await expect(preview.getByText(before).first()).toBeVisible();
 });
