@@ -52,7 +52,7 @@ Better Auth 1.7.12 issues a session on three paths its two-factor hook does not 
 - Evidence: `packages/auth/test/integration/google-2fa.test.ts` (product auth suite, 3x in CI; Google faked at `fetch` with a throw-away signing key), unit tests, and the live Google round trip in `docs/reports/PHASE_1_DG22_GOOGLE_TOTP.md`.
 - **Re-check on every Better Auth upgrade**, like S4-6 and S8-1: (a) whether the plugin now covers the callback itself (then remove the hook), (b) the list of session-creating paths (`grep createSession` in the package; the hook lists `/callback/`, `/sign-in/social`, `/verify-email`; anything new such as magic link, email OTP or passkey must be added or must not be enabled), (c) that the product suite's DG-22 tests still pass.
 
-## P3 addition: Better Auth 1.7.14 and versioned keys (pending the Owner's approval with the auth hardening report)
+## P3 addition: Better Auth 1.7.14 and versioned keys (Owner-approved 2026-11-14, PR #75)
 
 - **Upgrade 1.7.12 → 1.7.14** (released 2026-10-26, past the SEC-13 two-week age; Dependabot #71). Spike F: 36/36 on four fresh-volume runs (`spikes/spike-f-better-auth/results/spike-f-results.json`). Product auth suite green, including the S8-1, S8-2/DG-22 and S4-6 tests. Re-checks required by this ADR:
   - (a) The two-factor plugin still challenges only `/sign-in/email|username|phone-number`, so the DG-22 hook stays.
