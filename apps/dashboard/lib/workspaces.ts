@@ -14,6 +14,7 @@ import { getCorrelationIdFromHeaders, runWithContext } from '@platform/logger';
 import { type KeyValueStore, createKeyValueStore, loadKeyValueConfig } from '@platform/providers';
 import {
   type AuditService,
+  type BuilderService,
   type NotificationService,
   type Outbox,
   type ProjectService,
@@ -21,6 +22,7 @@ import {
   type WorkspaceContext,
   type WorkspaceService,
   createAuditService,
+  createBuilderService,
   createHostCacheInvalidationHandler,
   createInvitationEmailHandler,
   createNotificationEmailHandler,
@@ -44,6 +46,8 @@ interface WorkspaceRuntime {
   service: WorkspaceService;
   projects: ProjectService;
   templates: TemplateService;
+  /** P3 S2: drafts, changes, undo/redo and the edit lock (module 05). */
+  builder: BuilderService;
   notifications: NotificationService;
   audit: AuditService;
   jobs: Jobs;
@@ -116,6 +120,7 @@ function build(): WorkspaceRuntime {
   const projects = createProjectService({ db, outbox, logger });
   const notifications = createNotificationService({ db, logger });
   const audit = createAuditService({ db, logger });
+  const builder = createBuilderService({ db, logger });
   // P2 S6b: preview links are signed with the secret apps/sites verifies with; off when not configured.
   const templates = createTemplateService({ db, preview: previewSettingsFromEnv(process.env), logger });
   // DG-28: measured requests (x-perf-request) log the time of each service call; others are untouched.
@@ -123,6 +128,7 @@ function build(): WorkspaceRuntime {
     service: instrument(logger, 'workspaces', service),
     projects: instrument(logger, 'projects', projects),
     templates: instrument(logger, 'templates', templates),
+    builder: instrument(logger, 'builder', builder),
     notifications: instrument(logger, 'notifications', notifications),
     audit: instrument(logger, 'audit', audit),
     jobs,
@@ -150,6 +156,7 @@ async function ready(): Promise<WorkspaceRuntime> {
 
 export const projectService = async (): Promise<ProjectService> => (await ready()).projects;
 export const templateService = async (): Promise<TemplateService> => (await ready()).templates;
+export const builderService = async (): Promise<BuilderService> => (await ready()).builder;
 export const notificationService = async (): Promise<NotificationService> => (await ready()).notifications;
 export const auditService = async (): Promise<AuditService> => (await ready()).audit;
 export const workspaceOutbox = async (): Promise<Outbox> => (await ready()).outbox;

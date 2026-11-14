@@ -147,6 +147,7 @@ const tenantTables = await withClient('bootstrap', async (op) => {
     'workspace_members',
     'workspace_writable',
     'get_catalog_template',
+    'catalog_template_for_draft',
     'is_preview_link_revoked',
     'list_catalog_templates',
     'operator_archive_builtin_template',

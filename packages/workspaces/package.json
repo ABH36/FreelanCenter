@@ -21,6 +21,7 @@
     "@platform/jobs": "workspace:*",
     "@platform/logger": "workspace:*",
     "@platform/providers": "workspace:*",
+    "@platform/schema": "workspace:*",
     "zod": "4.6.7"
   },
   "devDependencies": {
