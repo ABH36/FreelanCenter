@@ -1,6 +1,6 @@
 # Phase 3, slice S1: builder data model
 
-**Status:** built on `feat/p3-s1-builder-data-model`; awaiting the Owner's approval of the slice. The live migration is a separate, Owner-approved step (section 7). **Date:** 2026-11-14 · **Requirements (foundations):** FR-BLD-06 (optimistic concurrency, undo), FR-BLD-07 (edit lock), FR-PUB-01/02/03 (immutable versions, pointers, rollback) · **Plan decisions:** Q7 (immutability), Q15 (publish policy) · **Modules:** 05, 06 · **Design approved by the Owner 2026-11-14.**
+**Status:** built on `feat/p3-s1-builder-data-model`; **approved by the Owner 2026-11-14.** The live migration is a separate, Owner-approved step (section 7). **Date:** 2026-11-14 · **Requirements (foundations):** FR-BLD-06 (optimistic concurrency, undo), FR-BLD-07 (edit lock), FR-PUB-01/02/03 (immutable versions, pointers, rollback) · **Plan decisions:** Q7 (immutability), Q15 (publish policy) · **Modules:** 05, 06 · **Design approved by the Owner 2026-11-14.**
 
 ## 1. Why
 
