@@ -97,3 +97,37 @@ describe('applyPatch', () => {
     expect(r.ok === false || r.ok === true).toBe(true);
   });
 });
+
+describe('page operations (P3 S4, FR-BLD-03)', () => {
+  const page = { id: 'offers', path: '/offers', title: 'Offers', sections: [] };
+
+  it('addPage inserts the page and links it from the navigation (unless told not to)', () => {
+    const r = applyPatch(base(), [{ op: 'addPage', page, index: 1 }]);
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(r.config.pages.map((p) => p.id)).toEqual(['home', 'offers', 'about']);
+    expect(r.config.navigation.items.at(-1)).toEqual({ label: 'Offers', target: '/offers' });
+    const quiet = applyPatch(base(), [{ op: 'addPage', page, addToNavigation: false }]);
+    expect(quiet.ok && quiet.config.navigation.items.some((i) => i.target === '/offers')).toBe(false);
+  });
+
+  it('a page whose id or path is already used is refused', () => {
+    expect(applyPatch(base(), [{ op: 'addPage', page: { ...page, id: 'about' } }]).ok).toBe(false);
+    expect(applyPatch(base(), [{ op: 'addPage', page: { ...page, path: '/about' } }]).ok).toBe(false);
+  });
+
+  it('removePage removes the page and its navigation links; the home page stays', () => {
+    const r = applyPatch(base(), [{ op: 'removePage', pageId: 'about' }]);
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(r.config.pages.map((p) => p.id)).toEqual(['home']);
+    expect(r.config.navigation.items.map((i) => i.target)).toEqual(['/']);
+    const home = applyPatch(base(), [{ op: 'removePage', pageId: 'home' }]);
+    expect(home.ok).toBe(false);
+    expect(!home.ok && home.issues[0]?.message).toBe('The home page cannot be removed');
+    expect(applyPatch(base(), [{ op: 'removePage', pageId: 'nope' }]).ok).toBe(false);
+  });
+
+  it('movePage reorders pages', () => {
+    const r = applyPatch(base(), [{ op: 'movePage', pageId: 'about', toIndex: 0 }]);
+    expect(r.ok && r.config.pages.map((p) => p.id)).toEqual(['about', 'home']);
+  });
+});

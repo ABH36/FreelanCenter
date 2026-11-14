@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { editorFormSchemas } from '@platform/schema';
+import { BLOCKS, type BlockType, editorFormSchemas, sampleSection } from '@platform/schema';
 import { type DraftView, WorkspaceError } from '@platform/workspaces';
 import { startDraftAction } from '@/app/actions/builder';
 import { ActionForm } from '@/components/action-form';
@@ -129,6 +129,17 @@ export default async function EditorPage({
           business: JSON.parse(JSON.stringify(schemas.business)) as JsonSchema,
           blocks: JSON.parse(JSON.stringify(schemas.blocks)) as Record<string, JsonSchema>,
         }}
+        blocks={Object.fromEntries(
+          (Object.keys(BLOCKS) as BlockType[]).map((type) => [
+            type,
+            {
+              variants: [...BLOCKS[type].variants],
+              sample: JSON.parse(
+                JSON.stringify(sampleSection(type, BLOCKS[type].variants[0], 'sample').props),
+              ) as Record<string, unknown>,
+            },
+          ]),
+        )}
         canEdit={canEdit}
         canTakeOver={canEdit && (ws.scope.role === 'owner' || ws.scope.role === 'admin')}
         memberNames={Object.fromEntries(members.map((m) => [m.userId, m.name]))}

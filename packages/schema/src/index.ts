@@ -13,4 +13,5 @@ export * from './migrate';
 export * from './parse';
 export * from './patch';
 export * from './template';
+export * from './samples';
 export { buildJsonSchemas, editorFormSchemas } from './json-schema';
