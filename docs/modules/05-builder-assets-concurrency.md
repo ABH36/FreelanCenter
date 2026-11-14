@@ -34,6 +34,24 @@ Owners, admins and editors write; viewers read. Writes need a writable workspace
 - The lock is taken and renewed by `acquireLock`, called on every 30 s heartbeat. Owners and admins may use `takeOverLock`, which is audited with the previous holder. `releaseLock` releases it.
 - Audit rows: `draft.created`, `draft.changed`, `draft.undone`, `draft.redone`, `draft.change.proposed`, `draft.change.accepted`, `draft.change.rejected` and `draft.lock.taken_over`. They hold ids and counts only.
 
+**Editor UI (P3 S3, `apps/dashboard/app/(app)/w/[slug]/projects/[projectId]/editor`).**
+
+- When the project has no draft yet, the page shows the template catalogue ("Start with ...").
+- Otherwise it shows the editor:
+  - **Site parts:** business details and every section of every page.
+  - **Form:** generated from the block's JSON Schema, made by `editorFormSchemas()` from the same Zod schemas that validate saves. Server field errors appear next to the field.
+  - **Autosave:** one second after the last edit, on the held revision. A conflict reloads the draft.
+  - **Undo/redo:** buttons, and Ctrl+Z / Ctrl+Y outside text fields.
+  - **Lock:** taken on open and renewed every 30 s. A banner names the holder; owners and admins see "Take over editing".
+  - **Preview:** at phone, tablet or desktop width.
+- **The preview** (Owner decision 2026-11-15, replacing Q10 for the editor) is rendered by the dashboard on `/editor-preview/<slug>/<projectId>`:
+  - It uses the same renderer as the sites app, in mode `draft`.
+  - It runs no script: the policy has no script source, styles are hashed, and `frame-ancestors 'self'`.
+  - It is shown in an iframe with `sandbox="allow-same-origin"` only.
+  - Every other dashboard path keeps `frame-ancestors 'none'`.
+  - Fonts are served from `public/preview-fonts`, using the sites app's allow-list.
+- **Rich text:** plain text is edited directly. Text with formatting is shown read-only, with a "Replace with plain text" option.
+
 ## Assets
 
 Uploads are authenticated and scoped to project. Sniff MIME, cap size, strip EXIF, scan where feasible, re-encode fixed AVIF/WebP variants, store alt text/provenance and serve through asset domain. Do not use the Next/Vercel image optimizer. Deleting/replacing assets cannot break immutable published versions; lifecycle/refcount design is required.
