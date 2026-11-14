@@ -1,6 +1,6 @@
 # Phase 3, slice S3: the site editor
 
-**Status:** built on `feat/p3-s3-editor`; awaiting the Owner's approval of the slice. **Date:** 2026-11-15 · **Requirements:** FR-PRJ-01 (start from a template), FR-BLD-01 (schema-generated forms, inline validation), FR-BLD-02 (live preview with device widths), FR-BLD-06 (autosave, conflicts, undo/redo), FR-BLD-07 (single-editor lock), part of FR-BLD-08 (keyboard) · **Module:** 05 · **Design approved by the Owner 2026-11-15, preview option B.** No migration in this slice.
+**Status:** built on `feat/p3-s3-editor`; **approved by the Owner 2026-11-15.** **Date:** 2026-11-15 · **Requirements:** FR-PRJ-01 (start from a template), FR-BLD-01 (schema-generated forms, inline validation), FR-BLD-02 (live preview with device widths), FR-BLD-06 (autosave, conflicts, undo/redo), FR-BLD-07 (single-editor lock), part of FR-BLD-08 (keyboard) · **Module:** 05 · **Design approved by the Owner 2026-11-15, preview option B.** No migration in this slice.
 
 ## 1. Why
 
