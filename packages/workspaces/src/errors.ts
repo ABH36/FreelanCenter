@@ -25,7 +25,17 @@ export type WorkspaceErrorCode =
   | 'IDEMPOTENCY_MISMATCH'
   | 'MFA_CODE_INVALID'
   | 'MFA_LOCKED'
-  | 'PREVIEWS_NOT_CONFIGURED';
+  | 'PREVIEWS_NOT_CONFIGURED'
+  // P3 S2: the draft service (builder).
+  | 'DRAFT_CONFLICT'
+  | 'DRAFT_EXISTS'
+  | 'NO_DRAFT'
+  | 'LOCK_REQUIRED'
+  | 'NOTHING_TO_UNDO'
+  | 'NOTHING_TO_REDO'
+  | 'UNDO_LIMIT'
+  | 'PROPOSAL_STALE'
+  | 'CHANGE_TOO_LARGE';
 
 const MESSAGES: Record<WorkspaceErrorCode, string> = {
   NOT_FOUND: 'Not found.',
@@ -50,6 +60,16 @@ const MESSAGES: Record<WorkspaceErrorCode, string> = {
   MFA_CODE_INVALID: 'That code is not valid. Enter the current code from your authenticator app.',
   MFA_LOCKED: 'Too many wrong codes. Try again in 15 minutes.',
   PREVIEWS_NOT_CONFIGURED: 'Preview links are not set up in this environment yet. Contact support.',
+  DRAFT_CONFLICT:
+    'Someone saved this site a moment ago. Your view was refreshed; check it and make your change again.',
+  DRAFT_EXISTS: 'This project already has a site from another template.',
+  NO_DRAFT: 'This project has no site yet. Choose a template first.',
+  LOCK_REQUIRED: 'Someone else is editing this site right now. You can view it until they finish.',
+  NOTHING_TO_UNDO: 'There is nothing to undo.',
+  NOTHING_TO_REDO: 'There is nothing to redo.',
+  UNDO_LIMIT: 'You can undo only the last 50 changes.',
+  PROPOSAL_STALE: 'The site changed after this suggestion was made. Ask for a new suggestion.',
+  CHANGE_TOO_LARGE: 'This change is too large to save in one step. Make it in smaller parts.',
 };
 
 export class WorkspaceError extends Error {
@@ -72,6 +92,10 @@ const PROJECT_SQLSTATES: Record<string, WorkspaceErrorCode> = {
   P5004: 'SUBDOMAINS_NOT_CONFIGURED',
   P5005: 'SUBDOMAIN_UNAVAILABLE',
   P5006: 'NOT_LIVE_READY',
+  // P3 S1 builder data model.
+  P5101: 'DRAFT_CONFLICT',
+  P5102: 'INVALID_TRANSITION',
+  P5103: 'INVALID_INPUT',
 };
 
 /** Every SQLSTATE / Prisma code on an error, however deeply the driver adapter nests it. */

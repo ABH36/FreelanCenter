@@ -112,3 +112,15 @@ export {
   createTemplateService,
   previewSettingsFromEnv,
 } from './templates';
+export {
+  BUILDER_LIMITS,
+  type BuilderService,
+  type BuilderServiceDeps,
+  type DraftView,
+  type LockState,
+  type RestoreOperation,
+  applyRestore,
+  createBuilderService,
+  inverseFor,
+  touchedParts,
+} from './builder';

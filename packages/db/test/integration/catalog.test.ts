@@ -281,6 +281,7 @@ describe('functions', () => {
       'admin_step_up_begin',
       'admin_step_up_finish',
       'allocate_platform_subdomain',
+      'catalog_template_for_draft',
       'current_member_role',
       'get_catalog_template',
       'invitation_preview',
@@ -363,6 +364,8 @@ describe('functions', () => {
     // P2 S5b: the template catalogue is read by tenants and visitors; platform templates are written by migrator only.
     expect(await executors('list_catalog_templates')).toEqual(['app_public', 'app_user']);
     expect(await executors('get_catalog_template')).toEqual(['app_public', 'app_user']);
+    // P3 S2: a member starts a draft from a catalogue template; visitors never need the version id.
+    expect(await executors('catalog_template_for_draft')).toEqual(['app_user']);
     // P2 S8b: the preview-link revocation check is for the visitor role only.
     expect(await executors('is_preview_link_revoked')).toEqual(['app_public']);
     expect(await executors('preview_link_sender')).toEqual(['app_public']);
