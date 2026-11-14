@@ -1,6 +1,6 @@
 # Phase 3, slice S2: draft service
 
-**Status:** built on `feat/p3-s2-draft-service`; awaiting the Owner's approval of the slice. The live migration is a separate, Owner-approved step (section 7). **Date:** 2026-11-15 · **Requirements:** FR-PRJ-01 (project from a template), FR-BLD-06 (autosave with revision, optimistic concurrency, undo/redo), FR-BLD-07 (single-editor lock) · **Module:** 05 · **Design and decisions approved by the Owner 2026-11-14.**
+**Status:** **approved by the Owner 2026-11-15**; merged (PR #79, fbc454d); live migration applied 2026-11-15 with the Owner's approval (section 8). **Date:** 2026-11-15 · **Requirements:** FR-PRJ-01 (project from a template), FR-BLD-06 (autosave with revision, optimistic concurrency, undo/redo), FR-BLD-07 (single-editor lock) · **Module:** 05 · **Design and decisions approved by the Owner 2026-11-14.**
 
 ## 1. Why
 
@@ -75,3 +75,18 @@ S1 made the builder tables and their database rules. S2 is the service the edito
 - **Live database:** this is a separate Owner-approved step after merge, following the S1 procedure (pre-check, deploy, status/drift, `db:verify --target env`).
 - **Contracts:** unchanged. `CROSS_MODULE_CONTRACTS.md` already says that every edit uses optimistic concurrency and a ChangeSet, and S2 implements that.
 - **Docs:** module 05 (draft service).
+
+## 8. Live application (2026-11-15, Owner-approved)
+
+Run from the developer machine against the Supabase `ap-south-1` project as `migrator` (not a superuser, no BYPASSRLS), after PR #79 was merged. No secret was printed or stored.
+
+| Step                                                     | Result                                                                                                                                                                                                                                                                                                |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Read-only pre-check (read-only transaction, rolled back) | remote host; 11 migrations, all finished, none rolled back, latest S1 (live matched `main`); the S2 migration was not recorded; `catalog_template_for_draft` did not exist; `app.templates`, `app.template_versions` and `svc_definer` existed                                                        |
+| `prisma migrate deploy` (`DB_TARGET=env`)                | applied `20261115090000_p3_s2_catalog_template_for_draft`                                                                                                                                                                                                                                             |
+| `prisma migrate status`                                  | database schema is up to date (12 migrations)                                                                                                                                                                                                                                                         |
+| Live database vs `schema.prisma`                         | no difference detected                                                                                                                                                                                                                                                                                |
+| `db:verify --target env`                                 | **38 passed, 0 failed**; SECURITY DEFINER functions are exactly the 30 expected, owned by `svc_definer` with a pinned search path                                                                                                                                                                     |
+| `test:live`                                              | first run, right after the migration: 1 failed, 5 passed, 1 skipped. The failure output was not captured. The next two runs: 6 passed, 1 skipped (unchanged from before). Most likely cause, not proven: pooled connections whose cached statements were invalidated by the DDL. Recorded as observed |
+
+Nothing else on the live database changed. The production code does not call the new function yet; S3 is the first slice that does.
