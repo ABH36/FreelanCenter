@@ -44,6 +44,20 @@ for (const slug of SLUGS) {
       );
       expect(failed).toEqual([]);
 
+      // Enter animations start at opacity 0. Where `animation-timeline: view()` is not supported (Firefox), they run on
+      // the document timeline from page load, and axe measured a fading text mid-animation as low contrast (a flaky
+      // failure on PR #80). Wait for the time-based ones to finish (bounded); scroll-driven ones never "finish".
+      await page.evaluate(() =>
+        Promise.race([
+          Promise.all(
+            document
+              .getAnimations()
+              .filter((a) => a.timeline === document.timeline)
+              .map((a) => a.finished.catch(() => undefined)),
+          ),
+          new Promise((resolve) => setTimeout(resolve, 5000)),
+        ]),
+      );
       const axe = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
         .analyze();
