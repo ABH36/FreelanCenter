@@ -25,10 +25,12 @@ import {
   undoDraftAction,
 } from '@/app/actions/builder';
 import { type FieldErrors, type JsonSchema, SchemaField, humanize } from './schema-form';
+import { AddPage, AddSection, type Commit, PageTools, SectionTools } from './structure';
 
 type Config = DraftView['config'];
 type Section = Config['pages'][number]['sections'][number];
-type Selection = { kind: 'business' } | { kind: 'section'; sectionId: string };
+type Selection =
+  { kind: 'business' } | { kind: 'section'; sectionId: string } | { kind: 'page'; pageId: string };
 type Device = 'phone' | 'tablet' | 'desktop';
 /** What the editor needs to know about the lock. Props cross the server/client boundary as plain JSON. */
 type LockInfo = { holderUserId: string; mine: boolean };
@@ -84,6 +86,8 @@ export interface EditorProps {
   slug: string;
   initial: ClientDraft;
   schemas: { business: JsonSchema; blocks: Record<string, JsonSchema> };
+  /** P3 S4: each block type's layouts and the placeholder content of a new section (from @platform/schema). */
+  blocks: Record<string, { variants: readonly string[]; sample: Record<string, unknown> }>;
   /** Owner, admin or editor in a writable workspace (the server re-checks every call). */
   canEdit: boolean;
   /** Owner or admin: may take a live lock over. */
@@ -123,6 +127,7 @@ export function Editor({
   slug,
   initial,
   schemas,
+  blocks,
   canEdit,
   canTakeOver,
   memberNames,
@@ -169,17 +174,28 @@ export function Editor({
   useEffect(() => {
     if (pending.current) return;
     if (selection.kind === 'business') setWorking(config.business);
-    else setWorking(findSection(config, selection.sectionId)?.section.props);
+    else if (selection.kind === 'section') {
+      const found = findSection(config, selection.sectionId);
+      if (found) setWorking(found.section.props);
+      else setSelection({ kind: 'business' });
+    } else if (!config.pages.some((p) => p.id === selection.pageId)) setSelection({ kind: 'business' });
   }, [config, selection]);
 
   const save = useCallback(async () => {
     const change = pending.current;
-    if (!change) return;
+    if (!change || change.selection.kind === 'page') return;
     pending.current = null;
+    const formTarget = change.selection;
     const operations =
       change.selection.kind === 'business'
         ? [{ op: 'updateBusiness', value: change.value }]
-        : [{ op: 'updateSection', sectionId: change.selection.sectionId, props: change.value }];
+        : [
+            {
+              op: 'updateSection',
+              sectionId: formTarget.kind === 'section' ? formTarget.sectionId : '',
+              props: change.value,
+            },
+          ];
     setStatus('Saving…');
     const result = await saveDraftChangeAction({
       ...target,
@@ -201,7 +217,9 @@ export function Editor({
           pages: current.pages.map((p) => ({
             ...p,
             sections: p.sections.map((s) =>
-              s.id === sel.sectionId ? ({ ...s, props: change.value } as Section) : s,
+              sel.kind === 'section' && s.id === sel.sectionId
+                ? ({ ...s, props: change.value } as Section)
+                : s,
             ),
           })),
         };
@@ -301,6 +319,40 @@ export function Editor({
     return () => window.removeEventListener('keydown', onKey);
   }, [reverse]);
 
+  /** Structure changes (S4) save at once, then the draft reloads from the server. */
+  const commit: Commit = useCallback(
+    async (operations, next) => {
+      if (!editable || busy) return false;
+      await flush();
+      setBusy(true);
+      setStatus('Saving…');
+      const result = await saveDraftChangeAction({
+        ...target,
+        changeId: crypto.randomUUID(),
+        expectedRevision: revisionRef.current,
+        operations,
+      });
+      setBusy(false);
+      if (!result.ok) {
+        setStatus('');
+        setProblem(
+          result.code === 'INVALID_INPUT'
+            ? (Object.values(result.fieldErrors ?? {})[0] ?? result.error)
+            : result.error,
+        );
+        if (result.code === 'DRAFT_CONFLICT' || result.code === 'LOCK_REQUIRED') await reload();
+        return false;
+      }
+      setProblem('');
+      setErrors({});
+      await reload();
+      if (next) setSelection(next);
+      setStatus('All changes saved');
+      return true;
+    },
+    [editable, busy, flush, target, reload],
+  );
+
   const takeOver = async () => {
     const result = await takeOverEditLockAction(target);
     if (!result.ok) return setProblem(result.error);
@@ -308,10 +360,16 @@ export function Editor({
   };
 
   const selected = selection.kind === 'section' ? findSection(config, selection.sectionId) : null;
-  const previewPath = selected?.pagePath ?? '/';
+  const selectedPage =
+    selection.kind === 'page' ? config.pages.find((p) => p.id === selection.pageId) : undefined;
+  const previewPath = selected?.pagePath ?? selectedPage?.path ?? '/';
   const previewSrc = `/editor-preview/${slug}/${projectId}${previewPath === '/' ? '' : previewPath}?r=${revision}`;
   const formSchema =
-    selection.kind === 'business' ? schemas.business : schemas.blocks[selected?.section.type ?? ''];
+    selection.kind === 'business'
+      ? schemas.business
+      : selection.kind === 'section'
+        ? schemas.blocks[selected?.section.type ?? '']
+        : undefined;
   const holderName = lock && !lock.mine ? (memberNames[lock.holderUserId] ?? 'Another member') : null;
 
   const itemClass = (active: boolean) =>
@@ -402,8 +460,18 @@ export function Editor({
           </button>
           {config.pages.map((page) => (
             <div key={page.id}>
-              <h2 className="px-3 text-xs font-semibold tracking-wide text-slate-500 uppercase">
-                {page.title}
+              <h2>
+                <button
+                  type="button"
+                  aria-current={
+                    selection.kind === 'page' && selection.pageId === page.id ? 'true' : undefined
+                  }
+                  className={`${itemClass(selection.kind === 'page' && selection.pageId === page.id)} text-xs font-semibold tracking-wide uppercase`}
+                  onClick={() => void choose({ kind: 'page', pageId: page.id })}
+                >
+                  {page.title}
+                  <span className="sr-only"> page settings</span>
+                </button>
               </h2>
               <ul className="mt-1 space-y-1">
                 {page.sections.map((section) => {
@@ -417,14 +485,23 @@ export function Editor({
                         onClick={() => void choose({ kind: 'section', sectionId: section.id })}
                       >
                         {humanize(section.type)}
-                        {section.visible === false ? <span className="ml-1 opacity-75">(hidden)</span> : null}
+                        {section.visible === false ? <span className="opacity-75"> (hidden)</span> : null}
                       </button>
                     </li>
                   );
                 })}
               </ul>
+              <AddSection
+                config={config}
+                page={page}
+                blocks={blocks}
+                disabled={!editable || busy}
+                commit={commit}
+                afterSectionId={selection.kind === 'section' ? selection.sectionId : undefined}
+              />
             </div>
           ))}
+          <AddPage config={config} disabled={!editable || busy} commit={commit} />
         </nav>
 
         <section
@@ -434,11 +511,32 @@ export function Editor({
           <h2 id="form-title" className="text-base font-semibold">
             {selection.kind === 'business'
               ? 'Business details'
-              : humanize(selected?.section.type ?? 'Section')}
+              : selection.kind === 'page'
+                ? `Page: ${selectedPage?.title ?? ''}`
+                : humanize(selected?.section.type ?? 'Section')}
           </h2>
+          {selection.kind === 'section' && selected ? (
+            <SectionTools
+              key={`tools-${selected.section.id}`}
+              config={config}
+              section={selected.section}
+              variants={blocks[selected.section.type]?.variants ?? []}
+              disabled={!editable || busy}
+              commit={commit}
+            />
+          ) : null}
+          {selection.kind === 'page' && selectedPage ? (
+            <PageTools
+              key={`page-${selectedPage.id}-${selectedPage.title}`}
+              config={config}
+              page={selectedPage}
+              disabled={!editable || busy}
+              commit={commit}
+            />
+          ) : null}
           {formSchema ? (
             <SchemaField
-              key={selection.kind === 'business' ? 'business' : selection.sectionId}
+              key={selection.kind === 'section' ? selection.sectionId : selection.kind}
               schema={formSchema}
               value={working}
               onChange={edit}
@@ -448,7 +546,7 @@ export function Editor({
               errors={errors}
               disabled={!editable}
             />
-          ) : (
+          ) : selection.kind === 'page' ? null : (
             <p className="text-sm text-slate-600">This part cannot be edited here yet.</p>
           )}
         </section>

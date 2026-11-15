@@ -5,9 +5,9 @@
  */
 import { z } from 'zod';
 import { sectionSchema } from './blocks';
-import { shortText, slug } from './primitives';
+import { LIMITS, shortText, slug } from './primitives';
 import { parseSiteConfig, type ConfigIssue } from './parse';
-import { siteConfigSchema, type SiteConfig } from './site-config';
+import { pageSchema, siteConfigSchema, type SiteConfig } from './site-config';
 import { themeSchema } from './theme';
 
 const sectionId = z.string().regex(/^[a-z0-9][a-z0-9-]{0,39}$/);
@@ -46,6 +46,16 @@ export const patchOperationSchema = z.discriminatedUnion('op', [
   }),
   z.strictObject({ op: z.literal('removeSection'), sectionId }),
   z.strictObject({ op: z.literal('moveSection'), sectionId, toIndex: z.number().int().min(0).max(1000) }),
+  // P3 S4 (FR-BLD-03): pages. A new page is linked from the navigation unless `addToNavigation` is false; removing a
+  // page also removes the navigation links to it. The home page (`/`) cannot be removed.
+  z.strictObject({
+    op: z.literal('addPage'),
+    page: pageSchema,
+    index: z.number().int().min(0).max(1000).optional(),
+    addToNavigation: z.boolean().optional(),
+  }),
+  z.strictObject({ op: z.literal('removePage'), pageId: slug }),
+  z.strictObject({ op: z.literal('movePage'), pageId: slug, toIndex: z.number().int().min(0).max(1000) }),
 ]);
 export type PatchOperation = z.infer<typeof patchOperationSchema>;
 
@@ -135,6 +145,31 @@ export function applyPatch(current: SiteConfig, rawPatch: unknown): PatchResult 
         if (!found) return reject('Unknown section', at);
         const [moved] = found.page.sections.splice(found.index, 1);
         if (moved) found.page.sections.splice(Math.min(op.toIndex, found.page.sections.length), 0, moved);
+        break;
+      }
+      case 'addPage': {
+        draft.pages.splice(Math.min(op.index ?? draft.pages.length, draft.pages.length), 0, op.page);
+        if (op.addToNavigation !== false && draft.navigation.items.length < LIMITS.maxNavItems) {
+          draft.navigation.items.push({ label: op.page.title, target: op.page.path });
+        }
+        break;
+      }
+      case 'removePage': {
+        const index = draft.pages.findIndex((p) => p.id === op.pageId);
+        if (index < 0) return reject('Unknown page', at);
+        const { path } = draft.pages[index]!;
+        if (path === '/') return reject('The home page cannot be removed', at);
+        draft.pages.splice(index, 1);
+        draft.navigation.items = draft.navigation.items.filter(
+          (item) => item.target !== path && !item.target.startsWith(`${path}#`),
+        );
+        break;
+      }
+      case 'movePage': {
+        const index = draft.pages.findIndex((p) => p.id === op.pageId);
+        if (index < 0) return reject('Unknown page', at);
+        const [moved] = draft.pages.splice(index, 1);
+        if (moved) draft.pages.splice(Math.min(op.toIndex, draft.pages.length), 0, moved);
         break;
       }
     }

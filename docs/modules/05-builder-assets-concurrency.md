@@ -52,6 +52,19 @@ Owners, admins and editors write; viewers read. Writes need a writable workspace
   - Fonts are served from `public/preview-fonts`, using the sites app's allow-list.
 - **Rich text:** plain text is edited directly. Text with formatting is shown read-only, with a "Replace with plain text" option.
 
+**Sections and pages (P3 S4, FR-BLD-03).**
+
+- **Patch operations:** `addPage` adds a navigation link unless `addToNavigation: false`. `removePage` also removes the navigation links to the page and refuses the home page. `movePage` reorders the pages.
+- **Undo:** restores the page list and the navigation together.
+- **New sections:** start with the placeholder content from `sampleSection`. S7 preflight warns about `SAMPLE_TEXTS` left on a page.
+- **Editor:**
+  - The section toolbar can move, hide or show, duplicate, delete (with an in-page confirmation) and change the layout.
+  - Each page has an "Add section" button.
+  - The page settings can rename, move and delete a page.
+  - "Add page" adds a page whose address is made from its name and kept unique.
+  - These controls are buttons, not drag and drop, so they work from the keyboard.
+  - Changing a section's block type is not offered; you add a new section instead.
+
 ## Assets
 
 Uploads are authenticated and scoped to project. Sniff MIME, cap size, strip EXIF, scan where feasible, re-encode fixed AVIF/WebP variants, store alt text/provenance and serve through asset domain. Do not use the Next/Vercel image optimizer. Deleting/replacing assets cannot break immutable published versions; lifecycle/refcount design is required.

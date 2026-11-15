@@ -40,9 +40,11 @@ export type RestoreOperation =
   | { op: 'restoreBusiness'; value: SiteConfig['business'] }
   | { op: 'restoreTheme'; value: SiteConfig['theme'] }
   | { op: 'restorePage'; pageId: string; title: string; seo: Page['seo'] | null }
-  | { op: 'restoreSections'; pageId: string; sections: Page['sections'] };
+  | { op: 'restoreSections'; pageId: string; sections: Page['sections'] }
+  /** P3 S4: page operations change the page list and the navigation together. */
+  | { op: 'restorePages'; pages: SiteConfig['pages']; navigation: SiteConfig['navigation'] };
 
-type Part = 'business' | 'theme' | `page:${string}` | `sections:${string}`;
+type Part = 'business' | 'theme' | 'pages' | `page:${string}` | `sections:${string}`;
 
 function pageOfSection(config: SiteConfig, sectionId: string): string | null {
   for (const page of config.pages) if (page.sections.some((s) => s.id === sectionId)) return page.id;
@@ -71,6 +73,12 @@ export function touchedParts(before: SiteConfig, after: SiteConfig, ops: readonl
       case 'restoreSections':
         parts.add(`sections:${op.pageId}`);
         break;
+      case 'addPage':
+      case 'removePage':
+      case 'movePage':
+      case 'restorePages':
+        parts.add('pages');
+        break;
       default: {
         // updateSection, removeSection, moveSection: the page that held the section before (or holds it now,
         // for a section that an earlier operation of the same patch added).
@@ -81,14 +89,22 @@ export function touchedParts(before: SiteConfig, after: SiteConfig, ops: readonl
       }
     }
   }
-  return [...parts];
+  // The page list snapshot already holds every page's title, SEO and sections.
+  return parts.has('pages') ? ['pages'] : [...parts];
 }
 
 /** The operations that put `parts` back to how they are in `before`. */
 export function inverseFor(before: SiteConfig, parts: readonly Part[]): RestoreOperation[] {
   const out: RestoreOperation[] = [];
   for (const part of parts) {
-    if (part === 'business') out.push({ op: 'restoreBusiness', value: structuredClone(before.business) });
+    if (part === 'pages') {
+      out.push({
+        op: 'restorePages',
+        pages: structuredClone(before.pages),
+        navigation: structuredClone(before.navigation),
+      });
+    } else if (part === 'business')
+      out.push({ op: 'restoreBusiness', value: structuredClone(before.business) });
     else if (part === 'theme') out.push({ op: 'restoreTheme', value: structuredClone(before.theme) });
     else {
       const [kind, pageId] = part.split(':') as ['page' | 'sections', string];
@@ -111,7 +127,10 @@ export function applyRestore(
 ): { ok: true; config: SiteConfig } | { ok: false; issues: readonly ConfigIssue[] } {
   const draft = structuredClone(current);
   for (const op of ops) {
-    if (op.op === 'restoreBusiness') draft.business = structuredClone(op.value);
+    if (op.op === 'restorePages') {
+      draft.pages = structuredClone(op.pages);
+      draft.navigation = structuredClone(op.navigation);
+    } else if (op.op === 'restoreBusiness') draft.business = structuredClone(op.value);
     else if (op.op === 'restoreTheme') draft.theme = structuredClone(op.value);
     else {
       const page = draft.pages.find((p) => p.id === op.pageId);

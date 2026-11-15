@@ -344,6 +344,62 @@ test('A starts the site from a template, edits it with autosave and live preview
   await expect(preview.getByText(before).first()).toBeVisible();
 });
 
+// P3 S4 (FR-BLD-03): sections and pages. Every change is one validated, undoable change set.
+test('A adds, duplicates, moves, hides and deletes a section, and adds, deletes and restores a page', async () => {
+  test.setTimeout(240_000);
+  const page = a.page;
+  await page.goto(`/w/${a.slug}/projects/${projectId}/editor`);
+  const nav = page.getByRole('navigation', { name: 'Site parts' });
+  const status = page.getByTestId('save-status');
+  const saved = () => expect(status).toHaveText(/all changes saved/i, { timeout: 30_000 });
+  await expect(nav.getByRole('button', { name: /Add section to Home/ })).toBeEnabled({ timeout: 30_000 });
+
+  // Add a FAQ section with placeholder content; it opens and shows in the preview. Gym Bold already has one.
+  const faqs = nav.getByRole('button', { name: /^Faq/ });
+  const existing = await faqs.count();
+  await nav.getByRole('button', { name: /Add section to Home/ }).click();
+  await nav.getByLabel('Block').selectOption({ label: 'Faq' });
+  await nav.getByRole('button', { name: 'Add faq' }).click();
+  await saved();
+  await expect(page.getByRole('heading', { name: 'Faq', level: 2 })).toBeVisible();
+  const preview = page.frameLocator('iframe[title="Site preview"]');
+  await expect(preview.getByText('A common question?').first()).toBeVisible();
+  await expect(faqs).toHaveCount(existing + 1);
+
+  // Duplicate, move up, hide, then delete the copy.
+  await page.getByRole('button', { name: 'Duplicate section', exact: true }).click();
+  await saved();
+  await expect(faqs).toHaveCount(existing + 2);
+  await page.getByRole('button', { name: 'Move section up', exact: true }).click();
+  await saved();
+  await page.getByRole('button', { name: 'Hide section', exact: true }).click();
+  await saved();
+  await expect(nav.getByRole('button', { name: /^Faq \(hidden\)/ })).toHaveCount(1);
+  await page.getByRole('button', { name: 'Delete section', exact: true }).click();
+  await page.getByRole('button', { name: 'Yes, delete section' }).click();
+  await saved();
+  await expect(faqs).toHaveCount(existing + 1);
+
+  // Add a page: it is linked from the site navigation. Delete it, then undo the deletion.
+  await nav.getByRole('button', { name: '+ Add page' }).click();
+  await nav.getByLabel('New page name').fill('Offers');
+  await nav.getByRole('button', { name: 'Add page', exact: true }).click();
+  await saved();
+  await expect(page.getByRole('heading', { name: 'Page: Offers' })).toBeVisible();
+  await expect(preview.getByRole('link', { name: 'Offers' }).first()).toBeAttached();
+  await page.getByRole('button', { name: 'Delete page', exact: true }).click();
+  await page.getByRole('button', { name: 'Yes, delete page' }).click();
+  await saved();
+  await expect(nav.getByRole('button', { name: /^Offers/ })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(status).toHaveText(/^Undone/, { timeout: 30_000 });
+  await expect(nav.getByRole('button', { name: /^Offers/ })).toHaveCount(1);
+
+  // The home page cannot be deleted.
+  await nav.getByRole('button', { name: /^Home/ }).click();
+  await expect(page.getByText('The home page cannot be deleted.')).toBeVisible();
+});
+
 test('the preview may be framed by the dashboard only and runs no script; the editor page cannot be framed', async () => {
   const editor = await a.page.request.get(`/w/${a.slug}/projects/${projectId}/editor`);
   expect(editor.headers()['content-security-policy']).toContain("frame-ancestors 'none'");

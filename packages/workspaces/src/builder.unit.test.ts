@@ -89,6 +89,30 @@ const cases: Array<[string, unknown[]]> = [
       { op: 'updateSection', sectionId: 'n1', visible: false },
     ],
   ],
+  // P3 S4: pages (the page list and the navigation are restored together).
+  [
+    'addPage (linked from the navigation)',
+    [{ op: 'addPage', page: { id: 'offers', path: '/offers', title: 'Offers', sections: [] }, index: 1 }],
+  ],
+  ['removePage', [{ op: 'removePage', pageId: 'about' }]],
+  ['movePage', [{ op: 'movePage', pageId: 'about', toIndex: 0 }]],
+  [
+    'a page added and filled in the same patch',
+    [
+      { op: 'addPage', page: { id: 'offers', path: '/offers', title: 'Offers', sections: [] } },
+      {
+        op: 'addSection',
+        pageId: 'offers',
+        section: {
+          id: 'o1',
+          type: 'map',
+          variant: 'link-card',
+          visible: true,
+          props: { heading: 'Find us' },
+        },
+      },
+    ],
+  ],
   [
     'several parts at once',
     [

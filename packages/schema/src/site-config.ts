@@ -89,7 +89,7 @@ const seoSchema = z.strictObject({
   noindex: z.boolean().default(false),
 });
 
-const pageSchema = z.strictObject({
+export const pageSchema = z.strictObject({
   id: slug,
   path: sitePath,
   title: requiredShortText,
