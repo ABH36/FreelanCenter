@@ -2,7 +2,7 @@
 
 > **Decisions S7a-1 and S7a-2 (section 3) were delegated by the Owner on 2026-11-15** ("decide what is best and enterprise for our product, real users and the real market") and taken as recommended: broken links and contact buttons block Live (warning on Staging); the project workflow status stays independent of publishing, and the approval policy comes with S8 (FR-PUB-06).
 
-**Status:** built on `feat/p3-s7a-publishing`; **awaiting Owner approval.** **Date:** 2026-11-15 · **Requirements:** FR-PUB-01 (publish to staging, protected, `noindex`, no analytics), FR-PUB-02 (publish to live, atomic pointer switch, cache invalidation), FR-PUB-04 (rule-based preflight, blocking vs warning), NFR-PERF-02 (live cache policy, partial) · **ADRs:** 002, 004, 005 · **Module:** 06 · **Design approved by the Owner 2026-11-15** (six decisions, S7a/S7b split). **New migration:** `20261115210000_p3_s7a_publishing` (live application needs a separate Owner OK).
+**Status:** built on `feat/p3-s7a-publishing`; **approved by the Owner 2026-11-15**; live migration applied 2026-11-15 with the Owner's OK (section 10); PR #90. **Date:** 2026-11-15 · **Requirements:** FR-PUB-01 (publish to staging, protected, `noindex`, no analytics), FR-PUB-02 (publish to live, atomic pointer switch, cache invalidation), FR-PUB-04 (rule-based preflight, blocking vs warning), NFR-PERF-02 (live cache policy, partial) · **ADRs:** 002, 004, 005 · **Module:** 06 · **Design approved by the Owner 2026-11-15** (six decisions, S7a/S7b split). **New migration:** `20261115210000_p3_s7a_publishing` (live application needs a separate Owner OK).
 
 S7b (version history, JSON diff, side-by-side preview, one-click rollback; FR-PUB-03) follows after this slice is approved.
 
@@ -132,6 +132,22 @@ Until then the dashboard says "The live address will work once the sites domain 
 
 ## 9. Open items
 
-- Owner approval of S7a (S7a-1 and S7a-2 decided, see the note at the top).
-- Live migration `20261115210000_p3_s7a_publishing` (separate Owner OK, after approval).
+- ~~Owner approval of S7a~~ approved 2026-11-15 (S7a-1 and S7a-2 decided, see the note at the top).
+- ~~Live migration~~ applied 2026-11-15 (section 10).
+- Production check with the Chrome extension after the merge (Owner OK 2026-11-15): Staging publish and review link on the preview host.
 - S7b: history, diff, rollback.
+
+## 10. Live application (2026-11-15, Owner-approved)
+
+Run from the developer machine against the Supabase `ap-south-1` project as `migrator` (not a superuser, no BYPASSRLS), **before** PR #90 is merged: the migration only adds objects and keeps `resolve_host`'s first three columns, so the code on production keeps working, and the merged sites code reads the new `site_version_id` column as soon as it is deployed. No secret was printed or stored.
+
+| Step                                                     | Result                                                                                                                                                                                                                                                                             |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Read-only pre-check (read-only transaction, rolled back) | remote host, role `migrator`, not privileged; 13 migrations, none unfinished or rolled back, latest S6 (matches `main`); S7a not recorded; `app.staging_links` absent; the three new `site_versions` columns absent; `resolve_host` returned `(outcome, workspace_id, project_id)` |
+| `prisma migrate deploy` (`DB_TARGET=env`)                | applied `20261115210000_p3_s7a_publishing`                                                                                                                                                                                                                                         |
+| `prisma migrate status`                                  | database schema is up to date (14 migrations)                                                                                                                                                                                                                                      |
+| Live database vs `schema.prisma`                         | no difference detected                                                                                                                                                                                                                                                             |
+| `db:verify --target env`                                 | **42 passed, 0 failed** (new: two definers, app_public set, `staging_links` unreadable, unknown version and link answers)                                                                                                                                                          |
+| `test:live`                                              | two runs: 6 passed, 1 skipped (unchanged)                                                                                                                                                                                                                                          |
+
+**PR #90 CI, first run:** every job green except "Database roles, RLS and tenant isolation": the `packages/db` integration coverage gate measured 79.48 % branches (gate 80 %), because the new public-client functions had no test in that package. Added `test/integration/publishing-public.test.ts` (live outcome, `get_published_version` live/staging/unknown, `get_staging_site` ok/expired/revoked/unavailable/unknown through the real app_public client): 170/170, branches 85.89 % on a fresh local database. My local CI-equivalent missed it because its rerun of that step was without `--coverage`.
