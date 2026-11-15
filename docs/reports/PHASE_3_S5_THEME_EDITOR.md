@@ -1,6 +1,6 @@
 # Phase 3, slice S5: theme editor
 
-**Status:** built on `feat/p3-s5-theme-editor`; awaiting the Owner's approval of the slice. **Date:** 2026-11-15 · **Requirement:** FR-BLD-04 (colours with contrast warnings, fonts from the allow-list, radius, button style, shape and hover, motion preset) · **Module:** 05 · **Design and four decisions approved by the Owner 2026-11-15.** No migration.
+**Status:** built on `feat/p3-s5-theme-editor`; **approved by the Owner 2026-11-15.** **Date:** 2026-11-15 · **Requirement:** FR-BLD-04 (colours with contrast warnings, fonts from the allow-list, radius, button style, shape and hover, motion preset) · **Module:** 05 · **Design and four decisions approved by the Owner 2026-11-15.** No migration.
 
 ## 1. Why
 
