@@ -71,12 +71,12 @@ const insert = (tx: Tx, scope: TenantScope, projectId: string, extra: Record<str
   });
 
 const ready = {
-  status: 'ready',
+  status: 'ready' as const,
   width: 1200,
   height: 800,
   variantWidths: [400, 800, 1200],
   variantBytes: 9000,
-} as const;
+};
 
 describe('assets: lifecycle (FR-BLD-05)', () => {
   it('an asset starts pending with the actor as author, whatever the client sends', async () => {
