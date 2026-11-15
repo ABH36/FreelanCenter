@@ -55,7 +55,8 @@ for (const t of seed.templates) {
 }
 const resolver = createHostResolver({
   cache: createMemoryStore(),
-  lookup: async () => ({ outcome: 'placeholder', workspaceId: 'w', projectId: 'p' }),
+  // P3 S7a: a host shows a site only when it has a live version; the source below ignores the id.
+  lookup: async () => ({ outcome: 'live', workspaceId: 'w', projectId: 'p', siteVersionId: 'v' }),
 });
 const log = (m: string, d?: unknown) =>
   process.env.QUALITY_DEBUG &&

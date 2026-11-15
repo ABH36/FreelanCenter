@@ -113,6 +113,7 @@ describe('row-level security coverage', () => {
       'site_drafts',
       'site_pointers',
       'site_versions',
+      'staging_links',
       'template_preview_links',
       'template_versions',
       'templates',
@@ -285,6 +286,8 @@ describe('functions', () => {
       'catalog_template_for_draft',
       'current_member_role',
       'get_catalog_template',
+      'get_published_version',
+      'get_staging_site',
       'invitation_preview',
       'is_preview_link_revoked',
       'list_catalog_templates',
@@ -370,6 +373,9 @@ describe('functions', () => {
     // P2 S8b: the preview-link revocation check is for the visitor role only.
     expect(await executors('is_preview_link_revoked')).toEqual(['app_public']);
     expect(await executors('preview_link_sender')).toEqual(['app_public']);
+    // P3 S7a: a published live version and a staging link's site, for the visitor role only.
+    expect(await executors('get_published_version')).toEqual(['app_public']);
+    expect(await executors('get_staging_site')).toEqual(['app_public']);
     expect(await executors('operator_publish_builtin_template')).toEqual(['migrator']);
     expect(await executors('operator_archive_builtin_template')).toEqual(['migrator']);
     const { rows: publicFns } = await admin.query(
@@ -378,6 +384,8 @@ describe('functions', () => {
     );
     expect(publicFns.map((r) => r.proname).sort()).toEqual([
       'get_catalog_template',
+      'get_published_version',
+      'get_staging_site',
       'is_preview_link_revoked',
       'list_catalog_templates',
       'preview_link_sender',
@@ -421,6 +429,9 @@ describe('functions', () => {
       'project_edit_locks_guard',
       // P3 S6: the asset library.
       'assets_guard',
+      // P3 S7a: staging links.
+      'staging_links_guard',
+      'staging_links_reject_delete',
     ]) {
       expect(await executors(fn), fn).toEqual(['migrator']);
     }

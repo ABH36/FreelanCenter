@@ -43,6 +43,7 @@ const en = {
   notFoundText: 'The page you are looking for does not exist or has moved.',
   backHome: 'Back to the home page',
   previewBanner: 'Preview of the "{name}" template: demo content, not a live website.',
+  stagingBanner: 'Staging version of {name} for review. This is not the live website.',
   previewBannerFor:
     'Website preview for "{prospect}": sample content based on the "{name}" template, not a live website yet.',
   open247: 'Open 24 hours, 7 days a week',
@@ -95,6 +96,7 @@ const hi: Record<StringKey, string> = {
   notFoundText: 'आप जो पेज ढूँढ रहे हैं वह मौजूद नहीं है या हटा दिया गया है।',
   backHome: 'होम पेज पर वापस जाएँ',
   previewBanner: '"{name}" टेम्पलेट का प्रीव्यू: डेमो सामग्री, लाइव वेबसाइट नहीं।',
+  stagingBanner: '{name} का स्टेजिंग वर्ज़न, समीक्षा के लिए। यह लाइव वेबसाइट नहीं है।',
   previewBannerFor:
     '"{prospect}" के लिए वेबसाइट प्रीव्यू: "{name}" टेम्पलेट पर आधारित नमूना सामग्री, अभी लाइव वेबसाइट नहीं।',
   open247: '24 घंटे, सातों दिन खुला',

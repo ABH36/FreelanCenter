@@ -17,7 +17,8 @@ export type Selector =
   | 'projectId'
   | 'notificationId'
   | 'previewLinkId'
-  | 'assetId';
+  | 'assetId'
+  | 'stagingLinkId';
 
 export type ActionRegistration =
   { service: string; selectors: Selector[] } | { service: string | null; noSelector: string };
@@ -91,6 +92,12 @@ export const SERVER_ACTIONS: Record<string, ActionRegistration> = {
   describeAssetAction: { service: 'describeAsset', selectors: ['workspaceId', 'projectId', 'assetId'] },
   hideAssetAction: { service: 'hideAsset', selectors: ['workspaceId', 'projectId', 'assetId'] },
   cropAssetAction: { service: 'cropAsset', selectors: ['workspaceId', 'projectId', 'assetId'] },
+  // P3 S7a: publishing (FR-PUB-01/02/04) and staging links.
+  publishingStatusAction: { service: 'publishingStatus', selectors: ['workspaceId', 'projectId'] },
+  preflightAction: { service: 'preflight', selectors: ['workspaceId', 'projectId'] },
+  publishAction: { service: 'publish', selectors: ['workspaceId', 'projectId'] },
+  createStagingLinkAction: { service: 'createStagingLink', selectors: ['workspaceId', 'projectId'] },
+  revokeStagingLinkAction: { service: 'revokeStagingLink', selectors: ['workspaceId', 'stagingLinkId'] },
   setWorkspaceStatusAction: {
     service: 'setWorkspaceStatus',
     noSelector:

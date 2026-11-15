@@ -39,7 +39,11 @@ export type WorkspaceErrorCode =
   // P3 S6: the asset library.
   | 'ASSETS_NOT_CONFIGURED'
   | 'ASSET_LIMIT'
-  | 'ASSET_NOT_READY';
+  | 'ASSET_NOT_READY'
+  // P3 S7a: publishing.
+  | 'PREFLIGHT_BLOCKED'
+  | 'NOT_PUBLISHED'
+  | 'STAGING_LINKS_NOT_CONFIGURED';
 
 const MESSAGES: Record<WorkspaceErrorCode, string> = {
   NOT_FOUND: 'Not found.',
@@ -77,6 +81,9 @@ const MESSAGES: Record<WorkspaceErrorCode, string> = {
   ASSETS_NOT_CONFIGURED: 'Image uploads are not set up in this environment yet. Contact support.',
   ASSET_LIMIT: 'This project already has 200 images. Delete some you no longer need first.',
   ASSET_NOT_READY: 'That image is not ready to use. Upload it again.',
+  PREFLIGHT_BLOCKED: 'The site has problems that must be fixed before it can be published. See the checks.',
+  NOT_PUBLISHED: 'Publish the site to staging first.',
+  STAGING_LINKS_NOT_CONFIGURED: 'Staging links are not set up in this environment yet. Contact support.',
 };
 
 export class WorkspaceError extends Error {

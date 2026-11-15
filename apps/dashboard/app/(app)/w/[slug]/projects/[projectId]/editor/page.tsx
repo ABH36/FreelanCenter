@@ -146,6 +146,10 @@ export default async function EditorPage({
         canTakeOver={canEdit && (ws.scope.role === 'owner' || ws.scope.role === 'admin')}
         memberNames={Object.fromEntries(members.map((m) => [m.userId, m.name]))}
         uploadsEnabled={uploadsEnabled()}
+        canPublishStaging={
+          ws.can['site.publish_staging'] && ws.scope.writable && project.status !== 'archived'
+        }
+        canPublishLive={ws.can['site.publish'] && ws.scope.writable && project.status !== 'archived'}
       />
     </div>
   );

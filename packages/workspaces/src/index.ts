@@ -147,3 +147,28 @@ export {
   processImage,
   sniffImageType,
 } from './image';
+export {
+  PREFLIGHT_LIMITS,
+  type PreflightCheck,
+  type PreflightLevel,
+  type PreflightResult,
+  type PreflightRule,
+  type PublishKind,
+  runPreflight,
+} from './preflight';
+export {
+  PUBLISH_LIMITS,
+  type PublishResult,
+  type PublishingService,
+  type PublishingServiceDeps,
+  type PublishingStatus,
+  type StagingLinkSettings,
+  type StagingLinkView,
+  type VersionAssets,
+  type VersionSummary,
+  canonicalJson,
+  createPublishingService,
+  stagingLinkUrl,
+  stagingSettingsFromEnv,
+  versionChecksum,
+} from './publishing';

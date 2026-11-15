@@ -11,7 +11,8 @@ import { parseSiteConfig } from '@platform/schema';
 import { normalizeHost } from '@platform/hosting';
 import { type PageKind, pageResponse } from './pages';
 import { type PreviewDeps, servePreview } from './preview';
-import { documentResponse, textResponse } from './site-response';
+import { type StagingDeps, serveStaging } from './staging';
+import { LIVE_CACHE_CONTROL, documentResponse, textResponse } from './site-response';
 import type { SiteContent, SiteSource } from './site-source';
 
 const PAGE_FOR: Record<'placeholder' | 'maintenance' | 'unknown', PageKind> = {
@@ -28,7 +29,7 @@ function serveSite(
   site: SiteContent,
   hostname: string,
   deps: { logger: Logger },
-  common: { head: boolean; correlationId: string | undefined },
+  common: { head: boolean; correlationId: string | undefined; cacheControl?: string },
 ): Response {
   const local = hostname.endsWith('localhost');
   const rawHost = request.headers.get('host')?.toLowerCase() ?? '';
@@ -93,6 +94,8 @@ export async function serveHost(
     source?: SiteSource;
     /** Preview links (FR-TPL-09); `null` when not configured, in which case the preview host is just an unknown host. */
     preview?: () => Promise<PreviewDeps | null>;
+    /** Staging links (P3 S7a, `/s/<token>` on the preview host); `null` when not configured. */
+    staging?: () => Promise<StagingDeps | null>;
   },
 ): Promise<Response> {
   const correlationId = getCorrelationIdFromHeaders(request.headers);
@@ -103,6 +106,11 @@ export async function serveHost(
       if (previewDeps) {
         const requested = normalizeHost(request.headers.get('host'));
         if (requested === previewDeps.host) {
+          if (new URL(request.url).pathname.startsWith('/s/')) {
+            const stagingDeps = deps.staging ? await deps.staging() : null;
+            if (stagingDeps)
+              return await serveStaging(request, requested, stagingDeps, { head, correlationId });
+          }
           return await servePreview(request, requested, previewDeps, { head, correlationId });
         }
       }
@@ -120,9 +128,17 @@ export async function serveHost(
       } else {
         deps.logger.debug('sites.host.unknown', { hostname, source });
       }
-      if (resolution.outcome === 'placeholder' && deps.source && hostname) {
-        const site = await deps.source.load(resolution);
-        if (site) return serveSite(request, site, hostname, deps, { head, correlationId });
+      if (resolution.outcome === 'live') {
+        // A version that cannot be read (deleted retention later, or a stale cache entry) keeps the placeholder.
+        const site = deps.source && hostname ? await deps.source.load(resolution) : null;
+        if (site && hostname) {
+          return serveSite(request, site, hostname, deps, {
+            head,
+            correlationId,
+            cacheControl: LIVE_CACHE_CONTROL,
+          });
+        }
+        return pageResponse('placeholder', { head, correlationId });
       }
       return pageResponse(PAGE_FOR[resolution.outcome], { head, correlationId });
     } catch (error) {

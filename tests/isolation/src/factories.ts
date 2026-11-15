@@ -384,6 +384,29 @@ export const TENANT_TABLES = {
       data: { holderUserId: '01920000-0000-7000-8000-00000000f00d' },
     },
   },
+  // P3 S7a: staging links. The guard sets the author and the revocation actor and time; nobody deletes.
+  staging_links: {
+    tenantKey: 'workspace_id',
+    prepare: project,
+    insert: async (tx, ctx, deps) =>
+      (
+        await tx.stagingLink.create({
+          data: {
+            workspaceId: ctx.workspaceId,
+            projectId: deps.projectId!,
+            expiresAt: new Date(Date.now() + 86_400_000),
+          },
+          select: { id: true },
+        })
+      ).id,
+    // Revoking is the only update there is; the matrix tries it across tenants (0 rows).
+    update: `revoked_at = now(), revoked_by = created_by`,
+    delete: 'denied',
+    prisma: {
+      model: (tx) => delegate(tx.stagingLink),
+      data: { revokedAt: new Date(), revokedBy: '01920000-0000-7000-8000-00000000f00d' },
+    },
+  },
   // P3 S6: the asset library. The guard sets the status, actors and times; there is no DELETE grant (hiding is
   // deleted_at).
   assets: {

@@ -22,6 +22,9 @@ interface SitesRuntime {
   /** Whether a preview link was revoked in the dashboard (app.is_preview_link_revoked as app_public). */
   isPreviewLinkRevoked: PublicDatabase['isPreviewLinkRevoked'];
   previewLinkSender: PublicDatabase['previewLinkSender'];
+  /** P3 S7a: a live version's content (app.get_published_version) and a staging link's site (app.get_staging_site). */
+  getPublishedVersion: PublicDatabase['getPublishedVersion'];
+  getStagingSite: PublicDatabase['getStagingSite'];
   ready: Promise<void>;
 }
 
@@ -44,6 +47,8 @@ function build(): SitesRuntime {
     catalog: (id, version) => db.getCatalogTemplate(id, version),
     isPreviewLinkRevoked: (id) => db.isPreviewLinkRevoked(id),
     previewLinkSender: (id) => db.previewLinkSender(id),
+    getPublishedVersion: (id) => db.getPublishedVersion(id),
+    getStagingSite: (id) => db.getStagingSite(id),
     ready: db.verifyRole(),
   };
   runtime.ready.catch((error: unknown) => {

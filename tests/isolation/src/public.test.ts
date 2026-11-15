@@ -61,6 +61,15 @@ describe('visitor role app_public', () => {
         result:
           'TABLE(template_id uuid, slug text, name text, category text, description text, visibility text, version integer, schema_version text, config jsonb, manifest jsonb, content_hash text)',
       },
+      {
+        fn: 'app.get_published_version',
+        result: 'TABLE(config jsonb, assets jsonb, published_at timestamp with time zone)',
+      },
+      {
+        fn: 'app.get_staging_site',
+        result:
+          'TABLE(status text, site_version_id uuid, config jsonb, assets jsonb, published_at timestamp with time zone, sender text)',
+      },
       { fn: 'app.is_preview_link_revoked', result: 'boolean' },
       {
         fn: 'app.list_catalog_templates',
@@ -68,7 +77,10 @@ describe('visitor role app_public', () => {
           'TABLE(template_id uuid, slug text, name text, category text, description text, visibility text, version integer, content_hash text, updated_at timestamp with time zone)',
       },
       { fn: 'app.preview_link_sender', result: 'text' },
-      { fn: 'app.resolve_host', result: 'TABLE(outcome text, workspace_id uuid, project_id uuid)' },
+      {
+        fn: 'app.resolve_host',
+        result: 'TABLE(outcome text, workspace_id uuid, project_id uuid, site_version_id uuid)',
+      },
     ]);
   });
 

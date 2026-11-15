@@ -23,6 +23,7 @@ import {
   createNotificationService,
   createOutbox,
   createProjectService,
+  createPublishingService,
   createTemplateService,
   createWorkspaceService,
   deriveInvitationKey,
@@ -79,6 +80,16 @@ let draftTemplateId = '';
 // P3 S6: the asset service on in-memory storage (the bucket is not under test; the database rules are).
 const memory = createMemoryStorage();
 const assets = createAssetService({ db, storage: () => memory });
+// P3 S7a: publishing with staging links signed by a suite-only secret; live invalidation goes to the dropped transport.
+const publishing = createPublishingService({
+  db,
+  outbox: createOutbox({ db, jobs: s6Jobs.emitter }),
+  storage: () => memory,
+  staging: {
+    host: 'preview.sites.example.test',
+    secret: 'isolation-suite-staging-secret-local-only-0123456789',
+  },
+});
 /** A 1x1 PNG: the smallest real image the pipeline accepts. */
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
@@ -179,6 +190,15 @@ async function seed(): Promise<Tenant> {
     assetId: started.assetId,
   });
   if (image.status !== 'ready') throw new Error('setup: the IDOR image was not processed');
+  // P3 S7a: something on staging and a staging link to it.
+  await publishing.publish(ownerId, {
+    workspaceId: id,
+    projectId: project.id,
+    kind: 'staging',
+    expectedRevision: 1,
+    publishKey: crypto.randomUUID(),
+  });
+  const stagingLink = await publishing.createStagingLink(ownerId, { workspaceId: id, projectId: project.id });
   const link = await templates.createPreviewLink(ownerId, {
     workspaceId: id,
     templateId: catalogTemplateId,
@@ -195,6 +215,7 @@ async function seed(): Promise<Tenant> {
       notificationId: inbox.items[0]!.id,
       previewLinkId: link.id,
       assetId: image.id,
+      stagingLinkId: stagingLink.id,
     },
   };
 }
@@ -374,6 +395,35 @@ const CALLS: Record<string, (actor: string, s: Selectors) => Promise<unknown>> =
     });
     return { created: Boolean(v.id) };
   },
+  // P3 S7a: publishing. Reads return ids and numbers only; publish goes to staging (the probe workspace's own draft).
+  publishingStatus: async (a, s) => {
+    const st = await publishing.status(a, s.workspaceId, s.projectId);
+    return { staging: st.staging?.id ?? null, links: st.stagingLinks.map((l) => l.id) };
+  },
+  preflight: async (a, s) => {
+    const p = await publishing.preflight(a, {
+      workspaceId: s.workspaceId,
+      projectId: s.projectId,
+      kind: 'live',
+    });
+    return { revision: p.revision, rules: p.checks.map((c) => c.rule) };
+  },
+  publish: async (a, s) => {
+    const r = await publishing.publish(a, {
+      workspaceId: s.workspaceId,
+      projectId: s.projectId,
+      kind: 'staging',
+      expectedRevision: 1,
+      publishKey: crypto.randomUUID(),
+    });
+    return { published: Boolean(r.versionId) };
+  },
+  createStagingLink: async (a, s) => {
+    const l = await publishing.createStagingLink(a, { workspaceId: s.workspaceId, projectId: s.projectId });
+    return { created: Boolean(l.id) };
+  },
+  revokeStagingLink: (a, s) =>
+    publishing.revokeStagingLink(a, { workspaceId: s.workspaceId, linkId: s.stagingLinkId }),
   // Asks for both tenants' image ids: only the images of the selected project may come back.
   renderAssets: async (a, s) => [
     ...(await assets.renderAssets(a, s.workspaceId, s.projectId, [A.own.assetId, B.own.assetId])).keys(),
@@ -398,6 +448,8 @@ const READS = new Set([
   'getDraft',
   'listAssets',
   'renderAssets',
+  'publishingStatus',
+  'preflight',
 ]);
 
 const call = (method: string) => async (actor: string, s: Selectors) => {
@@ -441,6 +493,15 @@ async function victimState() {
       v.alt,
       v.status,
     ]),
+    // P3 S7a: B's versions, pointers and active staging links.
+    publishing: await publishing
+      .status(B.ownerId, B.own.workspaceId, B.own.projectId)
+      .then((st) => [
+        st.staging?.id ?? null,
+        st.live?.id ?? null,
+        st.recent.map((v) => v.id),
+        st.stagingLinks.map((l) => l.id),
+      ]),
   };
 }
 

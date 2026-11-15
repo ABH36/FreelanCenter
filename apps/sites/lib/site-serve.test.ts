@@ -14,7 +14,8 @@ import type { SiteContent, SiteSource } from './site-source';
 
 const W = '01920000-0000-7000-8000-000000000001';
 const P = '01920000-0000-7000-8000-000000000002';
-const live: HostResolution = { outcome: 'placeholder', workspaceId: W, projectId: P };
+const V = '01920000-0000-7000-8000-000000000003';
+const live: HostResolution = { outcome: 'live', workspaceId: W, projectId: P, siteVersionId: V };
 
 function section(id: string, type: string, variant: string, props?: unknown) {
   const def = registry.get(type);
@@ -98,11 +99,11 @@ const inlineStyles = (html: string) =>
 describe('a live host with a published site', () => {
   const { get } = setup({ config: siteConfig() });
 
-  it('renders the home page: 200, HTML, no-store, correlation id', async () => {
+  it('renders the home page: 200, HTML, the live cache policy (decision 5), correlation id', async () => {
     const res = await get('/');
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toBe('text/html; charset=utf-8');
-    expect(res.headers.get('cache-control')).toBe('no-store');
+    expect(res.headers.get('cache-control')).toBe('public, max-age=0, s-maxage=60');
     expect(res.headers.get('x-correlation-id')).toMatch(/^[0-9a-f-]{36}$/);
     expect(res.headers.get('x-robots-tag')).toBeNull();
     const html = await res.text();
