@@ -2,7 +2,7 @@
 
 > **Decisions S6-1 and S6-2 (below) were delegated by the Owner on 2026-11-15** ("decide what is best and enterprise for us") and taken as recommended: S3Mock for development and CI only, R2 in production; and two buckets (private uploads, public variants).
 
-**Status:** built on `feat/p3-s6-asset-library` (`eae4d35`, `f6a4a09`); **awaiting Owner approval.** **Date:** 2026-11-15 · **Requirements:** FR-BLD-05 (asset library per project: upload, crop, alt text, replace; no Next/Vercel optimizer; fixed WebP widths on R2), SEC-08 (MIME sniffing, size limits, re-encoding, EXIF strip, random keys, safe content disposition, SVG refused), F-05 · **ADR:** 009 · **Module:** 05 · **Design approved by the Owner 2026-11-15.** **New migration:** `20261115180000_p3_s6_assets` (live application needs a separate Owner OK, DG-35).
+**Status:** built on `feat/p3-s6-asset-library` (`eae4d35`, `f6a4a09`); **approved by the Owner 2026-11-15.** **Date:** 2026-11-15 · **Requirements:** FR-BLD-05 (asset library per project: upload, crop, alt text, replace; no Next/Vercel optimizer; fixed WebP widths on R2), SEC-08 (MIME sniffing, size limits, re-encoding, EXIF strip, random keys, safe content disposition, SVG refused), F-05 · **ADR:** 009 · **Module:** 05 · **Design approved by the Owner 2026-11-15.** **New migration:** `20261115180000_p3_s6_assets` (live application needs a separate Owner OK, DG-35).
 
 ## 1. Why
 
