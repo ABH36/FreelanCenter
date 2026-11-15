@@ -25,6 +25,7 @@ export const CAPABILITIES = [
   'projects.archive',
   'draft.edit',
   'site.publish',
+  'site.publish_staging',
   'version.approve',
   'leads.view',
   'domains.manage',
@@ -55,6 +56,8 @@ const MEMBER_GRANTS: Record<Capability, readonly WorkspaceRole[]> = {
   'projects.archive': ['owner', 'admin'],
   'draft.edit': ['owner', 'admin', 'editor'],
   'site.publish': ['owner', 'admin'],
+  // P3 S7a (approved decision 4, Q15): editors publish to staging and share staging links; live is site.publish.
+  'site.publish_staging': ['owner', 'admin', 'editor'],
   'version.approve': ['owner', 'admin'],
   'leads.view': ['owner', 'admin', 'editor', 'viewer'],
   'domains.manage': ['owner', 'admin'],

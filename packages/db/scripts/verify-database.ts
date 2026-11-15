@@ -120,8 +120,8 @@ const tenantTables = await withClient('bootstrap', async (op) => {
       WHERE n.nspname = 'app' AND p.prosecdef`,
   );
   // P1 foundation (5) + P1 S5 (6) + P1 S6 (4) + P1 S7 (1) + P1 S8 (7) + P2 S5b (4: catalogue read x2, operator
-  // publish and archive) + P2 S8b (1: the preview-link revocation check). An unexpected definer is as much a
-  // finding as a missing one.
+  // publish and archive) + P2 S8b (1: the preview-link revocation check) + P2 S10 (1) + P3 S2 (1) + P3 S7a (2: the
+  // published version and the staging site). An unexpected definer is as much a finding as a missing one.
   const expectedDefiners = [
     'accept_invitation',
     'admin_console_state',
@@ -153,6 +153,8 @@ const tenantTables = await withClient('bootstrap', async (op) => {
     'operator_archive_builtin_template',
     'preview_link_sender',
     'operator_publish_builtin_template',
+    'get_published_version',
+    'get_staging_site',
   ].sort();
   check(
     `SECURITY DEFINER functions: exactly the ${expectedDefiners.length} expected, owned by svc_definer, search_path pinned`,
@@ -178,10 +180,12 @@ const tenantTables = await withClient('bootstrap', async (op) => {
       ORDER BY 1`,
   );
   check(
-    'app_public can execute exactly resolve_host, the two catalogue read functions and is_preview_link_revoked (P2 S8b) and preview_link_sender (P2 S10)',
+    'app_public can execute exactly resolve_host, the two catalogue read functions, is_preview_link_revoked (P2 S8b), preview_link_sender (P2 S10), get_published_version and get_staging_site (P3 S7a)',
     JSON.stringify(publicFns.map((r) => r.proname)) ===
       JSON.stringify([
         'get_catalog_template',
+        'get_published_version',
+        'get_staging_site',
         'is_preview_link_revoked',
         'list_catalog_templates',
         'preview_link_sender',
@@ -321,7 +325,7 @@ await withClient('public', async (c) => {
     'app_public cannot read the preview link table',
     await denied(c, 'SELECT id FROM app.template_preview_links LIMIT 1'),
   );
-  // P3 S1: visitors never read builder data directly (S7 adds the published-version function).
+  // P3 S1: visitors never read builder data directly (S7a: only through the two visitor functions below).
   for (const table of [
     'site_drafts',
     'change_sets',
@@ -329,9 +333,22 @@ await withClient('public', async (c) => {
     'site_pointers',
     'project_edit_locks',
     'assets',
+    'staging_links',
   ]) {
     check(`app_public cannot read ${table}`, await denied(c, `SELECT id FROM app.${table} LIMIT 1`));
   }
+  // P3 S7a: an unknown version id has no content and an unknown staging link is `unknown`.
+  const noVersion = await c.query(
+    "SELECT config FROM app.get_published_version('00000000-0000-7000-8000-000000000000')",
+  );
+  check('an unknown version id returns no row (get_published_version)', noVersion.rows.length === 0);
+  const noLink = await c.query(
+    "SELECT status FROM app.get_staging_site('00000000-0000-7000-8000-000000000000')",
+  );
+  check(
+    'an unknown staging link is unknown (get_staging_site)',
+    noLink.rows.length === 1 && noLink.rows[0].status === 'unknown',
+  );
   check(
     'app_public cannot publish a platform template',
     await denied(

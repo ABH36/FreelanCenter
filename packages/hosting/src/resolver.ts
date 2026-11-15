@@ -11,8 +11,11 @@
 import type { Logger } from '@platform/logger';
 import type { KeyValueStore } from '@platform/providers';
 
+/** `live` (P3 S7a): the project has a live version, `siteVersionId`, that the host shows. */
 export type HostResolution =
-  { outcome: 'placeholder' | 'maintenance'; workspaceId: string; projectId: string } | { outcome: 'unknown' };
+  | { outcome: 'live'; workspaceId: string; projectId: string; siteVersionId: string }
+  | { outcome: 'placeholder' | 'maintenance'; workspaceId: string; projectId: string }
+  | { outcome: 'unknown' };
 
 export type HostLookup = (hostname: string) => Promise<HostResolution>;
 
@@ -25,7 +28,8 @@ export interface ResolveResult {
 }
 
 export const HOST_CACHE = {
-  prefix: 'sites:host:v1:',
+  /** v2 (P3 S7a): the value can carry the live version id; v1 entries simply expire. */
+  prefix: 'sites:host:v2:',
   /** Seconds. A lost invalidation is visible for at most this long. */
   positiveTtl: 300,
   /** Seconds. Short: a host allocated after a miss must not stay unknown for long, even without invalidation. */
@@ -58,17 +62,30 @@ export function normalizeHost(raw: string | null | undefined): string | null {
 export const hostCacheKey = (hostname: string): string => `${HOST_CACHE.prefix}${hostname}`;
 
 function encode(resolution: HostResolution): string {
-  return resolution.outcome === 'unknown'
-    ? JSON.stringify({ o: 'unknown' })
-    : JSON.stringify({ o: resolution.outcome, w: resolution.workspaceId, p: resolution.projectId });
+  if (resolution.outcome === 'unknown') return JSON.stringify({ o: 'unknown' });
+  if (resolution.outcome === 'live') {
+    return JSON.stringify({
+      o: 'live',
+      w: resolution.workspaceId,
+      p: resolution.projectId,
+      v: resolution.siteVersionId,
+    });
+  }
+  return JSON.stringify({ o: resolution.outcome, w: resolution.workspaceId, p: resolution.projectId });
 }
 
 /** A cached value that does not decode is treated as a miss and overwritten. */
 export function decodeCached(value: string | null): HostResolution | null {
   if (value === null) return null;
   try {
-    const v = JSON.parse(value) as { o?: unknown; w?: unknown; p?: unknown };
+    const v = JSON.parse(value) as { o?: unknown; w?: unknown; p?: unknown; v?: unknown };
     if (v.o === 'unknown') return { outcome: 'unknown' };
+    if (v.o === 'live' && typeof v.w === 'string' && typeof v.p === 'string' && typeof v.v === 'string') {
+      if (UUID.test(v.w) && UUID.test(v.p) && UUID.test(v.v)) {
+        return { outcome: 'live', workspaceId: v.w, projectId: v.p, siteVersionId: v.v };
+      }
+      return null;
+    }
     if (
       (v.o === 'placeholder' || v.o === 'maintenance') &&
       typeof v.w === 'string' &&

@@ -45,13 +45,21 @@ export function contentSecurityPolicy(options: {
 interface Common {
   head: boolean;
   correlationId: string | undefined;
+  /** Default `no-store`. Live published pages: `LIVE_CACHE_CONTROL` (decision 5). */
+  cacheControl?: string;
 }
+
+/**
+ * P3 S7a, approved decision 5: a live page may be kept by a shared cache (the CDN) for 60 seconds, never by the
+ * browser. Publishing and rollback change what the host resolves to at once (host-cache invalidation); the 60 s bound
+ * what a CDN copy can lag until the CDN purge arrives with the sites domain (DG-33).
+ */
+export const LIVE_CACHE_CONTROL = 'public, max-age=0, s-maxage=60';
 
 function baseHeaders(contentType: string, c: Common, csp: string, indexable: boolean): Headers {
   const headers = new Headers({
     'content-type': contentType,
-    // Versioned, tag-purged caching arrives with published versions (P3, NFR-PERF-02).
-    'cache-control': 'no-store',
+    'cache-control': c.cacheControl ?? 'no-store',
     'content-security-policy': csp,
   });
   if (!indexable) headers.set('x-robots-tag', 'noindex, nofollow');

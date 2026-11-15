@@ -286,6 +286,7 @@ model Workspace {
   changeSets           ChangeSet[]
   siteVersions         SiteVersion[]
   sitePointers         SitePointer[]
+  stagingLinks         StagingLink[]
   projectEditLocks     ProjectEditLock[]
   assets               Asset[]
 
@@ -366,6 +367,7 @@ model Project {
   changeSets        ChangeSet[]
   siteVersions      SiteVersion[]
   sitePointers      SitePointer[]
+  stagingLinks      StagingLink[]
   projectEditLocks  ProjectEditLock[]
   assets            Asset[]
 
@@ -740,8 +742,16 @@ model SiteVersion {
   workspace           Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
   project             Project         @relation(fields: [workspaceId, projectId], references: [workspaceId, id], onDelete: Restrict)
   pointers            SitePointer[]
+  /// P3 S7a: asset id -> { width: URL } of the images the version shows, so it never depends on the library.
+  assets              Json            @default("{}") @db.JsonB
+  /// P3 S7a: the browser's idempotency key of the publish request.
+  publishKey          String?         @map("publish_key") @db.Uuid
+  /// P3 S7a: 1, 2, 3 ... per project, set by the database (null on rows written before S7).
+  number              Int?
 
   @@unique([workspaceId, id])
+  @@unique([workspaceId, projectId, publishKey])
+  @@unique([workspaceId, projectId, number])
   @@index([workspaceId, projectId, createdAt(sort: Desc)])
   @@map("site_versions")
   @@schema("app")
@@ -763,6 +773,26 @@ model SitePointer {
   @@unique([workspaceId, id])
   @@unique([workspaceId, projectId, kind])
   @@map("site_pointers")
+  @@schema("app")
+}
+
+/// P3 S7a: a signed, revocable link to a project's current staging version (`/s/<token>` on the sites app).
+/// Triggers, policies and grants live in migration 20261115210000_p3_s7a_publishing.
+model StagingLink {
+  id          String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  projectId   String    @map("project_id") @db.Uuid
+  createdBy   String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt   DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt   DateTime? @map("revoked_at") @db.Timestamptz(6)
+  revokedBy   String?   @map("revoked_by") @db.Uuid
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  project     Project   @relation(fields: [workspaceId, projectId], references: [workspaceId, id], onDelete: Restrict)
+
+  @@unique([workspaceId, id])
+  @@index([workspaceId, projectId, createdAt(sort: Desc)])
+  @@map("staging_links")
   @@schema("app")
 }
 

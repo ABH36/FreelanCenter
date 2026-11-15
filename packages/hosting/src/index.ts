@@ -29,3 +29,11 @@ export {
   mintPreviewToken,
   verifyPreviewToken,
 } from './preview-token';
+
+export {
+  STAGING_TOKEN,
+  type StagingClaims,
+  type StagingVerdict,
+  mintStagingToken,
+  verifyStagingToken,
+} from './staging-token';

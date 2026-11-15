@@ -34,6 +34,8 @@ const MATRIX: Record<Capability, string> = {
   'projects.archive': '- y y - - -',
   'draft.edit': '- y y y - -',
   'site.publish': '- y y p - -',
+  // P3 S7a, Q15: publish to staging and share staging links.
+  'site.publish_staging': '- y y y - -',
   'version.approve': '- y y - - y',
   'leads.view': '- y y y y y',
   'domains.manage': '- y y - - -',

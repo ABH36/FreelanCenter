@@ -70,6 +70,13 @@ describe('decodeCached', () => {
       workspaceId: W,
       projectId: P,
     });
+    // P3 S7a: a live host carries its version id.
+    expect(decodeCached(JSON.stringify({ o: 'live', w: W, p: P, v: P }))).toEqual({
+      outcome: 'live',
+      workspaceId: W,
+      projectId: P,
+      siteVersionId: P,
+    });
     for (const bad of [
       null,
       'x',
@@ -78,6 +85,7 @@ describe('decodeCached', () => {
       JSON.stringify({ o: 'placeholder', w: W }),
       JSON.stringify({ o: 'placeholder', w: 'x', p: P }),
       JSON.stringify({ o: 'live', w: W, p: P }),
+      JSON.stringify({ o: 'live', w: W, p: P, v: 'not-a-uuid' }),
     ]) {
       expect(decodeCached(bad)).toBeNull();
     }
@@ -238,6 +246,6 @@ describe('createHostResolver', () => {
   });
 
   it('keys are per host and namespaced (SRS 5.3 item 7)', () => {
-    expect(hostCacheKey('a.sites.localhost')).toBe('sites:host:v1:a.sites.localhost');
+    expect(hostCacheKey('a.sites.localhost')).toBe('sites:host:v2:a.sites.localhost');
   });
 });
