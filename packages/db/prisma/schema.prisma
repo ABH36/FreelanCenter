@@ -287,6 +287,7 @@ model Workspace {
   siteVersions         SiteVersion[]
   sitePointers         SitePointer[]
   projectEditLocks     ProjectEditLock[]
+  assets               Asset[]
 
   @@map("workspaces")
   @@schema("app")
@@ -366,6 +367,7 @@ model Project {
   siteVersions      SiteVersion[]
   sitePointers      SitePointer[]
   projectEditLocks  ProjectEditLock[]
+  assets            Asset[]
 
   @@unique([workspaceId, id])
   @@unique([workspaceId, creationKey])
@@ -779,5 +781,51 @@ model ProjectEditLock {
   @@unique([workspaceId, id])
   @@unique([workspaceId, projectId])
   @@map("project_edit_locks")
+  @@schema("app")
+}
+
+// ===================================================================================== P3 S6: asset library
+// Trigger, policies and grants live in migration 20261115180000_p3_s6_assets. The database sets the actor columns,
+// the times and the image cap; object keys derive from `storageToken`, never from the file name.
+
+enum AssetStatus {
+  pending
+  ready
+  rejected
+
+  @@map("asset_status")
+  @@schema("app")
+}
+
+/// One uploaded image of a project (FR-BLD-05): pending -> ready (fixed WebP widths) | rejected. Hiding is
+/// `deletedAt`; variants stay so drafts and published versions keep working.
+model Asset {
+  id            String      @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  workspaceId   String      @map("workspace_id") @db.Uuid
+  projectId     String      @map("project_id") @db.Uuid
+  status        AssetStatus @default(pending)
+  fileName      String      @map("file_name")
+  declaredType  String      @map("declared_type")
+  declaredBytes Int         @map("declared_bytes")
+  storageToken  String      @map("storage_token")
+  alt           String      @default("")
+  width         Int?
+  height        Int?
+  variantWidths Int[]       @map("variant_widths")
+  variantBytes  Int?        @map("variant_bytes")
+  rejectReason  String?     @map("reject_reason")
+  createdBy     String?     @map("created_by") @db.Uuid
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedBy     String?     @map("updated_by") @db.Uuid
+  updatedAt     DateTime    @default(now()) @map("updated_at") @db.Timestamptz(6)
+  finalizedAt   DateTime?   @map("finalized_at") @db.Timestamptz(6)
+  deletedBy     String?     @map("deleted_by") @db.Uuid
+  deletedAt     DateTime?   @map("deleted_at") @db.Timestamptz(6)
+  workspace     Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  project       Project     @relation(fields: [workspaceId, projectId], references: [workspaceId, id], onDelete: Restrict)
+
+  @@unique([workspaceId, id])
+  @@index([workspaceId, projectId, createdAt(sort: Desc)])
+  @@map("assets")
   @@schema("app")
 }

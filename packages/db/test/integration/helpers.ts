@@ -178,6 +178,16 @@ export async function seedWorkspace(db: TenantDatabase, auth: pg.Pool): Promise<
     await tx.projectEditLock.create({
       data: { ...builder, holderUserId: ownerId, expiresAt: new Date(Date.now() + 60_000) },
     });
+    // P3 S6: one pending image in the project's library.
+    await tx.asset.create({
+      data: {
+        ...builder,
+        fileName: 'seed.jpg',
+        declaredType: 'image/jpeg',
+        declaredBytes: 100,
+        storageToken: createHash('sha256').update(`asset-${slug}`).digest('base64url').slice(0, 22),
+      },
+    });
     return { scope, ownerId, projectId: project.id, contactId: contact.id, domainId: domain.id, hostname };
   });
 }

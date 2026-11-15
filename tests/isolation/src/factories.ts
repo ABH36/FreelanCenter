@@ -384,6 +384,29 @@ export const TENANT_TABLES = {
       data: { holderUserId: '01920000-0000-7000-8000-00000000f00d' },
     },
   },
+  // P3 S6: the asset library. The guard sets the status, actors and times; there is no DELETE grant (hiding is
+  // deleted_at).
+  assets: {
+    tenantKey: 'workspace_id',
+    prepare: project,
+    insert: async (tx, ctx, deps) =>
+      (
+        await tx.asset.create({
+          data: {
+            workspaceId: ctx.workspaceId,
+            projectId: deps.projectId!,
+            fileName: 'matrix.jpg',
+            declaredType: 'image/jpeg',
+            declaredBytes: 100,
+            storageToken: token().slice(0, 22),
+          },
+          select: { id: true },
+        })
+      ).id,
+    update: `alt = 'matrix'`,
+    delete: 'denied',
+    prisma: { model: (tx) => delegate(tx.asset), data: { alt: 'tampered' } },
+  },
   audit_logs: {
     tenantKey: 'workspace_id',
     nullableTenantKey: true,

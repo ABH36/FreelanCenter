@@ -12,24 +12,42 @@
  */
 import { createHash } from 'node:crypto';
 import { renderDocument } from '@platform/blocks';
-import { isWorkspaceError } from '@platform/workspaces';
-import { builderService, requireUserId, withRequestContext, workspaces } from '@/lib/workspaces';
+import { assetIdsIn, isWorkspaceError } from '@platform/workspaces';
+import {
+  assetService,
+  builderService,
+  requireUserId,
+  withRequestContext,
+  workspaces,
+} from '@/lib/workspaces';
 
 /** Fonts are copied into public/preview-fonts by scripts/copy-preview-fonts.mjs (same allow-list as the sites app). */
 const PREVIEW_FONT_BASE = '/preview-fonts';
 
 const styleSource = (css: string) => `'sha256-${createHash('sha256').update(css).digest('base64')}'`;
 
-function previewPolicy(inlineStyles: readonly string[]): string {
+function previewPolicy(inlineStyles: readonly string[], assetOrigin: string | null): string {
   return [
     "default-src 'none'",
     `style-src ${inlineStyles.map(styleSource).join(' ')}`,
-    "img-src 'self' data:",
+    // P3 S6: the asset domain serves the image variants (R2; S3Mock locally).
+    `img-src 'self' data:${assetOrigin ? ` ${assetOrigin}` : ''}`,
     "font-src 'self'",
     "form-action 'none'",
     "base-uri 'none'",
     "frame-ancestors 'self'",
   ].join('; ');
+}
+
+/** The origin of ASSET_PUBLIC_URL, or null while uploads are not configured. */
+function assetOrigin(): string | null {
+  const url = process.env.ASSET_PUBLIC_URL;
+  if (!url) return null;
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
 }
 
 const text = (body: string, status: number) =>
@@ -47,9 +65,14 @@ export async function GET(
   const ws = await (await workspaces()).resolveBySlug(userId, slug);
   if (!ws) return text('Not found', 404);
   try {
-    const draft = await withRequestContext(async () =>
-      (await builderService()).getDraft(userId, ws.id, projectId),
-    );
+    const { draft, images } = await withRequestContext(async () => {
+      const found = await (await builderService()).getDraft(userId, ws.id, projectId);
+      const ids = [...assetIdsIn(found.config)];
+      return {
+        draft: found,
+        images: await (await assetService()).renderAssets(userId, ws.id, found.projectId, ids),
+      };
+    });
     const segments = (path ?? []).filter((s) => /^[a-z0-9-]{1,40}$/.test(s));
     const doc = renderDocument({
       config: draft.config,
@@ -61,13 +84,14 @@ export async function GET(
       basePath: `/editor-preview/${ws.slug}/${draft.projectId}`,
       fontBase: PREVIEW_FONT_BASE,
       banner: 'Draft preview: not published',
+      assetUrl: (assetId, width) => images.get(assetId)?.[width] ?? null,
     });
     if (doc.kind !== 'page') return text('This draft cannot be shown.', 422);
     return new Response(doc.html, {
       status: doc.status,
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
-        'Content-Security-Policy': previewPolicy(doc.inlineStyles),
+        'Content-Security-Policy': previewPolicy(doc.inlineStyles, assetOrigin()),
         'Cache-Control': 'no-store',
         'X-Robots-Tag': 'noindex, nofollow',
         'X-Content-Type-Options': 'nosniff',

@@ -24,6 +24,7 @@ import {
   takeOverEditLockAction,
   undoDraftAction,
 } from '@/app/actions/builder';
+import { AssetLibraryProvider, LibraryPanel } from './assets';
 import { type FieldErrors, type JsonSchema, SchemaField, humanize } from './schema-form';
 import { AddPage, AddSection, type Commit, PageTools, SectionTools } from './structure';
 import { type FontOption, ThemeForm, themePatchValue } from './theme-form';
@@ -33,6 +34,7 @@ type Section = Config['pages'][number]['sections'][number];
 type Selection =
   | { kind: 'business' }
   | { kind: 'theme' }
+  | { kind: 'images' }
   | { kind: 'section'; sectionId: string }
   | { kind: 'page'; pageId: string };
 type Device = 'phone' | 'tablet' | 'desktop';
@@ -99,6 +101,8 @@ export interface EditorProps {
   /** Owner or admin: may take a live lock over. */
   canTakeOver: boolean;
   memberNames: Record<string, string>;
+  /** P3 S6: image uploads are configured in this environment (ASSET_*). */
+  uploadsEnabled: boolean;
 }
 
 function findSection(config: Config, sectionId: string): { section: Section; pagePath: string } | null {
@@ -138,6 +142,7 @@ export function Editor({
   canEdit,
   canTakeOver,
   memberNames,
+  uploadsEnabled,
 }: EditorProps) {
   const projectId = initial.projectId;
   const target = useMemo(() => ({ workspaceId, projectId }), [workspaceId, projectId]);
@@ -388,211 +393,225 @@ export function Editor({
     `block w-full rounded-md px-3 py-2 text-left text-sm ${active ? 'bg-slate-900 text-white' : 'hover:bg-slate-100'}`;
 
   return (
-    <div className="space-y-4">
-      {holderName ? (
-        <div
-          role="status"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-base)] border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
-        >
-          <span>
-            {holderName} is editing this site. You can look around; changes are off until they finish.
+    <AssetLibraryProvider target={target} enabled={uploadsEnabled} canManage={canEdit}>
+      <div className="space-y-4">
+        {holderName ? (
+          <div
+            role="status"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-base)] border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
+          >
+            <span>
+              {holderName} is editing this site. You can look around; changes are off until they finish.
+            </span>
+            {canTakeOver ? (
+              <button
+                type="button"
+                onClick={() => void takeOver()}
+                className="rounded-md border border-amber-300 bg-white px-3 py-1.5 font-medium hover:bg-amber-100"
+              >
+                Take over editing
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+        {!canEdit ? (
+          <p role="status" className="text-sm text-slate-600">
+            You can view this site. Owners, admins and editors can change it.
+          </p>
+        ) : null}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void reverse('undo')}
+            disabled={!editable || !history.canUndo || busy}
+            aria-keyshortcuts="Control+Z"
+            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-50 disabled:opacity-50"
+          >
+            Undo
+          </button>
+          <button
+            type="button"
+            onClick={() => void reverse('redo')}
+            disabled={!editable || !history.canRedo || busy}
+            aria-keyshortcuts="Control+Y Control+Shift+Z"
+            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-50 disabled:opacity-50"
+          >
+            Redo
+          </button>
+          <span aria-live="polite" className="text-sm text-slate-600" data-testid="save-status">
+            {status}
           </span>
-          {canTakeOver ? (
+          <div role="group" aria-label="Preview width" className="ml-auto flex gap-1">
+            {(['phone', 'tablet', 'desktop'] as const).map((d) => (
+              <button
+                key={d}
+                type="button"
+                aria-pressed={device === d}
+                onClick={() => setDevice(d)}
+                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm capitalize aria-pressed:bg-slate-900 aria-pressed:text-white"
+              >
+                {d}
+              </button>
+            ))}
+          </div>
+        </div>
+        {problem ? (
+          <div
+            role="alert"
+            className="rounded-[var(--radius-base)] border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+          >
+            {problem}
+          </div>
+        ) : null}
+
+        {/* Wide screens: list, form, preview side by side. Medium: list and form, preview below at full width. */}
+        <div className="grid gap-4 md:grid-cols-[13rem_minmax(0,1fr)] xl:grid-cols-[14rem_minmax(0,22rem)_minmax(0,1fr)]">
+          <nav aria-label="Site parts" className="space-y-3">
             <button
               type="button"
-              onClick={() => void takeOver()}
-              className="rounded-md border border-amber-300 bg-white px-3 py-1.5 font-medium hover:bg-amber-100"
+              aria-current={selection.kind === 'business' ? 'true' : undefined}
+              className={itemClass(selection.kind === 'business')}
+              onClick={() => void choose({ kind: 'business' })}
             >
-              Take over editing
+              Business details
             </button>
-          ) : null}
-        </div>
-      ) : null}
-      {!canEdit ? (
-        <p role="status" className="text-sm text-slate-600">
-          You can view this site. Owners, admins and editors can change it.
-        </p>
-      ) : null}
-
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => void reverse('undo')}
-          disabled={!editable || !history.canUndo || busy}
-          aria-keyshortcuts="Control+Z"
-          className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-50 disabled:opacity-50"
-        >
-          Undo
-        </button>
-        <button
-          type="button"
-          onClick={() => void reverse('redo')}
-          disabled={!editable || !history.canRedo || busy}
-          aria-keyshortcuts="Control+Y Control+Shift+Z"
-          className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-50 disabled:opacity-50"
-        >
-          Redo
-        </button>
-        <span aria-live="polite" className="text-sm text-slate-600" data-testid="save-status">
-          {status}
-        </span>
-        <div role="group" aria-label="Preview width" className="ml-auto flex gap-1">
-          {(['phone', 'tablet', 'desktop'] as const).map((d) => (
             <button
-              key={d}
               type="button"
-              aria-pressed={device === d}
-              onClick={() => setDevice(d)}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm capitalize aria-pressed:bg-slate-900 aria-pressed:text-white"
+              aria-current={selection.kind === 'theme' ? 'true' : undefined}
+              className={itemClass(selection.kind === 'theme')}
+              onClick={() => void choose({ kind: 'theme' })}
             >
-              {d}
+              Theme
             </button>
-          ))}
-        </div>
-      </div>
-      {problem ? (
-        <div
-          role="alert"
-          className="rounded-[var(--radius-base)] border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-        >
-          {problem}
-        </div>
-      ) : null}
+            <button
+              type="button"
+              aria-current={selection.kind === 'images' ? 'true' : undefined}
+              className={itemClass(selection.kind === 'images')}
+              onClick={() => void choose({ kind: 'images' })}
+            >
+              Images
+            </button>
+            {config.pages.map((page) => (
+              <div key={page.id}>
+                <h2>
+                  <button
+                    type="button"
+                    aria-current={
+                      selection.kind === 'page' && selection.pageId === page.id ? 'true' : undefined
+                    }
+                    className={`${itemClass(selection.kind === 'page' && selection.pageId === page.id)} text-xs font-semibold tracking-wide uppercase`}
+                    onClick={() => void choose({ kind: 'page', pageId: page.id })}
+                  >
+                    {page.title}
+                    <span className="sr-only"> page settings</span>
+                  </button>
+                </h2>
+                <ul className="mt-1 space-y-1">
+                  {page.sections.map((section) => {
+                    const active = selection.kind === 'section' && selection.sectionId === section.id;
+                    return (
+                      <li key={section.id}>
+                        <button
+                          type="button"
+                          aria-current={active ? 'true' : undefined}
+                          className={itemClass(active)}
+                          onClick={() => void choose({ kind: 'section', sectionId: section.id })}
+                        >
+                          {humanize(section.type)}
+                          {section.visible === false ? <span className="opacity-75"> (hidden)</span> : null}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <AddSection
+                  config={config}
+                  page={page}
+                  blocks={blocks}
+                  disabled={!editable || busy}
+                  commit={commit}
+                  afterSectionId={selection.kind === 'section' ? selection.sectionId : undefined}
+                />
+              </div>
+            ))}
+            <AddPage config={config} disabled={!editable || busy} commit={commit} />
+          </nav>
 
-      {/* Wide screens: list, form, preview side by side. Medium: list and form, preview below at full width. */}
-      <div className="grid gap-4 md:grid-cols-[13rem_minmax(0,1fr)] xl:grid-cols-[14rem_minmax(0,22rem)_minmax(0,1fr)]">
-        <nav aria-label="Site parts" className="space-y-3">
-          <button
-            type="button"
-            aria-current={selection.kind === 'business' ? 'true' : undefined}
-            className={itemClass(selection.kind === 'business')}
-            onClick={() => void choose({ kind: 'business' })}
+          <section
+            aria-labelledby="form-title"
+            className="space-y-4 rounded-[var(--radius-base)] border border-slate-200 bg-white p-4"
           >
-            Business details
-          </button>
-          <button
-            type="button"
-            aria-current={selection.kind === 'theme' ? 'true' : undefined}
-            className={itemClass(selection.kind === 'theme')}
-            onClick={() => void choose({ kind: 'theme' })}
-          >
-            Theme
-          </button>
-          {config.pages.map((page) => (
-            <div key={page.id}>
-              <h2>
-                <button
-                  type="button"
-                  aria-current={
-                    selection.kind === 'page' && selection.pageId === page.id ? 'true' : undefined
-                  }
-                  className={`${itemClass(selection.kind === 'page' && selection.pageId === page.id)} text-xs font-semibold tracking-wide uppercase`}
-                  onClick={() => void choose({ kind: 'page', pageId: page.id })}
-                >
-                  {page.title}
-                  <span className="sr-only"> page settings</span>
-                </button>
-              </h2>
-              <ul className="mt-1 space-y-1">
-                {page.sections.map((section) => {
-                  const active = selection.kind === 'section' && selection.sectionId === section.id;
-                  return (
-                    <li key={section.id}>
-                      <button
-                        type="button"
-                        aria-current={active ? 'true' : undefined}
-                        className={itemClass(active)}
-                        onClick={() => void choose({ kind: 'section', sectionId: section.id })}
-                      >
-                        {humanize(section.type)}
-                        {section.visible === false ? <span className="opacity-75"> (hidden)</span> : null}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-              <AddSection
+            <h2 id="form-title" className="text-base font-semibold">
+              {selection.kind === 'business'
+                ? 'Business details'
+                : selection.kind === 'theme'
+                  ? 'Theme'
+                  : selection.kind === 'images'
+                    ? 'Images'
+                    : selection.kind === 'page'
+                      ? `Page: ${selectedPage?.title ?? ''}`
+                      : humanize(selected?.section.type ?? 'Section')}
+            </h2>
+            {selection.kind === 'section' && selected ? (
+              <SectionTools
+                key={`tools-${selected.section.id}`}
                 config={config}
-                page={page}
-                blocks={blocks}
+                section={selected.section}
+                variants={blocks[selected.section.type]?.variants ?? []}
                 disabled={!editable || busy}
                 commit={commit}
-                afterSectionId={selection.kind === 'section' ? selection.sectionId : undefined}
               />
-            </div>
-          ))}
-          <AddPage config={config} disabled={!editable || busy} commit={commit} />
-        </nav>
+            ) : null}
+            {selection.kind === 'page' && selectedPage ? (
+              <PageTools
+                key={`page-${selectedPage.id}-${selectedPage.title}`}
+                config={config}
+                page={selectedPage}
+                disabled={!editable || busy}
+                commit={commit}
+              />
+            ) : null}
+            {formSchema ? (
+              <SchemaField
+                key={selection.kind === 'section' ? selection.sectionId : selection.kind}
+                schema={formSchema}
+                value={working}
+                onChange={edit}
+                label={selection.kind === 'business' ? 'Business' : 'Content'}
+                path=""
+                required
+                errors={errors}
+                disabled={!editable}
+              />
+            ) : selection.kind === 'theme' ? (
+              <ThemeForm
+                // Right after switching, `working` can still hold the previous form's value for one render.
+                theme={
+                  working && typeof working === 'object' && 'colors' in working
+                    ? (working as Config['theme'])
+                    : config.theme
+                }
+                onChange={edit}
+                fonts={fonts}
+                language={config.business.language}
+                disabled={!editable}
+              />
+            ) : selection.kind === 'images' ? (
+              <LibraryPanel />
+            ) : selection.kind === 'page' ? null : (
+              <p className="text-sm text-slate-600">This part cannot be edited here yet.</p>
+            )}
+          </section>
 
-        <section
-          aria-labelledby="form-title"
-          className="space-y-4 rounded-[var(--radius-base)] border border-slate-200 bg-white p-4"
-        >
-          <h2 id="form-title" className="text-base font-semibold">
-            {selection.kind === 'business'
-              ? 'Business details'
-              : selection.kind === 'theme'
-                ? 'Theme'
-                : selection.kind === 'page'
-                  ? `Page: ${selectedPage?.title ?? ''}`
-                  : humanize(selected?.section.type ?? 'Section')}
-          </h2>
-          {selection.kind === 'section' && selected ? (
-            <SectionTools
-              key={`tools-${selected.section.id}`}
-              config={config}
-              section={selected.section}
-              variants={blocks[selected.section.type]?.variants ?? []}
-              disabled={!editable || busy}
-              commit={commit}
-            />
-          ) : null}
-          {selection.kind === 'page' && selectedPage ? (
-            <PageTools
-              key={`page-${selectedPage.id}-${selectedPage.title}`}
-              config={config}
-              page={selectedPage}
-              disabled={!editable || busy}
-              commit={commit}
-            />
-          ) : null}
-          {formSchema ? (
-            <SchemaField
-              key={selection.kind === 'section' ? selection.sectionId : selection.kind}
-              schema={formSchema}
-              value={working}
-              onChange={edit}
-              label={selection.kind === 'business' ? 'Business' : 'Content'}
-              path=""
-              required
-              errors={errors}
-              disabled={!editable}
-            />
-          ) : selection.kind === 'theme' ? (
-            <ThemeForm
-              // Right after switching, `working` can still hold the previous form's value for one render.
-              theme={
-                working && typeof working === 'object' && 'colors' in working
-                  ? (working as Config['theme'])
-                  : config.theme
-              }
-              onChange={edit}
-              fonts={fonts}
-              language={config.business.language}
-              disabled={!editable}
-            />
-          ) : selection.kind === 'page' ? null : (
-            <p className="text-sm text-slate-600">This part cannot be edited here yet.</p>
-          )}
-        </section>
-
-        <section
-          aria-label="Live preview"
-          className="min-w-0 rounded-[var(--radius-base)] border border-slate-200 bg-slate-100 p-2 md:col-span-2 xl:col-span-1"
-        >
-          <ScaledPreview src={previewSrc} width={DEVICE_WIDTH[device]} />
-        </section>
+          <section
+            aria-label="Live preview"
+            className="min-w-0 rounded-[var(--radius-base)] border border-slate-200 bg-slate-100 p-2 md:col-span-2 xl:col-span-1"
+          >
+            <ScaledPreview src={previewSrc} width={DEVICE_WIDTH[device]} />
+          </section>
+        </div>
       </div>
-    </div>
+    </AssetLibraryProvider>
   );
 }

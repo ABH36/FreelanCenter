@@ -25,3 +25,14 @@ export {
   createUpstashStore,
   loadKeyValueConfig,
 } from './kv';
+export {
+  type MemoryObjectStorage,
+  type ObjectStorage,
+  type ObjectStorageConfig,
+  type SignedUpload,
+  ObjectTooLargeError,
+  StorageError,
+  createMemoryStorage,
+  createS3Storage,
+  loadObjectStorageConfig,
+} from './storage';

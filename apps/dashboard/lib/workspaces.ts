@@ -11,8 +11,16 @@ import { cache } from 'react';
 import { assertUrlRole, createTenantDatabase, onceUntilSuccess } from '@platform/db';
 import { type Jobs, createJobs, loadJobsConfig } from '@platform/jobs';
 import { getCorrelationIdFromHeaders, runWithContext } from '@platform/logger';
-import { type KeyValueStore, createKeyValueStore, loadKeyValueConfig } from '@platform/providers';
 import {
+  type KeyValueStore,
+  type ObjectStorage,
+  createKeyValueStore,
+  createS3Storage,
+  loadKeyValueConfig,
+  loadObjectStorageConfig,
+} from '@platform/providers';
+import {
+  type AssetService,
   type AuditService,
   type BuilderService,
   type NotificationService,
@@ -21,6 +29,7 @@ import {
   type TemplateService,
   type WorkspaceContext,
   type WorkspaceService,
+  createAssetService,
   createAuditService,
   createBuilderService,
   createHostCacheInvalidationHandler,
@@ -48,6 +57,8 @@ interface WorkspaceRuntime {
   templates: TemplateService;
   /** P3 S2: drafts, changes, undo/redo and the edit lock (module 05). */
   builder: BuilderService;
+  /** P3 S6: the project asset library (uploads, variants). */
+  assets: AssetService;
   notifications: NotificationService;
   audit: AuditService;
   jobs: Jobs;
@@ -121,6 +132,20 @@ function build(): WorkspaceRuntime {
   const notifications = createNotificationService({ db, logger });
   const audit = createAuditService({ db, logger });
   const builder = createBuilderService({ db, logger });
+  // P3 S6: R2 (ADR-009) when ASSET_* is set; off otherwise (the library says uploads are not set up). Built on first
+  // use so a half-configured deployment fails the upload, not every page.
+  let objectStorage: ObjectStorage | null | undefined;
+  const assets = createAssetService({
+    db,
+    storage: () => {
+      if (objectStorage === undefined) {
+        const storageConfig = loadObjectStorageConfig(process.env);
+        objectStorage = storageConfig ? createS3Storage(storageConfig) : null;
+      }
+      return objectStorage;
+    },
+    logger,
+  });
   // P2 S6b: preview links are signed with the secret apps/sites verifies with; off when not configured.
   const templates = createTemplateService({ db, preview: previewSettingsFromEnv(process.env), logger });
   // DG-28: measured requests (x-perf-request) log the time of each service call; others are untouched.
@@ -129,6 +154,7 @@ function build(): WorkspaceRuntime {
     projects: instrument(logger, 'projects', projects),
     templates: instrument(logger, 'templates', templates),
     builder: instrument(logger, 'builder', builder),
+    assets: instrument(logger, 'assets', assets),
     notifications: instrument(logger, 'notifications', notifications),
     audit: instrument(logger, 'audit', audit),
     jobs,
@@ -157,6 +183,7 @@ async function ready(): Promise<WorkspaceRuntime> {
 export const projectService = async (): Promise<ProjectService> => (await ready()).projects;
 export const templateService = async (): Promise<TemplateService> => (await ready()).templates;
 export const builderService = async (): Promise<BuilderService> => (await ready()).builder;
+export const assetService = async (): Promise<AssetService> => (await ready()).assets;
 export const notificationService = async (): Promise<NotificationService> => (await ready()).notifications;
 export const auditService = async (): Promise<AuditService> => (await ready()).audit;
 export const workspaceOutbox = async (): Promise<Outbox> => (await ready()).outbox;

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { loadObjectStorageConfig } from '@platform/providers';
 import { BLOCKS, type BlockType, FONTS, editorFormSchemas, sampleSection } from '@platform/schema';
 import { type DraftView, WorkspaceError } from '@platform/workspaces';
 import { startDraftAction } from '@/app/actions/builder';
@@ -144,7 +145,17 @@ export default async function EditorPage({
         canEdit={canEdit}
         canTakeOver={canEdit && (ws.scope.role === 'owner' || ws.scope.role === 'admin')}
         memberNames={Object.fromEntries(members.map((m) => [m.userId, m.name]))}
+        uploadsEnabled={uploadsEnabled()}
       />
     </div>
   );
+}
+
+/** P3 S6: whether ASSET_* is set. A half-set configuration counts as off here; the upload itself reports the error. */
+function uploadsEnabled(): boolean {
+  try {
+    return loadObjectStorageConfig(process.env) !== null;
+  } catch {
+    return false;
+  }
 }

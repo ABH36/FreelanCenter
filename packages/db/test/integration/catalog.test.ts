@@ -97,6 +97,7 @@ describe('row-level security coverage', () => {
   it('every tenant table (auto-discovered by workspace_id) has app_user policies that reference the context', async () => {
     const tables = await tenantTables(admin);
     expect(tables).toEqual([
+      'assets',
       'audit_logs',
       'change_sets',
       'client_contacts',
@@ -418,6 +419,8 @@ describe('functions', () => {
       'site_versions_reject_change',
       'site_pointers_guard',
       'project_edit_locks_guard',
+      // P3 S6: the asset library.
+      'assets_guard',
     ]) {
       expect(await executors(fn), fn).toEqual(['migrator']);
     }

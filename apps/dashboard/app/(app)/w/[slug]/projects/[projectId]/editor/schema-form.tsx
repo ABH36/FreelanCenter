@@ -6,6 +6,7 @@
  * schema; this form only shapes the input and shows the server's field errors next to the right field.
  */
 import { useId, type ReactNode } from 'react';
+import { AddImageButton, ImageField, type ImageRef } from './assets';
 
 export interface JsonSchema {
   type?: string;
@@ -40,7 +41,12 @@ export function humanize(key: string): string {
   return [first.charAt(0).toUpperCase() + first.slice(1), ...words.slice(1)].join(' ');
 }
 
-type Kind = 'string' | 'enum' | 'boolean' | 'number' | 'object' | 'array' | 'rich' | 'unsupported';
+type Kind = 'string' | 'enum' | 'boolean' | 'number' | 'object' | 'array' | 'rich' | 'image' | 'unsupported';
+
+/** P3 S6: an image reference (`{ assetId, alt }`, assetRef in @platform/schema) is chosen from the library. */
+function isImage(schema: JsonSchema): boolean {
+  return schema.type === 'object' && Boolean(schema.properties?.assetId && schema.properties?.alt);
+}
 
 /** Several string alternatives (internal path, anchor, external URL) are one text field. */
 function stringAlternatives(schema: JsonSchema): JsonSchema | null {
@@ -57,6 +63,7 @@ function isRichText(schema: JsonSchema): boolean {
 export function kindOf(schema: JsonSchema): Kind {
   if (schema.enum) return 'enum';
   if (isRichText(schema)) return 'rich';
+  if (isImage(schema)) return 'image';
   if (schema.anyOf) return stringAlternatives(schema) ? 'string' : 'unsupported';
   switch (schema.type) {
     case 'string':
@@ -296,6 +303,19 @@ export function SchemaField({
         </div>
       );
     }
+    case 'image':
+      return (
+        <ImageField
+          label={label}
+          value={value && typeof value === 'object' ? (value as ImageRef) : undefined}
+          onChange={onChange}
+          required={required}
+          disabled={disabled}
+          error={error ?? errors[`${path}.assetId`]}
+          altError={errors[`${path}.alt`]}
+          altMax={schema.properties?.alt?.maxLength}
+        />
+      );
     case 'object': {
       const obj = value && typeof value === 'object' ? (value as Record<string, Value>) : undefined;
       if (!obj) {
@@ -412,14 +432,22 @@ export function SchemaField({
               </div>
             </div>
           ))}
-          <button
-            type="button"
-            className={smallButton}
-            disabled={disabled || full}
-            onClick={() => onChange([...list, defaultFor(item)])}
-          >
-            Add to {label.toLowerCase()}
-          </button>
+          {kindOf(item) === 'image' ? (
+            <AddImageButton
+              label={label}
+              disabled={disabled || full}
+              onAdd={(image) => onChange([...list, image])}
+            />
+          ) : (
+            <button
+              type="button"
+              className={smallButton}
+              disabled={disabled || full}
+              onClick={() => onChange([...list, defaultFor(item)])}
+            >
+              Add to {label.toLowerCase()}
+            </button>
+          )}
           <ErrorText id={errorId} message={error} />
         </fieldset>
       );

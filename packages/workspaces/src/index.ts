@@ -124,3 +124,26 @@ export {
   inverseFor,
   touchedParts,
 } from './builder';
+// P3 S6: the asset library (FR-BLD-05, ADR-009).
+export {
+  ASSET_LIMITS,
+  type AssetService,
+  type AssetServiceDeps,
+  type AssetView,
+  REJECT_MESSAGES,
+  type RenderAssets,
+  assetIdsIn,
+  createAssetService,
+  uploadKey,
+  variantKey,
+} from './assets';
+export {
+  ACCEPTED_IMAGE_TYPES,
+  CROP_ASPECTS,
+  type CropAspect,
+  IMAGE_LIMITS,
+  IMAGE_WIDTHS,
+  type ImageWidth,
+  processImage,
+  sniffImageType,
+} from './image';

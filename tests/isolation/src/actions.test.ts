@@ -12,10 +12,11 @@ import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createInlineJobs } from '@platform/jobs';
-import { createCaptureProvider } from '@platform/providers';
+import { createCaptureProvider, createMemoryStorage } from '@platform/providers';
 import {
   type WorkspaceService,
   WorkspaceError,
+  createAssetService,
   createAuditService,
   createBuilderService,
   createInvitationEmailHandler,
@@ -75,6 +76,14 @@ const audit = createAuditService({ db });
 // P3 S3: the draft service behind the editor actions, and a catalogue template with a complete SiteConfig.
 const builder = createBuilderService({ db });
 let draftTemplateId = '';
+// P3 S6: the asset service on in-memory storage (the bucket is not under test; the database rules are).
+const memory = createMemoryStorage();
+const assets = createAssetService({ db, storage: () => memory });
+/** A 1x1 PNG: the smallest real image the pipeline accepts. */
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+  'base64',
+);
 const DRAFT_CONFIG = {
   schemaVersion: '1.0',
   business: {
@@ -155,6 +164,21 @@ async function seed(): Promise<Tenant> {
     projectId: project.id,
     templateId: draftTemplateId,
   });
+  // P3 S6: one ready image in the project's library.
+  const started = await assets.requestUpload(ownerId, {
+    workspaceId: id,
+    projectId: project.id,
+    fileName: 'idor.png',
+    contentType: 'image/png',
+    size: PNG.byteLength,
+  });
+  memory.uploads.set(started.upload.url.replace('memory://uploads/', ''), new Uint8Array(PNG));
+  const image = await assets.finishUpload(ownerId, {
+    workspaceId: id,
+    projectId: project.id,
+    assetId: started.assetId,
+  });
+  if (image.status !== 'ready') throw new Error('setup: the IDOR image was not processed');
   const link = await templates.createPreviewLink(ownerId, {
     workspaceId: id,
     templateId: catalogTemplateId,
@@ -170,6 +194,7 @@ async function seed(): Promise<Tenant> {
       projectId: project.id,
       notificationId: inbox.items[0]!.id,
       previewLinkId: link.id,
+      assetId: image.id,
     },
   };
 }
@@ -307,6 +332,52 @@ const CALLS: Record<string, (actor: string, s: Selectors) => Promise<unknown>> =
   acquireLock: (a, s) => builder.acquireLock(a, { workspaceId: s.workspaceId, projectId: s.projectId }),
   takeOverLock: (a, s) => builder.takeOverLock(a, { workspaceId: s.workspaceId, projectId: s.projectId }),
   releaseLock: (a, s) => builder.releaseLock(a, { workspaceId: s.workspaceId, projectId: s.projectId }),
+  // P3 S6: the asset library.
+  requestUpload: async (a, s) => {
+    const r = await assets.requestUpload(a, {
+      workspaceId: s.workspaceId,
+      projectId: s.projectId,
+      fileName: 'probe.png',
+      contentType: 'image/png',
+      size: 100,
+    });
+    return { created: Boolean(r.assetId) };
+  },
+  finishUpload: async (a, s) => {
+    const v = await assets.finishUpload(a, {
+      workspaceId: s.workspaceId,
+      projectId: s.projectId,
+      assetId: s.assetId,
+    });
+    return { id: v.id, status: v.status };
+  },
+  listAssets: async (a, s) => (await assets.list(a, s.workspaceId, s.projectId)).map((v) => v.id),
+  describeAsset: async (a, s) => {
+    const v = await assets.describe(a, {
+      workspaceId: s.workspaceId,
+      projectId: s.projectId,
+      assetId: s.assetId,
+      alt: 'IDOR probe',
+    });
+    return { id: v.id };
+  },
+  hideAsset: (a, s) =>
+    assets.hide(a, { workspaceId: s.workspaceId, projectId: s.projectId, assetId: s.assetId }),
+  cropAsset: async (a, s) => {
+    const v = await assets.crop(a, {
+      workspaceId: s.workspaceId,
+      projectId: s.projectId,
+      assetId: s.assetId,
+      aspect: '1:1',
+      x: 50,
+      y: 50,
+    });
+    return { created: Boolean(v.id) };
+  },
+  // Asks for both tenants' image ids: only the images of the selected project may come back.
+  renderAssets: async (a, s) => [
+    ...(await assets.renderAssets(a, s.workspaceId, s.projectId, [A.own.assetId, B.own.assetId])).keys(),
+  ],
 };
 const READS = new Set([
   'listPreviewLinks',
@@ -325,6 +396,8 @@ const READS = new Set([
   'listAuditLog',
   'listDeadLetters',
   'getDraft',
+  'listAssets',
+  'renderAssets',
 ]);
 
 const call = (method: string) => async (actor: string, s: Selectors) => {
@@ -362,6 +435,12 @@ async function victimState() {
     draft: await builder
       .getDraft(B.ownerId, B.own.workspaceId, B.own.projectId)
       .then((d) => [d.revision, d.config.business.name, d.lock?.holderUserId ?? null]),
+    // P3 S6: B's library (ids, alt text, status).
+    assets: (await assets.list(B.ownerId, B.own.workspaceId, B.own.projectId)).map((v) => [
+      v.id,
+      v.alt,
+      v.status,
+    ]),
   };
 }
 

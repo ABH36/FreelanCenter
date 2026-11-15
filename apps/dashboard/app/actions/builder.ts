@@ -7,24 +7,13 @@
  */
 import { redirect } from 'next/navigation';
 import type { DraftView } from '@platform/workspaces';
-import { isWorkspaceError } from '@platform/workspaces';
 import { type ActionState, field, runAction } from '@/lib/actions';
-import { builderService, requireUserId, withRequestContext } from '@/lib/workspaces';
+import { type EditorResult, runEditor } from '@/lib/editor-run';
+import { builderService, requireUserId } from '@/lib/workspaces';
 
-export type EditorResult<T = undefined> =
-  { ok: true; value: T } | { ok: false; code: string; error: string; fieldErrors?: Record<string, string> };
+export type { EditorResult };
 
-async function run<T>(fn: (userId: string) => Promise<T>): Promise<EditorResult<T>> {
-  const userId = await requireUserId();
-  try {
-    return { ok: true, value: await withRequestContext(() => fn(userId)) };
-  } catch (error) {
-    if (isWorkspaceError(error)) {
-      return { ok: false, code: error.code, error: error.message, fieldErrors: error.fieldErrors };
-    }
-    throw error;
-  }
-}
+const run = runEditor;
 
 interface Target {
   workspaceId: string;
