@@ -215,6 +215,11 @@ export function AddSection({
   const after = page.sections.findIndex((s) => s.id === afterSectionId);
   return (
     <div className="mt-1 space-y-2 rounded-md border border-slate-200 p-2">
+      <p className="text-xs text-slate-600">
+        {/* Extension check 2026-11-15: where the section goes was not visible. */}
+        Will be added{' '}
+        {after >= 0 ? `after ${humanize(page.sections[after]!.type)}` : `at the end of ${page.title}`}.
+      </p>
       <label htmlFor={`${id}-type`} className="block text-xs font-medium">
         Block
       </label>

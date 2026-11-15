@@ -4,7 +4,7 @@
  * differs. Every emitted value comes from a lookup table or a validated 6-digit hex; free text never reaches CSS.
  */
 import { SECTION_PADDING, themeSchema, type Theme } from '@platform/schema';
-import { contrastRatio, luminance, mix, onColor } from './color';
+import { contrastChecks, contrastRatio, luminance, mix, onColor } from './color';
 import { fontStack } from './fonts';
 import { motionVariables } from './motion';
 
@@ -181,22 +181,5 @@ export interface ContrastIssue {
  */
 export function contrastIssues(theme: Theme): ContrastIssue[] {
   const t = themeSchema.parse(theme);
-  const { colors, buttons } = t;
-  const checks: [string, string, string, number][] = [
-    ['text on background', colors.text, colors.background, 4.5],
-    ['text on surface', colors.text, colors.surface, 4.5],
-    ['button label on button', onColor(colors.primary), colors.primary, 4.5],
-    [
-      'primary on background (links, outline buttons, focus ring)',
-      colors.primary,
-      colors.background,
-      buttons.style === 'solid' ? 3 : 4.5,
-    ],
-    ['primary on surface', colors.primary, colors.surface, buttons.style === 'solid' ? 3 : 4.5],
-    ['accent on background (large text and icons)', colors.accent, colors.background, 3],
-  ];
-  return checks
-    .map(([pair, fg, bg, required]) => ({ pair, ratio: Number(contrastRatio(fg, bg).toFixed(2)), required }))
-    .filter((c) => c.ratio < c.required)
-    .map((c) => ({ ...c, level: 'error' as const }));
+  return contrastChecks(t.colors, t.buttons.style).map((c) => ({ ...c, level: 'error' as const }));
 }

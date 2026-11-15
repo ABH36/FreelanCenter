@@ -26,11 +26,15 @@ import {
 } from '@/app/actions/builder';
 import { type FieldErrors, type JsonSchema, SchemaField, humanize } from './schema-form';
 import { AddPage, AddSection, type Commit, PageTools, SectionTools } from './structure';
+import { type FontOption, ThemeForm, themePatchValue } from './theme-form';
 
 type Config = DraftView['config'];
 type Section = Config['pages'][number]['sections'][number];
 type Selection =
-  { kind: 'business' } | { kind: 'section'; sectionId: string } | { kind: 'page'; pageId: string };
+  | { kind: 'business' }
+  | { kind: 'theme' }
+  | { kind: 'section'; sectionId: string }
+  | { kind: 'page'; pageId: string };
 type Device = 'phone' | 'tablet' | 'desktop';
 /** What the editor needs to know about the lock. Props cross the server/client boundary as plain JSON. */
 type LockInfo = { holderUserId: string; mine: boolean };
@@ -88,6 +92,8 @@ export interface EditorProps {
   schemas: { business: JsonSchema; blocks: Record<string, JsonSchema> };
   /** P3 S4: each block type's layouts and the placeholder content of a new section (from @platform/schema). */
   blocks: Record<string, { variants: readonly string[]; sample: Record<string, unknown> }>;
+  /** P3 S5: the font allow-list (from @platform/schema). */
+  fonts: readonly FontOption[];
   /** Owner, admin or editor in a writable workspace (the server re-checks every call). */
   canEdit: boolean;
   /** Owner or admin: may take a live lock over. */
@@ -128,6 +134,7 @@ export function Editor({
   initial,
   schemas,
   blocks,
+  fonts,
   canEdit,
   canTakeOver,
   memberNames,
@@ -174,11 +181,13 @@ export function Editor({
   useEffect(() => {
     if (pending.current) return;
     if (selection.kind === 'business') setWorking(config.business);
+    else if (selection.kind === 'theme') setWorking(config.theme);
     else if (selection.kind === 'section') {
       const found = findSection(config, selection.sectionId);
       if (found) setWorking(found.section.props);
       else setSelection({ kind: 'business' });
-    } else if (!config.pages.some((p) => p.id === selection.pageId)) setSelection({ kind: 'business' });
+    } else if (selection.kind === 'page' && !config.pages.some((p) => p.id === selection.pageId))
+      setSelection({ kind: 'business' });
   }, [config, selection]);
 
   const save = useCallback(async () => {
@@ -189,13 +198,15 @@ export function Editor({
     const operations =
       change.selection.kind === 'business'
         ? [{ op: 'updateBusiness', value: change.value }]
-        : [
-            {
-              op: 'updateSection',
-              sectionId: formTarget.kind === 'section' ? formTarget.sectionId : '',
-              props: change.value,
-            },
-          ];
+        : change.selection.kind === 'theme'
+          ? [{ op: 'updateTheme', value: themePatchValue(change.value as Config['theme']) }]
+          : [
+              {
+                op: 'updateSection',
+                sectionId: formTarget.kind === 'section' ? formTarget.sectionId : '',
+                props: change.value,
+              },
+            ];
     setStatus('Saving…');
     const result = await saveDraftChangeAction({
       ...target,
@@ -211,6 +222,7 @@ export function Editor({
       setConfig((current) => {
         if (change.selection.kind === 'business')
           return { ...current, business: change.value as Config['business'] };
+        if (change.selection.kind === 'theme') return { ...current, theme: change.value as Config['theme'] };
         const sel = change.selection;
         return {
           ...current,
@@ -458,6 +470,14 @@ export function Editor({
           >
             Business details
           </button>
+          <button
+            type="button"
+            aria-current={selection.kind === 'theme' ? 'true' : undefined}
+            className={itemClass(selection.kind === 'theme')}
+            onClick={() => void choose({ kind: 'theme' })}
+          >
+            Theme
+          </button>
           {config.pages.map((page) => (
             <div key={page.id}>
               <h2>
@@ -511,9 +531,11 @@ export function Editor({
           <h2 id="form-title" className="text-base font-semibold">
             {selection.kind === 'business'
               ? 'Business details'
-              : selection.kind === 'page'
-                ? `Page: ${selectedPage?.title ?? ''}`
-                : humanize(selected?.section.type ?? 'Section')}
+              : selection.kind === 'theme'
+                ? 'Theme'
+                : selection.kind === 'page'
+                  ? `Page: ${selectedPage?.title ?? ''}`
+                  : humanize(selected?.section.type ?? 'Section')}
           </h2>
           {selection.kind === 'section' && selected ? (
             <SectionTools
@@ -544,6 +566,19 @@ export function Editor({
               path=""
               required
               errors={errors}
+              disabled={!editable}
+            />
+          ) : selection.kind === 'theme' ? (
+            <ThemeForm
+              // Right after switching, `working` can still hold the previous form's value for one render.
+              theme={
+                working && typeof working === 'object' && 'colors' in working
+                  ? (working as Config['theme'])
+                  : config.theme
+              }
+              onChange={edit}
+              fonts={fonts}
+              language={config.business.language}
               disabled={!editable}
             />
           ) : selection.kind === 'page' ? null : (

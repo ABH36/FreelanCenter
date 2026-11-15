@@ -65,6 +65,16 @@ Owners, admins and editors write; viewers read. Writes need a writable workspace
   - These controls are buttons, not drag and drop, so they work from the keyboard.
   - Changing a section's block type is not offered; you add a new section instead.
 
+**Theme editor (P3 S5, FR-BLD-04).** The editor has a "Theme" part with these controls:
+
+- **Colours:** a picker and a hex field for each colour, plus palette buttons (`THEME_PALETTES`, every palette passes AA).
+- **Fonts:** heading and body fonts from the allow-list. On a Hindi site, fonts without Hindi letters are marked.
+- **Text size, spacing and radius.**
+- **Buttons:** style, shape and hover.
+- **Motion preset:** reduced motion is always honoured.
+
+The browser shows contrast warnings from `contrastChecks` (`@platform/ui/color`) but does not block saving; S7 preflight runs the same checks through `contrastIssues`. Changes go through `updateTheme`, autosave and can be undone. No new theme tokens until a template needs one.
+
 ## Assets
 
 Uploads are authenticated and scoped to project. Sniff MIME, cap size, strip EXIF, scan where feasible, re-encode fixed AVIF/WebP variants, store alt text/provenance and serve through asset domain. Do not use the Next/Vercel image optimizer. Deleting/replacing assets cannot break immutable published versions; lifecycle/refcount design is required.
