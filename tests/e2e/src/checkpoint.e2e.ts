@@ -5,6 +5,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import AxeBuilder from '@axe-core/playwright';
+import sharp from 'sharp';
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { SITES_DOMAIN, SITES_PORT } from '../playwright.config';
 import { appPool, asTenant, authPool, userIdByEmail } from './local-stack';
@@ -436,6 +437,85 @@ test('A changes the theme with a palette, gets a contrast warning for a bad colo
     await expect(status).toHaveText(/^Undone/, { timeout: 30_000 });
   }
   await expect(page.getByRole('textbox', { name: /^Primary ·/ })).toHaveValue(before);
+});
+
+// P3 S6 (FR-BLD-05, SEC-08): the image library. A photo is uploaded straight to storage with a signed URL, checked and
+// re-encoded by the server (WebP widths, no metadata), chosen as the logo and shown in the preview from the asset
+// origin. A file that only pretends to be a photo is refused with the server's reason.
+test('A uploads and crops a photo, uses it as the logo with alt text, and a fake photo is refused', async () => {
+  test.setTimeout(180_000);
+  const page = a.page;
+  await page.goto(`/w/${a.slug}/projects/${projectId}/editor`);
+  const nav = page.getByRole('navigation', { name: 'Site parts' });
+  const status = page.getByTestId('save-status');
+  await nav.getByRole('button', { name: 'Images', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Images', level: 2 })).toBeVisible();
+
+  const photo = await sharp({
+    create: { width: 1200, height: 800, channels: 3, background: { r: 225, g: 29, b: 46 } },
+  })
+    .jpeg()
+    .withExif({ IFD0: { Artist: 'E2E Owner' } })
+    .toBuffer();
+  const upload = page.getByLabel('Upload image');
+  await upload.setInputFiles({ name: `pulse-logo-${run}.jpg`, mimeType: 'image/jpeg', buffer: photo });
+  await expect(page.getByText(`pulse-logo-${run}.jpg is ready.`)).toBeVisible({ timeout: 60_000 });
+  const library = page.getByRole('list', { name: 'Images in this project' });
+  await expect(library.getByRole('listitem').filter({ hasText: `pulse-logo-${run}.jpg` })).toHaveCount(1);
+
+  // S6 part 2: crop it to 16:9; the crop is a new image and the original stays.
+  await library.getByRole('button', { name: `Crop pulse-logo-${run}.jpg` }).click();
+  await library.getByLabel('Shape').selectOption('16:9');
+  await library.getByRole('button', { name: 'Save as new image' }).click();
+  await expect(library.getByText(`Saved as pulse-logo-${run} (16:9).webp.`)).toBeVisible({ timeout: 60_000 });
+  await expect(library.getByRole('listitem').filter({ hasText: `pulse-logo-${run}` })).toHaveCount(2);
+
+  // An SVG with a script, named and typed as a JPEG: the server sniffs it and refuses it.
+  await upload.setInputFiles({
+    name: 'not-a-photo.jpg',
+    mimeType: 'image/jpeg',
+    buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'),
+  });
+  await expect(page.getByRole('alert').filter({ hasText: 'Only JPEG, PNG and WebP' })).toBeVisible({
+    timeout: 60_000,
+  });
+  await expect(library.getByRole('listitem').filter({ hasText: 'not-a-photo.jpg' })).toHaveCount(0);
+
+  // Choose it as the logo; the description starts from the file name and is edited.
+  await nav.getByRole('button', { name: 'Business details' }).click();
+  // Gym Bold ships a placeholder logo, so the field offers "Change image" (an empty one says "Choose image").
+  const logoButton = page.getByRole('button', { name: /^(Choose|Change) image\s*:\s*Logo$/ });
+  const alt = page.getByRole('textbox', { name: 'Describe the image for people who cannot see it' });
+  const templateAlt = (await alt.count()) > 0 ? await alt.inputValue() : null;
+  await expect(logoButton).toBeEnabled({ timeout: 30_000 });
+  await logoButton.click();
+  await page.getByRole('button', { name: `Use pulse-logo-${run}.jpg` }).click();
+  await expect(alt).toHaveValue(`Pulse logo ${run}`);
+  await alt.fill('Pulse Fitness logo');
+  await expect(status).toHaveText('All changes saved', { timeout: 30_000 });
+
+  // The preview shows the logo from the asset origin in pre-generated widths, with the alt text.
+  const preview = page.frameLocator('iframe[title="Site preview"]');
+  const logo = preview.getByRole('img', { name: 'Pulse Fitness logo' }).first();
+  await expect(logo).toBeVisible({ timeout: 30_000 });
+  const src = await logo.getAttribute('src');
+  expect(src).toMatch(
+    /^http:\/\/127\.0\.0\.1:59090\/assets\/ws\/[0-9a-f-]{36}\/[0-9a-f-]{36}\/[A-Za-z0-9_-]{22}\/400\.webp$/,
+  );
+  const variant = await page.request.get(src!);
+  expect(variant.headers()['content-type']).toBe('image/webp');
+  expect((await variant.body()).includes('E2E Owner')).toBe(false);
+  const csp = (await page.request.get(`/editor-preview/${a.slug}/${projectId}`)).headers()[
+    'content-security-policy'
+  ];
+  expect(csp).toContain("img-src 'self' data: http://127.0.0.1:59090");
+
+  // Undo brings back the template's logo (or no logo); the photo is no longer shown.
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(status).toHaveText(/^Undone/, { timeout: 30_000 });
+  if (templateAlt === null) await expect(alt).toHaveCount(0);
+  else await expect(alt).toHaveValue(templateAlt);
+  await expect(preview.getByRole('img', { name: 'Pulse Fitness logo' })).toHaveCount(0);
 });
 
 test('the preview may be framed by the dashboard only and runs no script; the editor page cannot be framed', async () => {

@@ -221,7 +221,7 @@ importers:
         version: link:../providers
       better-auth:
         specifier: 1.7.14
-        version: 1.7.14(@opentelemetry/api@1.10.0)(@prisma/client@7.10.1(prisma@7.10.1(@types/node@22.20.5)(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3))(typescript@5.9.3))(mysql2@3.24.4(@types/node@22.20.5))(next@16.4.3(@opentelemetry/api@1.10.0)(@playwright/test@1.64.1)(@types/node@22.20.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(pg@8.23.1)(prisma@7.10.1(@types/node@22.20.5)(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5)
+        version: 1.7.14(@opentelemetry/api@1.10.0)(@prisma/client@7.10.1(prisma@7.10.1(@types/node@22.20.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3))(typescript@5.9.3))(mysql2@3.24.4(@types/node@22.20.5))(next@16.4.3(@opentelemetry/api@1.10.0)(@playwright/test@1.64.1)(@types/node@22.20.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(pg@8.23.1)(prisma@7.10.1(@types/node@22.20.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5)
     devDependencies:
       '@types/node':
         specifier: ^22.20.5
@@ -276,7 +276,7 @@ importers:
         version: 7.10.1
       '@prisma/client':
         specifier: 7.10.1
-        version: 7.10.1(prisma@7.10.1(@types/node@22.20.5)(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3))(typescript@5.9.3)
+        version: 7.10.1(prisma@7.10.1(@types/node@22.20.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3))(typescript@5.9.3)
       pg:
         specifier: 8.23.1
         version: 8.23.1
@@ -327,6 +327,10 @@ importers:
         version: 22.20.5
 
   packages/providers:
+    dependencies:
+      aws4fetch:
+        specifier: 1.0.20
+        version: 1.0.20
     devDependencies:
       '@types/node':
         specifier: ^22.20.5
@@ -400,6 +404,9 @@ importers:
       '@platform/schema':
         specifier: workspace:*
         version: link:../schema
+      sharp:
+        specifier: '>=0.35.5'
+        version: 0.35.5(@types/node@22.20.5)
       zod:
         specifier: 4.6.7
         version: 4.6.7
@@ -518,6 +525,9 @@ importers:
       '@types/pg':
         specifier: 8.23.1
         version: 8.23.1
+      sharp:
+        specifier: 0.35.5
+        version: 0.35.5(@types/node@22.20.5)
 
   tests/isolation:
     dependencies:
@@ -2998,6 +3008,9 @@ packages:
     resolution: {integrity: sha512-NZKeq9AfyQvEeNlN0zSYAaWrmBffJh3IELMZfRpJVWgrpEbtEpnjvzqBPf+mxoI287JohRDoa+/nsfqqiZmF6g==}
     engines: {node: '>= 6.0.0'}
 
+  aws4fetch@1.0.20:
+    resolution: {integrity: sha512-/djoAN709iY65ETD6LKCtyyEI04XIBP5xVvfmNxsEP0uJB5tyaGBztSryRr4HqMStr9R06PisQE7m9zDTXKu6g==}
+
   axe-core@4.14.0:
     resolution: {integrity: sha512-9WTZxEjsZ7b13TH8JPmbV2z8CHbl80/2hm3XPEG4JgNdQLK81IBRXmSxHfMAOkSqQeRxT/0dwNDz2GOm3zzpcQ==}
     engines: {node: '>=4'}
@@ -4922,15 +4935,7 @@ snapshots:
       '@better-auth/core': 1.7.14(@better-auth/utils@0.5.1)(@better-fetch/fetch@1.3.3)(@opentelemetry/api@1.10.0)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5)
       '@better-auth/utils': 0.5.1
     optionalDependencies:
-      '@prisma/client': 7.10.1(prisma@7.10.1(@types/node@22.20.5)(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3))(typescript@5.9.3)
-      prisma: 7.10.1(@types/node@22.20.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3)
-
-  '@better-auth/prisma-adapter@1.7.14(@better-auth/core@1.7.14(@better-auth/utils@0.5.1)(@better-fetch/fetch@1.3.3)(@opentelemetry/api@1.10.0)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.1)(@prisma/client@7.10.1(prisma@7.10.1(@types/node@22.20.5)(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3))(typescript@5.9.3))(prisma@7.10.1(@types/node@22.20.5)(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3))':
-    dependencies:
-      '@better-auth/core': 1.7.14(@better-auth/utils@0.5.1)(@better-fetch/fetch@1.3.3)(@opentelemetry/api@1.10.0)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5)
-      '@better-auth/utils': 0.5.1
-    optionalDependencies:
-      '@prisma/client': 7.10.1(prisma@7.10.1(@types/node@22.20.5)(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3))(typescript@5.9.3)
+      '@prisma/client': 7.10.1(prisma@7.10.1(@types/node@22.20.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3))(typescript@5.9.3)
       prisma: 7.10.1(@types/node@22.20.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3)
 
   '@better-auth/telemetry@1.7.14(@better-auth/core@1.7.14(@better-auth/utils@0.5.1)(@better-fetch/fetch@1.3.3)(@opentelemetry/api@1.10.0)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.1)(@better-fetch/fetch@1.3.3)':
@@ -6179,7 +6184,7 @@ snapshots:
       prisma: 7.10.0(@types/node@22.20.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3)
       typescript: 5.9.3
 
-  '@prisma/client@7.10.1(prisma@7.10.1(@types/node@22.20.5)(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3))(typescript@5.9.3)':
+  '@prisma/client@7.10.1(prisma@7.10.1(@types/node@22.20.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3))(typescript@5.9.3)':
     dependencies:
       '@prisma/client-runtime-utils': 7.10.1
     optionalDependencies:
@@ -7175,6 +7180,8 @@ snapshots:
 
   aws-ssl-profiles@1.1.2: {}
 
+  aws4fetch@1.0.20: {}
+
   axe-core@4.14.0: {}
 
   balanced-match@1.0.2: {}
@@ -7234,38 +7241,7 @@ snapshots:
       nanostores: 1.5.5
       zod: 4.6.7
     optionalDependencies:
-      '@prisma/client': 7.10.1(prisma@7.10.1(@types/node@22.20.5)(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3))(typescript@5.9.3)
-      mysql2: 3.24.4(@types/node@22.20.5)
-      next: 16.4.3(@opentelemetry/api@1.10.0)(@playwright/test@1.64.1)(@types/node@22.20.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      pg: 8.23.1
-      prisma: 7.10.1(@types/node@22.20.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3)
-      react: 19.3.1
-      react-dom: 19.3.1(react@19.3.1)
-      vitest: 5.0.5(@opentelemetry/api@1.10.0)(@types/node@22.20.5)(@vitest/coverage-v8@5.0.5)(vite@8.3.5(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
-    transitivePeerDependencies:
-      - '@opentelemetry/api'
-
-  better-auth@1.7.14(@opentelemetry/api@1.10.0)(@prisma/client@7.10.1(prisma@7.10.1(@types/node@22.20.5)(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3))(typescript@5.9.3))(mysql2@3.24.4(@types/node@22.20.5))(next@16.4.3(@opentelemetry/api@1.10.0)(@playwright/test@1.64.1)(@types/node@22.20.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(pg@8.23.1)(prisma@7.10.1(@types/node@22.20.5)(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5):
-    dependencies:
-      '@better-auth/core': 1.7.14(@better-auth/utils@0.5.1)(@better-fetch/fetch@1.3.3)(@opentelemetry/api@1.10.0)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5)
-      '@better-auth/drizzle-adapter': 1.7.14(@better-auth/core@1.7.14(@better-auth/utils@0.5.1)(@better-fetch/fetch@1.3.3)(@opentelemetry/api@1.10.0)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.1)
-      '@better-auth/kysely-adapter': 1.7.14(@better-auth/core@1.7.14(@better-auth/utils@0.5.1)(@better-fetch/fetch@1.3.3)(@opentelemetry/api@1.10.0)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.1)(kysely@0.29.7)
-      '@better-auth/memory-adapter': 1.7.14(@better-auth/core@1.7.14(@better-auth/utils@0.5.1)(@better-fetch/fetch@1.3.3)(@opentelemetry/api@1.10.0)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.1)
-      '@better-auth/mongo-adapter': 1.7.14(@better-auth/core@1.7.14(@better-auth/utils@0.5.1)(@better-fetch/fetch@1.3.3)(@opentelemetry/api@1.10.0)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.1)
-      '@better-auth/prisma-adapter': 1.7.14(@better-auth/core@1.7.14(@better-auth/utils@0.5.1)(@better-fetch/fetch@1.3.3)(@opentelemetry/api@1.10.0)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.1)(@prisma/client@7.10.1(prisma@7.10.1(@types/node@22.20.5)(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3))(typescript@5.9.3))(prisma@7.10.1(@types/node@22.20.5)(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3))
-      '@better-auth/telemetry': 1.7.14(@better-auth/core@1.7.14(@better-auth/utils@0.5.1)(@better-fetch/fetch@1.3.3)(@opentelemetry/api@1.10.0)(better-call@1.4.4(zod@4.6.7))(jose@6.2.13)(kysely@0.29.7)(nanostores@1.5.5))(@better-auth/utils@0.5.1)(@better-fetch/fetch@1.3.3)
-      '@better-auth/utils': 0.5.1
-      '@better-fetch/fetch': 1.3.3
-      '@noble/ciphers': 2.4.0
-      '@noble/hashes': 2.4.0
-      better-call: 1.4.4(zod@4.6.7)
-      defu: 6.1.7
-      jose: 6.2.13
-      kysely: 0.29.7
-      nanostores: 1.5.5
-      zod: 4.6.7
-    optionalDependencies:
-      '@prisma/client': 7.10.1(prisma@7.10.1(@types/node@22.20.5)(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3))(typescript@5.9.3)
+      '@prisma/client': 7.10.1(prisma@7.10.1(@types/node@22.20.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3))(typescript@5.9.3)
       mysql2: 3.24.4(@types/node@22.20.5)
       next: 16.4.3(@opentelemetry/api@1.10.0)(@playwright/test@1.64.1)(@types/node@22.20.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       pg: 8.23.1

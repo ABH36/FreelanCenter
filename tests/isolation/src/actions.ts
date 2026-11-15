@@ -10,7 +10,14 @@
  */
 
 export type Selector =
-  'workspaceId' | 'membershipId' | 'invitationId' | 'slug' | 'projectId' | 'notificationId' | 'previewLinkId';
+  | 'workspaceId'
+  | 'membershipId'
+  | 'invitationId'
+  | 'slug'
+  | 'projectId'
+  | 'notificationId'
+  | 'previewLinkId'
+  | 'assetId';
 
 export type ActionRegistration =
   { service: string; selectors: Selector[] } | { service: string | null; noSelector: string };
@@ -77,6 +84,13 @@ export const SERVER_ACTIONS: Record<string, ActionRegistration> = {
   editLockAction: { service: 'acquireLock', selectors: ['workspaceId', 'projectId'] },
   takeOverEditLockAction: { service: 'takeOverLock', selectors: ['workspaceId', 'projectId'] },
   releaseEditLockAction: { service: 'releaseLock', selectors: ['workspaceId', 'projectId'] },
+  // P3 S6: the asset library (FR-BLD-05). The asset id is resolved inside the actor's project (RLS).
+  requestAssetUploadAction: { service: 'requestUpload', selectors: ['workspaceId', 'projectId'] },
+  finishAssetUploadAction: { service: 'finishUpload', selectors: ['workspaceId', 'projectId', 'assetId'] },
+  listAssetsAction: { service: 'listAssets', selectors: ['workspaceId', 'projectId'] },
+  describeAssetAction: { service: 'describeAsset', selectors: ['workspaceId', 'projectId', 'assetId'] },
+  hideAssetAction: { service: 'hideAsset', selectors: ['workspaceId', 'projectId', 'assetId'] },
+  cropAssetAction: { service: 'cropAsset', selectors: ['workspaceId', 'projectId', 'assetId'] },
   setWorkspaceStatusAction: {
     service: 'setWorkspaceStatus',
     noSelector:
@@ -114,6 +128,11 @@ export const PAGE_LOADERS: Record<string, { service: string; selectors: Selector
   },
   'route:/editor-preview/[slug]/[projectId]': {
     service: 'getDraft',
+    selectors: ['workspaceId', 'projectId'],
+  },
+  // P3 S6: the preview resolves the draft's images through the same project.
+  'route:/editor-preview/[slug]/[projectId] (images)': {
+    service: 'renderAssets',
     selectors: ['workspaceId', 'projectId'],
   },
   'page:/w/[slug]/templates (prefill from a project)': {

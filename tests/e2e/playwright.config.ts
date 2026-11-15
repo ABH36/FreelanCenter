@@ -3,7 +3,7 @@
  * that captures the verification mail is a 404 in a production build) against the local Docker stack only:
  * `assertLocalStack` refuses any other database, so this suite can never touch a live project.
  *
- *   pnpm --filter @platform/db db:setup      # Postgres + PgBouncer + Redis (Upstash REST emulator) on 127.0.0.1
+ *   pnpm --filter @platform/db db:setup      # Postgres + PgBouncer + Redis (Upstash REST emulator) + S3Mock on 127.0.0.1
  *   pnpm --filter @platform/e2e test:e2e
  *
  * Nothing here is a secret: the auth secret below is a fixed value for synthetic local data, the Turnstile keys
@@ -63,6 +63,14 @@ export default defineConfig({
         TURNSTILE_SECRET_KEY: '1x0000000000000000000000000000000AA',
         EMAIL_TRANSPORT: 'capture',
         JOBS_TRANSPORT: 'inline',
+        // P3 S6: the S3Mock bucket pair of packages/db/docker (fixed local values, S3Mock checks no credentials).
+        ASSET_S3_ENDPOINT: 'http://127.0.0.1:59090',
+        ASSET_S3_REGION: 'auto',
+        ASSET_S3_ACCESS_KEY_ID: 'local-s3mock',
+        ASSET_S3_SECRET_ACCESS_KEY: 'local-s3mock-not-a-secret',
+        ASSET_UPLOAD_BUCKET: 'uploads',
+        ASSET_PUBLIC_BUCKET: 'assets',
+        ASSET_PUBLIC_URL: 'http://127.0.0.1:59090/assets',
         // Free per-IP sign-in budgets between reruns on a non-fresh database come from unique users, not from here.
       },
     },

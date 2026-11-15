@@ -328,6 +328,7 @@ await withClient('public', async (c) => {
     'site_versions',
     'site_pointers',
     'project_edit_locks',
+    'assets',
   ]) {
     check(`app_public cannot read ${table}`, await denied(c, `SELECT id FROM app.${table} LIMIT 1`));
   }

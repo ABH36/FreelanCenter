@@ -22,6 +22,7 @@
     "@platform/logger": "workspace:*",
     "@platform/providers": "workspace:*",
     "@platform/schema": "workspace:*",
+    "sharp": "0.35.5",
     "zod": "4.6.7"
   },
   "devDependencies": {

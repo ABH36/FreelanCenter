@@ -95,3 +95,17 @@ export async function stepUp(admin: Queryable, p: { userId: string; sessionId: s
     'test-step-up',
   ]);
 }
+
+/**
+ * P3 S6: the S3Mock container of docker/compose.yml (asset library). Fixed local values, not secrets: S3Mock accepts
+ * any credentials, and the port binds to 127.0.0.1. Same shape as `ObjectStorageConfig` in @platform/providers.
+ */
+export const LOCAL_ASSET_STORAGE = {
+  endpoint: 'http://127.0.0.1:59090',
+  region: 'auto',
+  accessKeyId: 'local-s3mock',
+  secretAccessKey: 'local-s3mock-not-a-secret',
+  uploadBucket: 'uploads',
+  publicBucket: 'assets',
+  publicUrl: 'http://127.0.0.1:59090/assets',
+} as const;

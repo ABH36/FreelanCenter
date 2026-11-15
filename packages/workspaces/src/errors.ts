@@ -35,7 +35,11 @@ export type WorkspaceErrorCode =
   | 'NOTHING_TO_REDO'
   | 'UNDO_LIMIT'
   | 'PROPOSAL_STALE'
-  | 'CHANGE_TOO_LARGE';
+  | 'CHANGE_TOO_LARGE'
+  // P3 S6: the asset library.
+  | 'ASSETS_NOT_CONFIGURED'
+  | 'ASSET_LIMIT'
+  | 'ASSET_NOT_READY';
 
 const MESSAGES: Record<WorkspaceErrorCode, string> = {
   NOT_FOUND: 'Not found.',
@@ -70,6 +74,9 @@ const MESSAGES: Record<WorkspaceErrorCode, string> = {
   UNDO_LIMIT: 'You can undo only the last 50 changes.',
   PROPOSAL_STALE: 'The site changed after this suggestion was made. Ask for a new suggestion.',
   CHANGE_TOO_LARGE: 'This change is too large to save in one step. Make it in smaller parts.',
+  ASSETS_NOT_CONFIGURED: 'Image uploads are not set up in this environment yet. Contact support.',
+  ASSET_LIMIT: 'This project already has 200 images. Delete some you no longer need first.',
+  ASSET_NOT_READY: 'That image is not ready to use. Upload it again.',
 };
 
 export class WorkspaceError extends Error {
@@ -96,6 +103,8 @@ const PROJECT_SQLSTATES: Record<string, WorkspaceErrorCode> = {
   P5101: 'DRAFT_CONFLICT',
   P5102: 'INVALID_TRANSITION',
   P5103: 'INVALID_INPUT',
+  // P3 S6 asset library.
+  P5104: 'ASSET_LIMIT',
 };
 
 /** Every SQLSTATE / Prisma code on an error, however deeply the driver adapter nests it. */
