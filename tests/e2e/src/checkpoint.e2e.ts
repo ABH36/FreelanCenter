@@ -400,6 +400,44 @@ test('A adds, duplicates, moves, hides and deletes a section, and adds, deletes 
   await expect(page.getByText('The home page cannot be deleted.')).toBeVisible();
 });
 
+// P3 S5 (FR-BLD-04): the theme editor. A palette passes contrast; a hard-to-read colour shows a warning but still saves.
+test('A changes the theme with a palette, gets a contrast warning for a bad colour, and undoes both', async () => {
+  test.setTimeout(180_000);
+  const page = a.page;
+  await page.goto(`/w/${a.slug}/projects/${projectId}/editor`);
+  const nav = page.getByRole('navigation', { name: 'Site parts' });
+  const status = page.getByTestId('save-status');
+  await expect(nav.getByRole('button', { name: 'Theme', exact: true })).toBeVisible();
+  await nav.getByRole('button', { name: 'Theme', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Theme', level: 2 })).toBeVisible();
+  const primary = page.getByRole('textbox', { name: /^Primary ·/ });
+  await expect(primary).toBeEnabled({ timeout: 30_000 });
+  const before = await primary.inputValue();
+
+  await page.getByRole('button', { name: 'Deep blue' }).click();
+  await expect(status).toHaveText('All changes saved', { timeout: 30_000 });
+  await expect(primary).toHaveValue('#1D4ED8');
+  await expect(page.getByText('All colour pairs are easy to read (WCAG AA).')).toBeVisible();
+
+  // White text on the white background: warned, still saved.
+  const text = page.getByRole('textbox', { name: /^Text ·/ });
+  await text.fill('#FFFFFF');
+  await expect(page.getByText('Hard to read for some visitors:')).toBeVisible();
+  await expect(page.getByText(/text on background: 1:1/)).toBeVisible();
+  await expect(status).toHaveText('All changes saved', { timeout: 30_000 });
+
+  // It survives a reload, then two undos bring back the template's colours.
+  await page.reload();
+  await nav.getByRole('button', { name: 'Theme', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: /^Text ·/ })).toHaveValue('#FFFFFF');
+  await expect(page.getByRole('textbox', { name: /^Primary ·/ })).toBeEnabled({ timeout: 30_000 });
+  for (let i = 0; i < 2; i++) {
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect(status).toHaveText(/^Undone/, { timeout: 30_000 });
+  }
+  await expect(page.getByRole('textbox', { name: /^Primary ·/ })).toHaveValue(before);
+});
+
 test('the preview may be framed by the dashboard only and runs no script; the editor page cannot be framed', async () => {
   const editor = await a.page.request.get(`/w/${a.slug}/projects/${projectId}/editor`);
   expect(editor.headers()['content-security-policy']).toContain("frame-ancestors 'none'");

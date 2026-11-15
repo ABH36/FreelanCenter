@@ -6,6 +6,7 @@
   "description": "Shared design system: tokens and UI primitives (pure layer)",
   "exports": {
     ".": "./src/index.ts",
+    "./color": "./src/color.ts",
     "./tokens.css": "./src/tokens.css"
   },
   "scripts": {
