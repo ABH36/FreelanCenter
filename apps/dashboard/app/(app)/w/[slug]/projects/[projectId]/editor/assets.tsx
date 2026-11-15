@@ -307,7 +307,11 @@ export function ImagePicker({
         <UploadButton disabled={!library.canManage} onUploaded={pick} />
         {library.assets.length === 0 ? (
           <p className="text-sm text-slate-600">
-            {library.loaded ? 'No images yet. Upload one above.' : 'Loading…'}
+            {!library.loaded
+              ? 'Loading…'
+              : library.enabled && library.canManage
+                ? 'No images yet. Upload one above.'
+                : 'No images yet.'}
           </p>
         ) : (
           <ul className="grid max-h-[50vh] grid-cols-2 gap-3 overflow-y-auto sm:grid-cols-3">
