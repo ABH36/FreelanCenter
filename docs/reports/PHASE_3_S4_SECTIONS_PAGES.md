@@ -1,6 +1,6 @@
 # Phase 3, slice S4: sections and pages
 
-**Status:** built on `feat/p3-s4-sections-pages`; awaiting the Owner's approval of the slice. **Date:** 2026-11-15 · **Requirement:** FR-BLD-03 (add, remove, duplicate, hide, reorder sections and pages; change block variants), plus FR-BLD-08 for keyboard use · **Module:** 05 · **Design and three decisions approved by the Owner 2026-11-15.** No migration in this slice.
+**Status:** built on `feat/p3-s4-sections-pages`; **approved by the Owner 2026-11-15.** **Date:** 2026-11-15 · **Requirement:** FR-BLD-03 (add, remove, duplicate, hide, reorder sections and pages; change block variants), plus FR-BLD-08 for keyboard use · **Module:** 05 · **Design and three decisions approved by the Owner 2026-11-15.** No migration in this slice.
 
 ## 1. Why
 
