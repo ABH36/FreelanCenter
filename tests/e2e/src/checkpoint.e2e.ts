@@ -518,6 +518,91 @@ test('A uploads and crops a photo, uses it as the logo with alt text, and a fake
   await expect(preview.getByRole('img', { name: 'Pulse Fitness logo' })).toHaveCount(0);
 });
 
+// P3 S7a (FR-PUB-01/02/04): publishing. Staging with warnings, a review link a client opens without an account, Live
+// refused while the template's demo contact details are on the site, then Live after they are replaced: the
+// subdomain serves the published version at once (host-cache invalidation) and the review link can be turned off.
+test('A publishes to Staging, shares a review link, fixes the demo details, publishes Live and turns the link off', async () => {
+  test.setTimeout(240_000);
+  const page = a.page;
+  const visit = (url: string) => {
+    const u = new URL(url);
+    return page.request.get(`http://127.0.0.1:${SITES_PORT}${u.pathname}`, {
+      headers: { host: `${u.hostname}:${SITES_PORT}` },
+      maxRedirects: 0,
+    });
+  };
+  await page.goto(`/w/${a.slug}/projects/${projectId}/editor`);
+  const nav = page.getByRole('navigation', { name: 'Site parts' });
+  const status = page.getByTestId('save-status');
+  await nav.getByRole('button', { name: 'Publish', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Publish', level: 2 })).toBeVisible();
+  await expect(page.getByTestId('publish-live')).toHaveText('Not published yet');
+
+  // Staging: the demo details are only a warning.
+  const checks = page.getByRole('list', { name: 'Checks' });
+  await expect(checks.getByText(/The template's sample/)).toBeVisible({ timeout: 30_000 });
+  await expect(checks.getByText('Must fix:')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Publish to Staging' }).click();
+  await expect(page.getByRole('status').filter({ hasText: /Published version 1 to Staging/ })).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByTestId('publish-staging')).toHaveText(/^Version 1 · /);
+
+  // A review link: no account, banner, noindex.
+  await page.getByRole('button', { name: 'Create review link' }).click();
+  const open = page.getByRole('link', { name: 'Open' }).first();
+  await expect(open).toBeVisible({ timeout: 30_000 });
+  const reviewUrl = (await open.getAttribute('href'))!;
+  expect(reviewUrl).toMatch(/^http:\/\/preview\.sites\.localhost:3001\/s\/s1\./);
+  const review = await visit(reviewUrl);
+  expect(review.status()).toBe(200);
+  expect(review.headers()['x-robots-tag']).toBe('noindex, nofollow');
+  expect(await review.text()).toContain('This is not the live website.');
+
+  // Live: the same demo details block it.
+  await page.getByText('Live (public website)').click();
+  await expect(checks.getByText('Must fix:').first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('button', { name: 'Publish to Live' })).toBeDisabled();
+
+  // Replace the demo name and phone, then Live passes.
+  await nav.getByRole('button', { name: 'Business details' }).click();
+  const liveName = `Pulse Live ${run}`;
+  const name = page.getByRole('textbox', { name: 'Name', exact: true });
+  await expect(name).toBeEnabled({ timeout: 30_000 });
+  await name.fill(liveName);
+  // Optional fields are labelled "Phone(optional)" and so on.
+  await page.getByRole('textbox', { name: 'Phone(optional)', exact: true }).fill('+919812345678');
+  await page.getByRole('textbox', { name: 'Whatsapp(optional)', exact: true }).fill('+919812345679');
+  await page.getByRole('textbox', { name: 'Email(optional)', exact: true }).fill(`owner-${run}@example.test`);
+  await expect(status).toHaveText('All changes saved', { timeout: 30_000 });
+  await nav.getByRole('button', { name: 'Publish', exact: true }).click();
+  await page.getByText('Live (public website)').click();
+  const publishLive = page.getByRole('button', { name: 'Publish to Live' });
+  await expect(publishLive).toBeEnabled({ timeout: 30_000 });
+  await page.getByLabel('Note for the history (optional)').fill('First launch');
+  await publishLive.click();
+  await expect(page.getByRole('status').filter({ hasText: /Published version 2 to Live/ })).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByTestId('publish-live')).toHaveText(/^Version 2 · /);
+
+  // The subdomain (placeholder before, cached) now serves the live version, cacheable by the CDN for 60 s.
+  await expect
+    .poll(async () => (await visit(`http://${hostname}/`)).text(), { timeout: 30_000 })
+    .toContain(liveName);
+  const live = await visit(`http://${hostname}/`);
+  expect(live.status()).toBe(200);
+  expect(live.headers()['cache-control']).toBe('public, max-age=0, s-maxage=60');
+  expect(live.headers()['x-robots-tag']).toBeUndefined();
+
+  // Turning the review link off withdraws it at once.
+  await page.getByRole('button', { name: 'Turn off' }).first().click();
+  await expect(page.getByRole('status').filter({ hasText: 'The review link was turned off.' })).toBeVisible();
+  const withdrawn = await visit(reviewUrl);
+  expect(withdrawn.status()).toBe(410);
+  expect(await withdrawn.text()).toContain('This review link was withdrawn');
+});
+
 test('the preview may be framed by the dashboard only and runs no script; the editor page cannot be framed', async () => {
   const editor = await a.page.request.get(`/w/${a.slug}/projects/${projectId}/editor`);
   expect(editor.headers()['content-security-policy']).toContain("frame-ancestors 'none'");

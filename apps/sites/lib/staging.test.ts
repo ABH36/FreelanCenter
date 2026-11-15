@@ -173,3 +173,27 @@ describe('versionAssets', () => {
     );
   });
 });
+
+describe('CSP image origin', () => {
+  it('allows a plain-http asset origin only on local development responses', async () => {
+    const { contentSecurityPolicy } = await import('./site-response');
+    const local = contentSecurityPolicy({
+      inlineStyles: [],
+      assetOrigin: 'http://127.0.0.1:59090',
+      secure: false,
+    });
+    expect(local).toContain("img-src 'self' data: http://127.0.0.1:59090");
+    const prod = contentSecurityPolicy({
+      inlineStyles: [],
+      assetOrigin: 'http://127.0.0.1:59090',
+      secure: true,
+    });
+    expect(prod).toContain("img-src 'self' data:;");
+    const evil = contentSecurityPolicy({
+      inlineStyles: [],
+      assetOrigin: 'http://evil.example',
+      secure: false,
+    });
+    expect(evil).not.toContain('evil');
+  });
+});

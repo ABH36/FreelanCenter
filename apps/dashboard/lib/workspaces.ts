@@ -26,6 +26,7 @@ import {
   type NotificationService,
   type Outbox,
   type ProjectService,
+  type PublishingService,
   type TemplateService,
   type WorkspaceContext,
   type WorkspaceService,
@@ -38,9 +39,11 @@ import {
   createNotificationService,
   createOutbox,
   createProjectService,
+  createPublishingService,
   createTemplateService,
   createWorkspaceService,
   previewSettingsFromEnv,
+  stagingSettingsFromEnv,
   deriveInvitationKey,
 } from '@platform/workspaces';
 import { authRuntime, getSession, logger } from './auth';
@@ -59,6 +62,8 @@ interface WorkspaceRuntime {
   builder: BuilderService;
   /** P3 S6: the project asset library (uploads, variants). */
   assets: AssetService;
+  /** P3 S7a: publishing, preflight and staging links (module 06). */
+  publishing: PublishingService;
   notifications: NotificationService;
   audit: AuditService;
   jobs: Jobs;
@@ -146,6 +151,20 @@ function build(): WorkspaceRuntime {
     },
     logger,
   });
+  // P3 S7a: versions snapshot the same storage's image URLs; staging links use the preview host and secret.
+  const publishing = createPublishingService({
+    db,
+    outbox,
+    logger,
+    storage: () => {
+      if (objectStorage === undefined) {
+        const storageConfig = loadObjectStorageConfig(process.env);
+        objectStorage = storageConfig ? createS3Storage(storageConfig) : null;
+      }
+      return objectStorage;
+    },
+    staging: stagingSettingsFromEnv(process.env),
+  });
   // P2 S6b: preview links are signed with the secret apps/sites verifies with; off when not configured.
   const templates = createTemplateService({ db, preview: previewSettingsFromEnv(process.env), logger });
   // DG-28: measured requests (x-perf-request) log the time of each service call; others are untouched.
@@ -155,6 +174,7 @@ function build(): WorkspaceRuntime {
     templates: instrument(logger, 'templates', templates),
     builder: instrument(logger, 'builder', builder),
     assets: instrument(logger, 'assets', assets),
+    publishing: instrument(logger, 'publishing', publishing),
     notifications: instrument(logger, 'notifications', notifications),
     audit: instrument(logger, 'audit', audit),
     jobs,
@@ -184,6 +204,7 @@ export const projectService = async (): Promise<ProjectService> => (await ready(
 export const templateService = async (): Promise<TemplateService> => (await ready()).templates;
 export const builderService = async (): Promise<BuilderService> => (await ready()).builder;
 export const assetService = async (): Promise<AssetService> => (await ready()).assets;
+export const publishingService = async (): Promise<PublishingService> => (await ready()).publishing;
 export const notificationService = async (): Promise<NotificationService> => (await ready()).notifications;
 export const auditService = async (): Promise<AuditService> => (await ready()).audit;
 export const workspaceOutbox = async (): Promise<Outbox> => (await ready()).outbox;

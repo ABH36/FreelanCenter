@@ -25,6 +25,7 @@ import {
   undoDraftAction,
 } from '@/app/actions/builder';
 import { AssetLibraryProvider, LibraryPanel } from './assets';
+import { PublishPanel } from './publish';
 import { type FieldErrors, type JsonSchema, SchemaField, humanize } from './schema-form';
 import { AddPage, AddSection, type Commit, PageTools, SectionTools } from './structure';
 import { type FontOption, ThemeForm, themePatchValue } from './theme-form';
@@ -35,6 +36,7 @@ type Selection =
   | { kind: 'business' }
   | { kind: 'theme' }
   | { kind: 'images' }
+  | { kind: 'publish' }
   | { kind: 'section'; sectionId: string }
   | { kind: 'page'; pageId: string };
 type Device = 'phone' | 'tablet' | 'desktop';
@@ -103,6 +105,9 @@ export interface EditorProps {
   memberNames: Record<string, string>;
   /** P3 S6: image uploads are configured in this environment (ASSET_*). */
   uploadsEnabled: boolean;
+  /** P3 S7a (decision 4): owner/admin/editor publish to staging; owner/admin to live. The server re-checks. */
+  canPublishStaging: boolean;
+  canPublishLive: boolean;
 }
 
 function findSection(config: Config, sectionId: string): { section: Section; pagePath: string } | null {
@@ -143,6 +148,8 @@ export function Editor({
   canTakeOver,
   memberNames,
   uploadsEnabled,
+  canPublishStaging,
+  canPublishLive,
 }: EditorProps) {
   const projectId = initial.projectId;
   const target = useMemo(() => ({ workspaceId, projectId }), [workspaceId, projectId]);
@@ -370,6 +377,12 @@ export function Editor({
     [editable, busy, flush, target, reload],
   );
 
+  /** P3 S7a: publishing publishes the saved revision, so anything still waiting is saved first. */
+  const prepare = useCallback(async () => {
+    await flush();
+    return revisionRef.current;
+  }, [flush]);
+
   const takeOver = async () => {
     const result = await takeOverEditLockAction(target);
     if (!result.ok) return setProblem(result.error);
@@ -492,6 +505,14 @@ export function Editor({
             >
               Images
             </button>
+            <button
+              type="button"
+              aria-current={selection.kind === 'publish' ? 'true' : undefined}
+              className={itemClass(selection.kind === 'publish')}
+              onClick={() => void choose({ kind: 'publish' })}
+            >
+              Publish
+            </button>
             {config.pages.map((page) => (
               <div key={page.id}>
                 <h2>
@@ -549,9 +570,11 @@ export function Editor({
                   ? 'Theme'
                   : selection.kind === 'images'
                     ? 'Images'
-                    : selection.kind === 'page'
-                      ? `Page: ${selectedPage?.title ?? ''}`
-                      : humanize(selected?.section.type ?? 'Section')}
+                    : selection.kind === 'publish'
+                      ? 'Publish'
+                      : selection.kind === 'page'
+                        ? `Page: ${selectedPage?.title ?? ''}`
+                        : humanize(selected?.section.type ?? 'Section')}
             </h2>
             {selection.kind === 'section' && selected ? (
               <SectionTools
@@ -599,6 +622,13 @@ export function Editor({
               />
             ) : selection.kind === 'images' ? (
               <LibraryPanel />
+            ) : selection.kind === 'publish' ? (
+              <PublishPanel
+                target={target}
+                prepare={prepare}
+                canPublishStaging={canPublishStaging}
+                canPublishLive={canPublishLive}
+              />
             ) : selection.kind === 'page' ? null : (
               <p className="text-sm text-slate-600">This part cannot be edited here yet.</p>
             )}

@@ -38,7 +38,7 @@ type Width = (typeof WIDTHS)[number];
 
 /**
  * The image URLs a version snapshotted when it was published (`site_versions.assets`: asset id -> { width: URL }).
- * Untrusted like the config: only URLs on ONE origin, https (or http on localhost for development), are kept, and
+ * Untrusted like the config: only URLs on ONE origin, https (or http on localhost or 127.0.0.1 for development), are kept, and
  * that origin is what the CSP allows for images. Anything else is dropped (the image then renders without a source).
  */
 export function versionAssets(raw: unknown): Pick<SiteContent, 'assetUrl' | 'assetOrigin'> {
@@ -58,7 +58,8 @@ export function versionAssets(raw: unknown): Pick<SiteContent, 'assetUrl' | 'ass
         continue;
       }
       const local =
-        url.protocol === 'http:' && (url.hostname === 'localhost' || url.hostname.endsWith('.localhost'));
+        url.protocol === 'http:' &&
+        (url.hostname === 'localhost' || url.hostname.endsWith('.localhost') || url.hostname === '127.0.0.1');
       if ((url.protocol !== 'https:' && !local) || url.username || url.password) continue;
       origin ??= url.origin;
       if (url.origin !== origin) continue;
