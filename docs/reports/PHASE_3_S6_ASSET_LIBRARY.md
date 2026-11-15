@@ -114,3 +114,18 @@ gitleaks found no leaks in the S6 commits. GitHub CI is the reference.
 - Publishing (S7) must carry the resolved image URLs into the immutable site version (the sites app has no asset lookup yet).
 - AVIF is optional in ADR-009 and not generated; WebP covers every supported browser.
 - Retention of hidden and unused images, and of crop sources: P8.
+
+## 9. Live application (2026-11-15, Owner-approved)
+
+Run from the developer machine against the Supabase `ap-south-1` project as `migrator` (not a superuser, no BYPASSRLS), **before** PR #86 was merged: the migration only adds objects, and the merged code reads `app.assets` as soon as it is deployed. No secret was printed or stored.
+
+| Step                                                     | Result                                                                                                                                                                                                                                                                  |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Read-only pre-check (read-only transaction, rolled back) | remote host, role `migrator`, not privileged; 12 migrations, none unfinished or rolled back, latest S2 (live matched `main`); the S6 migration was not recorded; `app.assets` and `app.asset_status` did not exist; `project_editable` and `workspace_writable` existed |
+| `prisma migrate deploy` (`DB_TARGET=env`)                | applied `20261115180000_p3_s6_assets`                                                                                                                                                                                                                                   |
+| `prisma migrate status`                                  | database schema is up to date (13 migrations)                                                                                                                                                                                                                           |
+| Live database vs `schema.prisma`                         | no difference detected                                                                                                                                                                                                                                                  |
+| `db:verify --target env`                                 | **39 passed, 0 failed** (new check: `app_public` cannot read `assets`)                                                                                                                                                                                                  |
+| `test:live`                                              | two runs: 6 passed, 1 skipped (unchanged from before)                                                                                                                                                                                                                   |
+
+Then PR #86 was merged (`8d232d4`). Production `dpl_4uoYiZcpGyREdzEHYRRoD6Rk6dU2` (commit `8d232d4`): health 200, functions in `bom1`, a signed-out editor preview redirects to sign-in. Uploads stay off until the R2 setup (DG-35 steps 1, 2 and 4); `scripts/ops/set-dashboard-asset-env.mjs` sets the seven variables from `.env.local` without printing a secret.
