@@ -23,7 +23,8 @@ import { RestoreButton, RollbackButton } from './history-actions';
 export const metadata: Metadata = { title: 'Version history' };
 
 const when = (d: Date) =>
-  d.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
+  // Seconds included: versions published within one minute must still read apart (extension check 2026-11-16).
+  d.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'medium' });
 
 const kindLabel = (kind: 'live' | 'staging') => (kind === 'live' ? 'Live' : 'Staging');
 const versionName = (v: VersionSummary) => `Version ${v.number ?? '?'}`;
@@ -37,7 +38,14 @@ const CHANGE_WORDS: Record<DiffEntry['change'], string> = {
   shown: 'Shown again',
 };
 
-type Search = { kind?: string; after?: string; from?: string; to?: string; path?: string };
+type Search = {
+  kind?: string;
+  after?: string;
+  from?: string;
+  to?: string;
+  path?: string;
+  rolledBack?: string;
+};
 
 const ID = /^[0-9a-f-]{36}$/i;
 const one = (v: string | string[] | undefined) => (typeof v === 'string' ? v : undefined);
@@ -65,6 +73,7 @@ export default async function HistoryPage({
     from: one(raw.from),
     to: one(raw.to),
     path: one(raw.path),
+    rolledBack: one(raw.rolledBack),
   };
   const ws = await currentWorkspace(slug);
   const userId = await requireUserId();
@@ -156,6 +165,12 @@ export default async function HistoryPage({
         </Link>
       </div>
 
+      {search.rolledBack && /^\d{1,9}$/.test(search.rolledBack) ? (
+        <p role="status" className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+          Live now shows version {search.rolledBack} again. The subdomain serves it at once; your draft did
+          not change.
+        </p>
+      ) : null}
       {comparison ? (
         <Comparison
           comparison={comparison}
@@ -351,7 +366,8 @@ function VersionRow({
             Compare with {versionName(older)}
           </Link>
         ) : null}
-        {liveVersionId && liveVersionId !== v.id ? (
+        {/* "Compare with Live" only when it is not the same pair as "Compare with Version N" above. */}
+        {liveVersionId && liveVersionId !== v.id && older?.id !== liveVersionId ? (
           <Link
             href={compareHref(v.id, liveVersionId)}
             className="rounded-md border border-slate-300 px-2 py-1 hover:bg-slate-50"
@@ -420,7 +436,7 @@ function Comparison({
             {diff.more ? <li className="text-slate-700">… and {diff.more} more changes.</li> : null}
           </ul>
         )}
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2">
           {[from, to].map((v) => (
             <figure key={v.id} className="space-y-1">
               <figcaption className="text-sm font-medium">
