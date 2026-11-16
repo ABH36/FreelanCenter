@@ -116,7 +116,7 @@ describe('diffConfigs (FR-PUB-03)', () => {
     const d = diffConfigs(
       config(),
       config((c) => {
-        c.pages[0]!.sections[0]!.props.items![1]!.title = 'Power yoga';
+        (c.pages[0]!.sections[0]!.props.items as { title: string }[])[1]!.title = 'Power yoga';
         (c.pages[0]!.sections[1]!.props.items as { answer: { type: string; text: string }[] }[])[0]!.answer =
           [{ type: 'text', text: 'No, closed.' }];
       }),
@@ -208,7 +208,9 @@ describe('diffConfigs (FR-PUB-03)', () => {
     const long = 'x'.repeat(200);
     const d = diffConfigs(
       config(),
-      config((c) => (c.pages[0]!.sections[0]!.props.items![0]!.description = long)),
+      config(
+        (c) => ((c.pages[0]!.sections[0]!.props.items as { description: string }[])[0]!.description = long),
+      ),
     );
     expect(d.entries[0]!.after!.length).toBe(DIFF_LIMITS.valueChars);
     expect(d.entries[0]!.after!.endsWith('…')).toBe(true);
