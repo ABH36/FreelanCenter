@@ -563,6 +563,10 @@ test('A publishes to Staging, shares a review link, fixes the demo details, publ
   await page.getByText('Live (public website)').click();
   await expect(checks.getByText('Must fix:').first()).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('button', { name: 'Publish to Live' })).toBeDisabled();
+  // The greyed-out button says why (extension check 2026-11-16).
+  await expect(page.getByTestId('publish-blocked-reason')).toHaveText(
+    /^Fix the items? marked "Must fix" above to publish to Live\.$/,
+  );
 
   // Replace the demo name and phone, then Live passes.
   await nav.getByRole('button', { name: 'Business details' }).click();
@@ -596,7 +600,12 @@ test('A publishes to Staging, shares a review link, fixes the demo details, publ
   expect(live.headers()['x-robots-tag']).toBeUndefined();
 
   // Turning the review link off withdraws it at once.
+  // Turning off asks once more (extension check 2026-11-16); "Keep the link" changes nothing.
   await page.getByRole('button', { name: 'Turn off' }).first().click();
+  await page.getByRole('button', { name: 'Keep the link' }).click();
+  expect((await visit(reviewUrl)).status()).toBe(200);
+  await page.getByRole('button', { name: 'Turn off' }).first().click();
+  await page.getByRole('button', { name: 'Turn off for good' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'The review link was turned off.' })).toBeVisible();
   const withdrawn = await visit(reviewUrl);
   expect(withdrawn.status()).toBe(410);

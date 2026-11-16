@@ -99,7 +99,17 @@ export function PublishPanel({ target, prepare, canPublishStaging, canPublishLiv
     void refresh(kind);
   }, [refresh, kind]);
 
+  const [confirming, setConfirming] = useState<string | null>(null);
   const allowed = kind === 'live' ? canPublishLive : canPublishStaging;
+  const blockedReason = !allowed
+    ? kind === 'live'
+      ? 'Only owners and admins can publish to Live.'
+      : 'Only owners, admins and editors can publish.'
+    : !checks
+      ? 'Checking the site…'
+      : !checks.ok
+        ? `Fix the ${checks.checks.filter((c) => c.level === 'blocking').length === 1 ? 'item' : 'items'} marked "Must fix" above to publish to ${kind === 'live' ? 'Live' : 'Staging'}.`
+        : null;
 
   const publish = async () => {
     setBusy(true);
@@ -211,9 +221,6 @@ export function PublishPanel({ target, prepare, canPublishStaging, canPublishLiv
             </label>
           ))}
         </div>
-        {kind === 'live' && !canPublishLive ? (
-          <p className="text-sm text-slate-700">Only owners and admins can publish to Live.</p>
-        ) : null}
       </fieldset>
 
       <section aria-labelledby="checks-title" className="space-y-2">
@@ -243,6 +250,12 @@ export function PublishPanel({ target, prepare, canPublishStaging, canPublishLiv
         >
           {busy ? 'Publishing…' : kind === 'live' ? 'Publish to Live' : 'Publish to Staging'}
         </button>
+        {/* Extension check 2026-11-16: a greyed-out button must say why. */}
+        {!busy && blockedReason ? (
+          <p className="text-sm text-slate-700" data-testid="publish-blocked-reason">
+            {blockedReason}
+          </p>
+        ) : null}
       </div>
 
       {message ? (
@@ -291,10 +304,11 @@ export function PublishPanel({ target, prepare, canPublishStaging, canPublishLiv
                     >
                       Open
                     </a>
-                    {canPublishStaging ? (
+                    {/* Extension check 2026-11-16: turning a link off is final, so it asks once more. */}
+                    {canPublishStaging && confirming !== l.id ? (
                       <button
                         type="button"
-                        onClick={() => void revoke(l.id)}
+                        onClick={() => setConfirming(l.id)}
                         disabled={busy}
                         className="rounded-md border border-red-200 px-2 py-1 text-red-800 hover:bg-red-50"
                       >
@@ -302,6 +316,33 @@ export function PublishPanel({ target, prepare, canPublishStaging, canPublishLiv
                       </button>
                     ) : null}
                   </div>
+                  {canPublishStaging && confirming === l.id ? (
+                    <div
+                      role="group"
+                      aria-label="Confirm turning off"
+                      className="flex flex-wrap items-center gap-2 rounded-md bg-red-50 p-2 text-sm text-red-900"
+                    >
+                      <span>Anyone using this link will lose access. This cannot be undone.</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setConfirming(null);
+                          void revoke(l.id);
+                        }}
+                        disabled={busy}
+                        className="rounded-md bg-red-700 px-2 py-1 font-medium text-white hover:bg-red-800"
+                      >
+                        Turn off for good
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirming(null)}
+                        className="rounded-md border border-slate-300 bg-white px-2 py-1 text-slate-800 hover:bg-slate-50"
+                      >
+                        Keep the link
+                      </button>
+                    </div>
+                  ) : null}
                 </li>
               ))}
             </ul>
