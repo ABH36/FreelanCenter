@@ -14,6 +14,11 @@ export interface KeyValueStore {
   set(key: string, value: string, ttlSeconds: number): Promise<void>;
   /** Returns how many keys existed. */
   del(keys: readonly string[]): Promise<number>;
+  /**
+   * P3 S8a (rate limits): add one to a counter and return the new value. The first hit of a window creates the key
+   * with `ttlSeconds`; later hits keep that expiry, so the counter resets when the window ends.
+   */
+  incr(key: string, ttlSeconds: number): Promise<number>;
 }
 
 export class KeyValueError extends Error {
@@ -87,12 +92,20 @@ export function createUpstashStore(options: UpstashOptions): KeyValueStore {
       const result = await command(['DEL', ...keys]);
       return typeof result === 'number' ? result : 0;
     },
+    async incr(key, ttlSeconds) {
+      checkTtl(ttlSeconds);
+      // SET NX EX first: the key always carries an expiry, even if the INCR below were the last command to arrive.
+      await command(['SET', key, '0', 'EX', ttlSeconds, 'NX']);
+      const result = await command(['INCR', key]);
+      if (typeof result !== 'number') throw new KeyValueError('upstash INCR returned no number');
+      return result;
+    },
   };
 }
 
 /** In-process store for tests (and the counters the tests read). Expiry is honoured on read. */
 export interface MemoryKeyValueStore extends KeyValueStore {
-  readonly calls: { get: number; set: number; del: number };
+  readonly calls: { get: number; set: number; del: number; incr: number };
   ttlOf(key: string): number | null;
   clear(): void;
 }
@@ -100,7 +113,7 @@ export interface MemoryKeyValueStore extends KeyValueStore {
 export function createMemoryStore(options: { now?: () => number } = {}): MemoryKeyValueStore {
   const now = options.now ?? Date.now;
   const entries = new Map<string, { value: string; expiresAt: number; ttl: number }>();
-  const calls = { get: 0, set: 0, del: 0 };
+  const calls = { get: 0, set: 0, del: 0, incr: 0 };
   const live = (key: string) => {
     const entry = entries.get(key);
     if (entry && entry.expiresAt <= now()) entries.delete(key);
@@ -123,6 +136,18 @@ export function createMemoryStore(options: { now?: () => number } = {}): MemoryK
       let removed = 0;
       for (const key of keys) if (live(key) && entries.delete(key)) removed++;
       return removed;
+    },
+    async incr(key, ttlSeconds) {
+      checkTtl(ttlSeconds);
+      calls.incr++;
+      const entry = live(key);
+      if (!entry) {
+        entries.set(key, { value: '1', expiresAt: now() + ttlSeconds * 1000, ttl: ttlSeconds });
+        return 1;
+      }
+      const next = Number(entry.value) + 1;
+      entry.value = String(next);
+      return next;
     },
     ttlOf(key) {
       return live(key)?.ttl ?? null;

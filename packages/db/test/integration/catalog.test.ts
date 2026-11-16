@@ -110,6 +110,8 @@ describe('row-level security coverage', () => {
       'outbox_events',
       'project_edit_locks',
       'projects',
+      'review_approvals',
+      'review_comments',
       'site_drafts',
       'site_pointers',
       'site_versions',
@@ -274,6 +276,7 @@ describe('functions', () => {
     );
     expect(rows.map((r) => r.proname).sort()).toEqual([
       'accept_invitation',
+      'add_review_comment',
       'admin_console_state',
       'admin_get_workspace',
       'admin_list_audit',
@@ -283,10 +286,13 @@ describe('functions', () => {
       'admin_step_up_begin',
       'admin_step_up_finish',
       'allocate_platform_subdomain',
+      'approve_review_version',
       'catalog_template_for_draft',
       'current_member_role',
       'get_catalog_template',
       'get_published_version',
+      'get_review_approval',
+      'get_review_thread',
       'get_staging_site',
       'invitation_preview',
       'is_preview_link_revoked',
@@ -376,6 +382,16 @@ describe('functions', () => {
     // P3 S7a: a published live version and a staging link's site, for the visitor role only.
     expect(await executors('get_published_version')).toEqual(['app_public']);
     expect(await executors('get_staging_site')).toEqual(['app_public']);
+    // P3 S8a: client review through a staging link, for the visitor role only; the helper is nobody's.
+    for (const fn of [
+      'add_review_comment',
+      'approve_review_version',
+      'get_review_thread',
+      'get_review_approval',
+    ]) {
+      expect(await executors(fn), fn).toEqual(['app_public']);
+    }
+    expect(await executors('review_link_target')).toEqual([]);
     expect(await executors('operator_publish_builtin_template')).toEqual(['migrator']);
     expect(await executors('operator_archive_builtin_template')).toEqual(['migrator']);
     const { rows: publicFns } = await admin.query(
@@ -383,8 +399,12 @@ describe('functions', () => {
         WHERE n.nspname IN ('app', 'identity') AND has_function_privilege('app_public', p.oid, 'EXECUTE')`,
     );
     expect(publicFns.map((r) => r.proname).sort()).toEqual([
+      'add_review_comment',
+      'approve_review_version',
       'get_catalog_template',
       'get_published_version',
+      'get_review_approval',
+      'get_review_thread',
       'get_staging_site',
       'is_preview_link_revoked',
       'list_catalog_templates',
@@ -432,6 +452,10 @@ describe('functions', () => {
       // P3 S7a: staging links.
       'staging_links_guard',
       'staging_links_reject_delete',
+      // P3 S8a: client review.
+      'review_comments_guard',
+      'review_approvals_guard',
+      'review_reject_delete',
     ]) {
       expect(await executors(fn), fn).toEqual(['migrator']);
     }

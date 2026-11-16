@@ -2,7 +2,8 @@
  * The `app_public` client for visitor paths in apps/sites (SRS 4.3, 5.3 item 1). Exported as
  * `@platform/db/public` so the sites app loads neither Prisma nor the tenant client. app_public holds no table
  * privilege; it can only call the SECURITY DEFINER functions granted to it (host resolution, the template catalogue,
- * preview links and, from P3 S7a, published versions and staging links).
+ * preview links and, from P3 S7a, published versions and staging links; from P3 S8a, client review comments and
+ * approvals).
  * No tenant context is ever set on this pool: the functions do not read one.
  */
 import pg from 'pg';
@@ -39,6 +40,44 @@ export type StagingSite =
     }
   | { status: 'revoked' | 'expired' | 'unavailable'; sender: string | null }
   | { status: 'unknown' };
+
+/** P3 S8a: the answer of a client's comment or approval (app.add_review_comment / app.approve_review_version). */
+export type ReviewWriteResult =
+  | 'ok'
+  | 'already'
+  | 'revoked'
+  | 'expired'
+  | 'unavailable'
+  | 'unknown'
+  | 'stale'
+  | 'no_section'
+  | 'invalid'
+  | 'limit';
+
+export interface ReviewCommentInput {
+  linkId: string;
+  versionId: string;
+  pageId: string | null;
+  sectionId: string | null;
+  name: string;
+  email: string | null;
+  body: string;
+  /** 32 hex characters (keyed hash of the visitor's IP), or null. */
+  ipHash: string | null;
+}
+
+/** One comment or reply on a review page (P3 S8a: app.get_review_thread). No e-mail, no IP, no member identity. */
+export interface ReviewThreadEntry {
+  id: string;
+  parentId: string | null;
+  pageId: string | null;
+  sectionId: string | null;
+  authorKind: 'client' | 'member';
+  authorName: string | null;
+  body: string;
+  createdAt: Date;
+  resolved: boolean;
+}
 
 /** One published catalogue template with its content (P2 S5b: `app.get_catalog_template`). */
 export interface CatalogTemplate {
@@ -87,6 +126,20 @@ export interface PublicDatabase {
   getPublishedVersion(versionId: string): Promise<PublishedVersion | null>;
   /** What a (signature-verified) staging link may show now (P3 S7a). */
   getStagingSite(linkId: string): Promise<StagingSite>;
+  /** P3 S8a: a client comment through a (signature-verified) staging link. */
+  addReviewComment(input: ReviewCommentInput): Promise<ReviewWriteResult>;
+  /** P3 S8a: a client approval of the version the link shows. */
+  approveReviewVersion(input: {
+    linkId: string;
+    versionId: string;
+    name: string;
+    email: string | null;
+    ipHash: string | null;
+  }): Promise<ReviewWriteResult>;
+  /** P3 S8a: the comments and replies of one link on one version (empty when the link may not show now). */
+  getReviewThread(linkId: string, versionId: string): Promise<ReviewThreadEntry[]>;
+  /** P3 S8a: who approved this version through this link, and when; null when nobody did. */
+  getReviewApproval(linkId: string, versionId: string): Promise<{ name: string; approvedAt: Date } | null>;
   /** Fails unless the connection role is app_public without SUPERUSER or BYPASSRLS. */
   verifyRole(): Promise<void>;
   close(): Promise<void>;
@@ -94,6 +147,25 @@ export interface PublicDatabase {
 
 const OUTCOMES = new Set<string>(['live', 'placeholder', 'maintenance', 'unknown']);
 const STAGING_STATUSES = new Set<string>(['ok', 'revoked', 'expired', 'unavailable', 'unknown']);
+const REVIEW_RESULTS = new Set<string>([
+  'ok',
+  'already',
+  'revoked',
+  'expired',
+  'unavailable',
+  'unknown',
+  'stale',
+  'no_section',
+  'invalid',
+  'limit',
+]);
+
+function reviewResult(fn: string, value: unknown): ReviewWriteResult {
+  if (typeof value !== 'string' || !REVIEW_RESULTS.has(value)) {
+    throw new Error(`app.${fn} returned an unexpected result`);
+  }
+  return value as ReviewWriteResult;
+}
 
 export function createPublicDatabase(options: PublicDatabaseOptions): PublicDatabase {
   assertUrlRole('public', options.connectionString);
@@ -217,6 +289,65 @@ export function createPublicDatabase(options: PublicDatabaseOptions): PublicData
         };
       }
       return { status: row.status as 'revoked' | 'expired' | 'unavailable', sender: row.sender };
+    },
+
+    async addReviewComment(input) {
+      const { rows } = await pool.query<{ result: unknown }>(
+        'SELECT app.add_review_comment($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8) AS result',
+        [
+          input.linkId,
+          input.versionId,
+          input.pageId,
+          input.sectionId,
+          input.name,
+          input.email,
+          input.body,
+          input.ipHash,
+        ],
+      );
+      return reviewResult('add_review_comment', rows[0]?.result);
+    },
+
+    async approveReviewVersion(input) {
+      const { rows } = await pool.query<{ result: unknown }>(
+        'SELECT app.approve_review_version($1::uuid, $2::uuid, $3, $4, $5) AS result',
+        [input.linkId, input.versionId, input.name, input.email, input.ipHash],
+      );
+      return reviewResult('approve_review_version', rows[0]?.result);
+    },
+
+    async getReviewThread(linkId, versionId) {
+      const { rows } = await pool.query<{
+        id: string;
+        parent_id: string | null;
+        page_id: string | null;
+        section_id: string | null;
+        author_kind: string;
+        author_name: string | null;
+        body: string;
+        created_at: Date;
+        resolved: boolean;
+      }>('SELECT * FROM app.get_review_thread($1::uuid, $2::uuid)', [linkId, versionId]);
+      return rows.map((r) => ({
+        id: r.id,
+        parentId: r.parent_id,
+        pageId: r.page_id,
+        sectionId: r.section_id,
+        authorKind: r.author_kind === 'member' ? 'member' : 'client',
+        authorName: r.author_name,
+        body: r.body,
+        createdAt: r.created_at,
+        resolved: r.resolved,
+      }));
+    },
+
+    async getReviewApproval(linkId, versionId) {
+      const { rows } = await pool.query<{ approver_name: string; approved_at: Date }>(
+        'SELECT approver_name, approved_at FROM app.get_review_approval($1::uuid, $2::uuid)',
+        [linkId, versionId],
+      );
+      const row = rows[0];
+      return row ? { name: row.approver_name, approvedAt: row.approved_at } : null;
     },
 
     async verifyRole() {

@@ -1,9 +1,9 @@
 /**
- * Every tenant-site path (P1 S7). `/api/health` and `/_next/*` are more specific and win. GET and HEAD only;
- * Next answers 405 for other methods. A host with a live version renders it (P3 S7a); the preview host also serves
- * staging links (`/s/<token>`).
+ * Every tenant-site path (P1 S7). `/api/health` and `/_next/*` are more specific and win. A host with a live version
+ * renders it (P3 S7a); the preview host also serves staging links (`/s/<token>`). POST exists only for the client
+ * review forms of a staging link (P3 S8a, `/s/<token>/_review/comment|approve`); every other POST is 405.
  */
-import { serveHost } from '../../lib/serve';
+import { serveHost, servePost } from '../../lib/serve';
 import { previewSettings } from '../../lib/preview-settings';
 import { logger, sitesRuntime } from '../../lib/runtime';
 import { createVersionSiteSource } from '../../lib/site-source';
@@ -27,12 +27,25 @@ const deps = {
       sender: runtime.previewLinkSender,
     };
   },
-  // Staging links share the preview host and secret (domain-separated tokens).
+  // Staging links share the preview host and secret (domain-separated tokens), and carry the client review.
   staging: async () => {
     const settings = previewSettings();
     if (!settings) return null;
     const runtime = await sitesRuntime();
-    return { secrets: settings.secrets, logger, stagingSite: runtime.getStagingSite };
+    return {
+      secrets: settings.secrets,
+      logger,
+      stagingSite: runtime.getStagingSite,
+      review: {
+        addComment: runtime.review.addReviewComment,
+        approve: runtime.review.approveReviewVersion,
+        thread: runtime.review.getReviewThread,
+        approval: runtime.review.getReviewApproval,
+        limiter: runtime.limiter,
+        ipKey: settings.secrets.current,
+        logger,
+      },
+    };
   },
 };
 
@@ -42,4 +55,8 @@ export function GET(request: Request): Promise<Response> {
 
 export function HEAD(request: Request): Promise<Response> {
   return serveHost(request, deps);
+}
+
+export function POST(request: Request): Promise<Response> {
+  return servePost(request, deps);
 }

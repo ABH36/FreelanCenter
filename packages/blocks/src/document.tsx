@@ -49,7 +49,23 @@ export interface DocumentInput {
   readonly basePath?: string;
   /** A notice above the header (previews: "demo content, not a live website"). Plain text, escaped on output. */
   readonly banner?: string;
+  /**
+   * P3 S8a client review (FR-PUB-05): a link after every shown section to comment on it, and a link in the banner
+   * to the review panel. Plain links (no script); the caller builds the URLs and the (escaped) text.
+   */
+  readonly review?: ReviewLinks;
 }
+
+export interface ReviewLinks {
+  readonly section: (pageId: string, sectionId: string, type: string) => { href: string; label: string };
+  readonly panel: { href: string; label: string };
+}
+
+/** Only with `review`: the comment links between sections and the link in the banner. */
+export const REVIEW_CSS =
+  '.pb-review-pin{padding:.5rem 1rem;text-align:center;font-size:var(--text-sm);background:var(--color-background);' +
+  'border-block:1px dashed var(--color-text)}.pb-review-pin a,.pb-banner a{color:inherit;font-weight:700;' +
+  'text-decoration:underline;text-underline-offset:.2em}.pb-banner a{margin-inline-start:.75rem}';
 
 export type DocumentResult =
   | {
@@ -121,12 +137,14 @@ function page(
   currentPath: string,
   mainChildren: ReactNode,
   banner: string | undefined,
+  panel?: { href: string; label: string },
 ): string {
   return serialize(
     <div className="pb-root">
       {banner ? (
         <div className="pb-banner" role="note">
           {banner}
+          {panel ? <a href={panel.href}>{panel.label}</a> : null}
         </div>
       ) : null}
       <Header ctx={ctx} currentPath={currentPath} />
@@ -157,7 +175,9 @@ export function renderDocument(input: DocumentInput): DocumentResult {
     });
     const { business, theme } = config;
     const lang = business.language;
-    const themeStyle = `${compileThemeCss(theme)}${themeFontFaceCss(theme, input.fontBase ?? '/fonts')}`;
+    const themeStyle = `${compileThemeCss(theme)}${themeFontFaceCss(theme, input.fontBase ?? '/fonts')}${
+      input.review ? REVIEW_CSS : ''
+    }`;
     const preloads = themePreloads(theme, input.fontBase ?? '/fonts')
       .map(
         (href) => `<link rel="preload" as="font" type="font/woff2" href="${escapeHtml(href)}" crossorigin>`,
@@ -179,6 +199,7 @@ export function renderDocument(input: DocumentInput): DocumentResult {
           </div>
         </section>,
         input.banner,
+        input.review?.panel,
       );
       const head =
         `<title>${escapeHtml(`${t(lang, 'notFoundTitle')} | ${clip(business.name, 50)}`)}</title>` +
@@ -199,11 +220,28 @@ export function renderDocument(input: DocumentInput): DocumentResult {
       path,
       <>
         {h1Used ? null : <h1 className="pb-sr-only">{found.title}</h1>}
-        {nodes.map((n) => (
-          <Fragment key={n.id}>{n.node}</Fragment>
-        ))}
+        {nodes.map((n) => {
+          const link = input.review
+            ? input.review.section(
+                found.id,
+                n.id,
+                found.sections.find((s) => s.id === n.id)?.type ?? 'section',
+              )
+            : null;
+          return (
+            <Fragment key={n.id}>
+              {n.node}
+              {link ? (
+                <p className="pb-review-pin">
+                  <a href={link.href}>{link.label}</a>
+                </p>
+              ) : null}
+            </Fragment>
+          );
+        })}
       </>,
       input.banner,
+      input.review?.panel,
     );
 
     const isHome = found.path === '/';

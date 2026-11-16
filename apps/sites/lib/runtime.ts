@@ -5,13 +5,16 @@
  * region and must not rely on shared globals such as a connection pool.
  *
  * ADR-002: nothing here imports dashboard code or auth. The visitor path holds exactly two credentials:
- * DATABASE_URL_PUBLIC (app_public, which can only call `app.resolve_host`) and the Upstash REST token.
+ * DATABASE_URL_PUBLIC (app_public, which can only call the visitor functions: host resolution, catalogue, preview
+ * and staging links, and from P3 S8a the client review functions) and the Upstash REST token.
  */
 import 'server-only';
 import { type PublicDatabase, createPublicDatabase } from '@platform/db/public';
 import { type HostResolver, createHostResolver } from '@platform/hosting';
 import { createLogger } from '@platform/logger';
 import { createKeyValueStore, loadKeyValueConfig } from '@platform/providers';
+import { createRateLimiter } from './rate-limit';
+import type { RateLimiter } from './review';
 
 export const logger = createLogger({ app: 'sites' });
 
@@ -25,6 +28,12 @@ interface SitesRuntime {
   /** P3 S7a: a live version's content (app.get_published_version) and a staging link's site (app.get_staging_site). */
   getPublishedVersion: PublicDatabase['getPublishedVersion'];
   getStagingSite: PublicDatabase['getStagingSite'];
+  /** P3 S8a: client review on staging links (comments, approval) and its rate limits. */
+  review: Pick<
+    PublicDatabase,
+    'addReviewComment' | 'approveReviewVersion' | 'getReviewThread' | 'getReviewApproval'
+  >;
+  limiter: RateLimiter;
   ready: Promise<void>;
 }
 
@@ -34,8 +43,9 @@ function build(): SitesRuntime {
   const url = process.env.DATABASE_URL_PUBLIC;
   if (!url) throw new Error('DATABASE_URL_PUBLIC is not set');
   const db = createPublicDatabase({ connectionString: url });
+  const store = createKeyValueStore(loadKeyValueConfig());
   const resolver = createHostResolver({
-    cache: createKeyValueStore(loadKeyValueConfig()),
+    cache: store,
     lookup: (hostname) => db.resolveHost(hostname),
     logger,
   });
@@ -49,6 +59,13 @@ function build(): SitesRuntime {
     previewLinkSender: (id) => db.previewLinkSender(id),
     getPublishedVersion: (id) => db.getPublishedVersion(id),
     getStagingSite: (id) => db.getStagingSite(id),
+    review: {
+      addReviewComment: (input) => db.addReviewComment(input),
+      approveReviewVersion: (input) => db.approveReviewVersion(input),
+      getReviewThread: (link, version) => db.getReviewThread(link, version),
+      getReviewApproval: (link, version) => db.getReviewApproval(link, version),
+    },
+    limiter: createRateLimiter(store, logger),
     ready: db.verifyRole(),
   };
   runtime.ready.catch((error: unknown) => {

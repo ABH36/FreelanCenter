@@ -55,7 +55,10 @@ describe('visitor role app_public', () => {
     );
     // P2 S5b: the catalogue returns published platform and marketplace templates only (the functions filter; the
     // matrix proves the underlying tables stay invisible across tenants). No tenant id appears in any result.
+    // P3 S8a: the client review functions. No tenant id, e-mail or IP hash in any result.
     expect(rows).toEqual([
+      { fn: 'app.add_review_comment', result: 'text' },
+      { fn: 'app.approve_review_version', result: 'text' },
       {
         fn: 'app.get_catalog_template',
         result:
@@ -64,6 +67,15 @@ describe('visitor role app_public', () => {
       {
         fn: 'app.get_published_version',
         result: 'TABLE(config jsonb, assets jsonb, published_at timestamp with time zone)',
+      },
+      {
+        fn: 'app.get_review_approval',
+        result: 'TABLE(approver_name text, approved_at timestamp with time zone)',
+      },
+      {
+        fn: 'app.get_review_thread',
+        result:
+          'TABLE(id uuid, parent_id uuid, page_id text, section_id text, author_kind text, author_name text, body text, created_at timestamp with time zone, resolved boolean)',
       },
       {
         fn: 'app.get_staging_site',
