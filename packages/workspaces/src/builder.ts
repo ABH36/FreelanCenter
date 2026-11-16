@@ -42,9 +42,18 @@ export type RestoreOperation =
   | { op: 'restorePage'; pageId: string; title: string; seo: Page['seo'] | null }
   | { op: 'restoreSections'; pageId: string; sections: Page['sections'] }
   /** P3 S4: page operations change the page list and the navigation together. */
-  | { op: 'restorePages'; pages: SiteConfig['pages']; navigation: SiteConfig['navigation'] };
+  | { op: 'restorePages'; pages: SiteConfig['pages']; navigation: SiteConfig['navigation'] }
+  /** P3 S7b: the whole site (restoring a published version into the draft, and its undo). */
+  | { op: 'restoreConfig'; value: Omit<SiteConfig, 'schemaVersion'> };
 
-type Part = 'business' | 'theme' | 'pages' | `page:${string}` | `sections:${string}`;
+/** P3 S7b: the operation a "restore version into draft" change set records (the inverse holds the snapshot). */
+export interface RestoreVersionOperation {
+  op: 'restoreVersion';
+  versionId: string;
+  number: number | null;
+}
+
+type Part = 'all' | 'business' | 'theme' | 'pages' | `page:${string}` | `sections:${string}`;
 
 function pageOfSection(config: SiteConfig, sectionId: string): string | null {
   for (const page of config.pages) if (page.sections.some((s) => s.id === sectionId)) return page.id;
@@ -73,6 +82,10 @@ export function touchedParts(before: SiteConfig, after: SiteConfig, ops: readonl
       case 'restoreSections':
         parts.add(`sections:${op.pageId}`);
         break;
+      case 'restoreConfig':
+      case 'restoreVersion':
+        parts.add('all');
+        break;
       case 'addPage':
       case 'removePage':
       case 'movePage':
@@ -89,6 +102,7 @@ export function touchedParts(before: SiteConfig, after: SiteConfig, ops: readonl
       }
     }
   }
+  if (parts.has('all')) return ['all'];
   // The page list snapshot already holds every page's title, SEO and sections.
   return parts.has('pages') ? ['pages'] : [...parts];
 }
@@ -97,7 +111,10 @@ export function touchedParts(before: SiteConfig, after: SiteConfig, ops: readonl
 export function inverseFor(before: SiteConfig, parts: readonly Part[]): RestoreOperation[] {
   const out: RestoreOperation[] = [];
   for (const part of parts) {
-    if (part === 'pages') {
+    if (part === 'all') {
+      const { schemaVersion: _version, ...value } = structuredClone(before);
+      out.push({ op: 'restoreConfig', value });
+    } else if (part === 'pages') {
       out.push({
         op: 'restorePages',
         pages: structuredClone(before.pages),
@@ -127,7 +144,9 @@ export function applyRestore(
 ): { ok: true; config: SiteConfig } | { ok: false; issues: readonly ConfigIssue[] } {
   const draft = structuredClone(current);
   for (const op of ops) {
-    if (op.op === 'restorePages') {
+    if (op.op === 'restoreConfig') {
+      Object.assign(draft, structuredClone(op.value));
+    } else if (op.op === 'restorePages') {
       draft.pages = structuredClone(op.pages);
       draft.navigation = structuredClone(op.navigation);
     } else if (op.op === 'restoreBusiness') draft.business = structuredClone(op.value);
@@ -481,6 +500,79 @@ export function createBuilderService(deps: BuilderServiceDeps) {
       input: { workspaceId: unknown; projectId: unknown; expectedRevision: unknown },
     ) {
       return reverse(actorUserId, input, 'redo');
+    },
+
+    /**
+     * P3 S7b (decision 1, approved 2026-11-16): put a published version (staging or live) back into the draft, to
+     * keep working from it. One change set like any edit: it needs the lock, the expected revision and a change id
+     * (a retry returns the same revision), and Undo brings the previous draft back. Live and Staging are untouched.
+     */
+    async restoreVersion(
+      actorUserId: string,
+      input: {
+        workspaceId: unknown;
+        projectId: unknown;
+        versionId: unknown;
+        expectedRevision: unknown;
+        changeId: unknown;
+      },
+    ): Promise<{ revision: number }> {
+      const changeId = requireId(input.changeId);
+      const versionId = requireId(input.versionId);
+      const expected = parse(revisionSchema, input.expectedRevision, 'expectedRevision');
+      return command(
+        actorUserId,
+        input.workspaceId,
+        { action: 'draft.version_restored', capability: 'draft.edit' },
+        async (tx, scope) => {
+          const project = await editableProject(tx, input.projectId);
+          const version = await tx.siteVersion.findFirst({
+            where: { id: versionId, projectId: project.id },
+            select: { id: true, number: true, kind: true, config: true },
+          });
+          if (!version) throw new WorkspaceError('NOT_FOUND');
+          const operations: RestoreVersionOperation[] = [
+            { op: 'restoreVersion', versionId: version.id, number: version.number },
+          ];
+          const previous = await tx.changeSet.findUnique({
+            where: { id: changeId },
+            select: { projectId: true, baseRevision: true, operations: true, resultRevision: true },
+          });
+          if (previous) {
+            const same =
+              previous.projectId === project.id &&
+              previous.baseRevision === expected &&
+              canonical(previous.operations) === canonical(operations);
+            if (!same || previous.resultRevision === null) throw new WorkspaceError('IDEMPOTENCY_MISMATCH');
+            return { result: { revision: previous.resultRevision }, audit: null };
+          }
+          await requireLock(tx, scope, project.id);
+          const draft = await loadDraft(tx, scope, project.id);
+          if (draft.revision !== expected) throw new WorkspaceError('DRAFT_CONFLICT');
+          const parsed = parseSiteConfig(version.config);
+          if (!parsed.ok) throw new WorkspaceError('VERSION_UNREADABLE');
+          const { changeSetId, revision } = await commitChange(tx, scope, {
+            projectId: project.id,
+            draftId: draft.id,
+            revision: draft.revision,
+            before: draft.config,
+            after: parsed.config,
+            operations,
+            changeId,
+            summary: `Restored version ${version.number ?? ''}`.trim(),
+          });
+          return {
+            result: { revision },
+            audit: audit(project.id, {
+              changeSetId,
+              versionId: version.id,
+              number: version.number,
+              kind: version.kind,
+              revision,
+            }),
+          };
+        },
+      );
     },
 
     /**

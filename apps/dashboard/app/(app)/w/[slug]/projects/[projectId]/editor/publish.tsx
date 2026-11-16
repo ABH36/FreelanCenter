@@ -30,6 +30,8 @@ export interface PublishPanelProps {
   prepare: () => Promise<number>;
   canPublishStaging: boolean;
   canPublishLive: boolean;
+  /** P3 S7b: the project's version history (compare, rollback, restore). */
+  historyHref: string;
 }
 
 const when = (iso: string) =>
@@ -70,7 +72,13 @@ function CheckList({ checks }: { checks: PreflightCheck[] }) {
   );
 }
 
-export function PublishPanel({ target, prepare, canPublishStaging, canPublishLive }: PublishPanelProps) {
+export function PublishPanel({
+  target,
+  prepare,
+  canPublishStaging,
+  canPublishLive,
+  historyHref,
+}: PublishPanelProps) {
   const [status, setStatus] = useState<ClientPublishingStatus | null>(null);
   const [kind, setKind] = useState<Kind>('staging');
   const [checks, setChecks] = useState<{ ok: boolean; checks: PreflightCheck[] } | null>(null);
@@ -200,6 +208,11 @@ export function PublishPanel({ target, prepare, canPublishStaging, canPublishLiv
           </div>
         ) : null}
       </dl>
+      <p className="-mt-3 text-xs">
+        <a href={historyHref} className="underline">
+          Version history: compare versions or put an earlier one back on Live
+        </a>
+      </p>
 
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium">Publish to</legend>

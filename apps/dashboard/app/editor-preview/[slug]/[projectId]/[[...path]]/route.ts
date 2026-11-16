@@ -5,14 +5,11 @@
  * never leaves the tenant boundary; it is read through the member's own session, membership check and RLS, and no
  * visitor role gains access to drafts.
  *
- * The response runs no script: the renderer emits none and the policy allows none. It may be framed by the dashboard
- * only (`frame-ancestors 'self'`); every other dashboard page keeps `frame-ancestors 'none'` (next.config.ts excludes
- * only this path from the global header). Registered with the IDOR harness as
- * `route:/editor-preview/[slug]/[projectId]`.
+ * The response and its policy come from lib/preview-response.ts (no script, framed by the dashboard only). Registered
+ * with the IDOR harness as `route:/editor-preview/[slug]/[projectId]`.
  */
-import { createHash } from 'node:crypto';
-import { renderDocument } from '@platform/blocks';
 import { assetIdsIn, isWorkspaceError } from '@platform/workspaces';
+import { previewPath, previewResponse, previewText } from '@/lib/preview-response';
 import {
   assetService,
   builderService,
@@ -21,41 +18,6 @@ import {
   workspaces,
 } from '@/lib/workspaces';
 
-/** Fonts are copied into public/preview-fonts by scripts/copy-preview-fonts.mjs (same allow-list as the sites app). */
-const PREVIEW_FONT_BASE = '/preview-fonts';
-
-const styleSource = (css: string) => `'sha256-${createHash('sha256').update(css).digest('base64')}'`;
-
-function previewPolicy(inlineStyles: readonly string[], assetOrigin: string | null): string {
-  return [
-    "default-src 'none'",
-    `style-src ${inlineStyles.map(styleSource).join(' ')}`,
-    // P3 S6: the asset domain serves the image variants (R2; S3Mock locally).
-    `img-src 'self' data:${assetOrigin ? ` ${assetOrigin}` : ''}`,
-    "font-src 'self'",
-    "form-action 'none'",
-    "base-uri 'none'",
-    "frame-ancestors 'self'",
-  ].join('; ');
-}
-
-/** The origin of ASSET_PUBLIC_URL, or null while uploads are not configured. */
-function assetOrigin(): string | null {
-  const url = process.env.ASSET_PUBLIC_URL;
-  if (!url) return null;
-  try {
-    return new URL(url).origin;
-  } catch {
-    return null;
-  }
-}
-
-const text = (body: string, status: number) =>
-  new Response(body, {
-    status,
-    headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
-  });
-
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ slug: string; projectId: string; path?: string[] }> },
@@ -63,7 +25,7 @@ export async function GET(
   const { slug, projectId, path } = await params;
   const userId = await requireUserId();
   const ws = await (await workspaces()).resolveBySlug(userId, slug);
-  if (!ws) return text('Not found', 404);
+  if (!ws) return previewText('Not found', 404);
   try {
     const { draft, images } = await withRequestContext(async () => {
       const found = await (await builderService()).getDraft(userId, ws.id, projectId);
@@ -73,35 +35,18 @@ export async function GET(
         images: await (await assetService()).renderAssets(userId, ws.id, found.projectId, ids),
       };
     });
-    const segments = (path ?? []).filter((s) => /^[a-z0-9-]{1,40}$/.test(s));
-    const doc = renderDocument({
+    return previewResponse({
       config: draft.config,
-      path: `/${segments.join('/')}`,
+      path: previewPath(path),
       origin: new URL(request.url).origin,
-      mode: 'draft',
-      noindex: true,
       // Three segments: the renderer accepts at most three in a base path (built for `/p/<token>`).
       basePath: `/editor-preview/${ws.slug}/${draft.projectId}`,
-      fontBase: PREVIEW_FONT_BASE,
       banner: 'Draft preview: not published',
       assetUrl: (assetId, width) => images.get(assetId)?.[width] ?? null,
     });
-    if (doc.kind !== 'page') return text('This draft cannot be shown.', 422);
-    return new Response(doc.html, {
-      status: doc.status,
-      headers: {
-        'Content-Type': 'text/html; charset=utf-8',
-        'Content-Security-Policy': previewPolicy(doc.inlineStyles, assetOrigin()),
-        'Cache-Control': 'no-store',
-        'X-Robots-Tag': 'noindex, nofollow',
-        'X-Content-Type-Options': 'nosniff',
-        'X-Frame-Options': 'SAMEORIGIN',
-        'Referrer-Policy': 'same-origin',
-      },
-    });
   } catch (error) {
     if (isWorkspaceError(error)) {
-      return text(error.code === 'NO_DRAFT' ? 'This project has no site yet.' : 'Not found', 404);
+      return previewText(error.code === 'NO_DRAFT' ? 'This project has no site yet.' : 'Not found', 404);
     }
     throw error;
   }

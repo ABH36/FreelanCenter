@@ -6,9 +6,15 @@
  * preflight and audits. Each action is registered with the IDOR harness in tests/isolation/src/actions.ts. Dates are
  * sent as ISO strings.
  */
-import type { PreflightCheck, PublishResult, PublishingStatus } from '@platform/workspaces';
+import {
+  type PreflightCheck,
+  type PublishResult,
+  type PublishingStatus,
+  type RollbackResult,
+  WorkspaceError,
+} from '@platform/workspaces';
 import { type EditorResult, runEditor } from '@/lib/editor-run';
-import { publishingService } from '@/lib/workspaces';
+import { builderService, publishingService } from '@/lib/workspaces';
 
 interface Target {
   workspaceId: string;
@@ -77,6 +83,53 @@ export async function createStagingLinkAction(
       }),
     ),
   );
+}
+
+/**
+ * P3 S7b (FR-PUB-03): one-click rollback. `expectedLiveVersionId` is the live version the page showed; owners and
+ * admins only (the service checks).
+ */
+export async function rollbackAction(
+  input: Target & { versionId: string; expectedLiveVersionId: string },
+): Promise<EditorResult<RollbackResult>> {
+  return runEditor(async (userId) =>
+    (await publishingService()).rollback(userId, {
+      workspaceId: input?.workspaceId,
+      projectId: input?.projectId,
+      versionId: input?.versionId,
+      expectedLiveVersionId: input?.expectedLiveVersionId,
+    }),
+  );
+}
+
+/**
+ * P3 S7b (decision 1): put a stored version into the draft, as one undoable change. The edit lock is taken for the
+ * call when nobody holds it (and given back if it was not the caller's before); someone else editing is
+ * LOCK_REQUIRED. `changeId` is a UUID the browser makes per click, `expectedRevision` the draft revision it saw.
+ */
+export async function restoreVersionAction(
+  input: Target & { versionId: string; expectedRevision: number; changeId: string },
+): Promise<EditorResult<{ revision: number }>> {
+  return runEditor(async (userId) => {
+    const builder = await builderService();
+    const target = { workspaceId: input?.workspaceId, projectId: input?.projectId };
+    const before = await builder.getDraft(userId, target.workspaceId, target.projectId);
+    const hadLock = before.lock?.mine === true;
+    if (!hadLock) {
+      const lock = await builder.acquireLock(userId, target);
+      if (!lock.held) throw new WorkspaceError('LOCK_REQUIRED');
+    }
+    try {
+      return await builder.restoreVersion(userId, {
+        ...target,
+        versionId: input?.versionId,
+        expectedRevision: input?.expectedRevision,
+        changeId: input?.changeId,
+      });
+    } finally {
+      if (!hadLock) await builder.releaseLock(userId, target).catch(() => undefined);
+    }
+  });
 }
 
 export async function revokeStagingLinkAction(input: {

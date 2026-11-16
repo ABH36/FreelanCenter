@@ -158,6 +158,11 @@ export {
 } from './preflight';
 export {
   PUBLISH_LIMITS,
+  type HistoryVersion,
+  type RollbackResult,
+  type StoredVersion,
+  type VersionComparison,
+  type VersionHistory,
   type PublishResult,
   type PublishingService,
   type PublishingServiceDeps,
@@ -172,3 +177,11 @@ export {
   stagingSettingsFromEnv,
   versionChecksum,
 } from './publishing';
+export {
+  DIFF_LIMITS,
+  type DiffArea,
+  type DiffChange,
+  type DiffEntry,
+  type VersionDiff,
+  diffConfigs,
+} from './version-diff';

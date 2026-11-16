@@ -316,3 +316,206 @@ describe('staging links (decision 1)', () => {
     ).toBe('NOT_FOUND');
   });
 });
+
+/** P3 S7b (FR-PUB-03): history, diff, the stored version, rollback, restore into the draft. */
+describe('history, diff and rollback (FR-PUB-03)', () => {
+  /** Two live versions (phone 1, then phone 2) and one staging version in between. */
+  async function twoLive() {
+    const p = await project();
+    const owner = p.ws.owner.id;
+    await p.setPhone('+919844444444');
+    const live1 = await publishing.publish(
+      owner,
+      p.at({ kind: 'live', expectedRevision: 2, publishKey: uuidv7(), note: 'Launch' }),
+    );
+    await p.setPhone('+919855555555');
+    const staging = await publishing.publish(
+      p.editor,
+      p.at({ kind: 'staging', expectedRevision: 3, publishKey: uuidv7() }),
+    );
+    const live2 = await publishing.publish(
+      owner,
+      p.at({ kind: 'live', expectedRevision: 3, publishKey: uuidv7() }),
+    );
+    return { ...p, owner, live1, staging, live2 };
+  }
+
+  it('history lists every version newest first with author and note, filters by kind and pages', async () => {
+    const { ws, at, live1, staging, live2, owner, editor } = await twoLive();
+    const viewer = ws.members.viewer!.id;
+    const all = await publishing.history(viewer, at({}));
+    expect(all.versions.map((v) => [v.number, v.kind, v.current])).toEqual([
+      [3, 'live', 'live'],
+      [2, 'staging', 'staging'],
+      [1, 'live', null],
+    ]);
+    expect(all.versions[2]).toMatchObject({ id: live1.versionId, note: 'Launch', publishedBy: owner });
+    expect(all.versions[1]).toMatchObject({ id: staging.versionId, publishedBy: editor });
+    expect(all).toMatchObject({
+      next: null,
+      liveVersionId: live2.versionId,
+      stagingVersionId: staging.versionId,
+    });
+    const lives = await publishing.history(viewer, at({ kind: 'live' }));
+    expect(lives.versions.map((v) => v.number)).toEqual([3, 1]);
+
+    // Paging: 21 more staging versions -> a full page, then the rest after the cursor.
+    for (let i = 0; i < 21; i++) {
+      await publishing.publish(editor, at({ kind: 'staging', expectedRevision: 3, publishKey: uuidv7() }));
+    }
+    const first = await publishing.history(viewer, at({}));
+    expect(first.versions).toHaveLength(20);
+    expect(first.next).toBe(first.versions[19]!.id);
+    const second = await publishing.history(viewer, at({ after: first.next }));
+    expect(second.versions.map((v) => v.number)).toEqual([4, 3, 2, 1]);
+    expect(second.next).toBeNull();
+    expect(await code(publishing.history(viewer, at({ after: uuidv7() })))).toBe('NOT_FOUND');
+    expect(await code(publishing.history(viewer, at({ kind: 'draft' })))).toBe('INVALID_INPUT');
+  });
+
+  it('compare names the changed field; getVersion returns the stored content', async () => {
+    const { ws, at, live1, live2 } = await twoLive();
+    const viewer = ws.members.viewer!.id;
+    const cmp = await publishing.compare(viewer, at({ from: live1.versionId, to: live2.versionId }));
+    expect(cmp.from.number).toBe(1);
+    expect(cmp.to.number).toBe(3);
+    expect(cmp.diff.entries).toContainEqual(
+      expect.objectContaining({
+        area: 'business',
+        field: 'Phone',
+        before: '+919844444444',
+        after: '+919855555555',
+      }),
+    );
+    const same = await publishing.compare(viewer, at({ from: live2.versionId, to: live2.versionId }));
+    expect(same.diff.same).toBe(true);
+    const stored = await publishing.getVersion(viewer, ws.id, live1.versionId);
+    expect(stored).toMatchObject({ id: live1.versionId, number: 1, kind: 'live', assets: {} });
+    expect(stored.config.business.phone).toBe('+919844444444');
+  });
+
+  it('rollback: the owner moves Live back, sites serve the old version at once, audited once; a retry changes nothing', async () => {
+    const { ws, projectId, at, host, owner, live1, live2 } = await twoLive();
+    await runJobs();
+    await resolver.resolve(host); // warm the host cache with version 3
+    const result = await publishing.rollback(
+      owner,
+      at({ versionId: live1.versionId, expectedLiveVersionId: live2.versionId }),
+    );
+    expect(result).toEqual({ versionId: live1.versionId, number: 1, replayed: false });
+    await runJobs();
+    expect(await hostCache.get(hostCacheKey(host))).toBeNull();
+    expect((await resolver.resolve(host)).resolution).toMatchObject({
+      outcome: 'live',
+      siteVersionId: live1.versionId,
+    });
+    const again = await publishing.rollback(
+      owner,
+      at({ versionId: live1.versionId, expectedLiveVersionId: live2.versionId }),
+    );
+    expect(again).toEqual({ versionId: live1.versionId, number: 1, replayed: true });
+
+    const scope = (await db.resolveTenantScope(owner, ws.id))!;
+    const rows = await db.withTenant(scope, async (tx) => ({
+      audit: await tx.auditLog.findMany({ where: { projectId, action: 'site.rolled_back' } }),
+      pointer: await tx.sitePointer.findFirst({ where: { projectId, kind: 'live' } }),
+    }));
+    expect(rows.audit).toHaveLength(1);
+    expect(rows.audit[0]).toMatchObject({ targetId: live1.versionId, actorId: owner });
+    expect(rows.audit[0]!.metadata).toMatchObject({ from_number: 3, to_number: 1 });
+    expect(rows.pointer).toMatchObject({ siteVersionId: live1.versionId, updatedBy: owner });
+
+    // Forward again to version 3 ("any live version").
+    await publishing.rollback(
+      owner,
+      at({ versionId: live2.versionId, expectedLiveVersionId: live1.versionId }),
+    );
+    expect((await publishing.status(owner, ws.id, projectId)).live?.number).toBe(3);
+  });
+
+  it('rollback is refused for editors, viewers, staging targets, a Live that moved, archived projects and other workspaces', async () => {
+    const { ws, projectId, at, owner, editor, live1, live2, staging } = await twoLive();
+    const back = { versionId: live1.versionId, expectedLiveVersionId: live2.versionId };
+    expect(await code(publishing.rollback(editor, at(back)))).toBe('FORBIDDEN');
+    expect(await code(publishing.rollback(ws.members.viewer!.id, at(back)))).toBe('FORBIDDEN');
+    expect(
+      await code(
+        publishing.rollback(
+          owner,
+          at({ versionId: staging.versionId, expectedLiveVersionId: live2.versionId }),
+        ),
+      ),
+    ).toBe('ROLLBACK_TARGET');
+    expect(
+      await code(
+        publishing.rollback(
+          owner,
+          at({ versionId: live1.versionId, expectedLiveVersionId: staging.versionId }),
+        ),
+      ),
+    ).toBe('LIVE_CHANGED');
+    expect(
+      await code(
+        publishing.rollback(owner, at({ versionId: uuidv7(), expectedLiveVersionId: live2.versionId })),
+      ),
+    ).toBe('NOT_FOUND');
+    expect(await code(publishing.rollback(ws.members.admin!.id, at(back)))).toBe('ok');
+
+    const b = await workspaceWith([]);
+    const foreign = { workspaceId: b.id, projectId };
+    expect(await code(publishing.rollback(b.owner.id, { ...foreign, ...back }))).toBe('NOT_FOUND');
+    expect(await code(publishing.history(b.owner.id, foreign))).toBe('NOT_FOUND');
+    expect(await code(publishing.getVersion(b.owner.id, b.id, live1.versionId))).toBe('NOT_FOUND');
+    expect(
+      await code(publishing.compare(b.owner.id, { ...foreign, from: live1.versionId, to: live2.versionId })),
+    ).toBe('NOT_FOUND');
+
+    await projects.transitionProject(owner, { workspaceId: ws.id, projectId, from: 'draft', to: 'archived' });
+    expect(
+      await code(
+        publishing.rollback(
+          owner,
+          at({ versionId: live2.versionId, expectedLiveVersionId: live1.versionId }),
+        ),
+      ),
+    ).toBe('ARCHIVED');
+  });
+
+  it('restore into the draft: one undoable change set, needs the lock, Live untouched, retry-safe', async () => {
+    const { ws, projectId, at, owner, editor, live1, live2 } = await twoLive();
+    const before = await builder.getDraft(editor, ws.id, projectId);
+    expect(before.config.business.phone).toBe('+919855555555');
+    const input = at({ versionId: live1.versionId, expectedRevision: before.revision, changeId: uuidv7() });
+    expect(await code(builder.restoreVersion(owner, input))).toBe('LOCK_REQUIRED');
+    expect(await code(builder.restoreVersion(ws.members.viewer!.id, input))).toBe('FORBIDDEN');
+    const restored = await builder.restoreVersion(editor, input);
+    expect(restored.revision).toBe(before.revision + 1);
+    expect(await builder.restoreVersion(editor, input)).toEqual(restored);
+    expect(await code(builder.restoreVersion(editor, { ...input, versionId: live2.versionId }))).toBe(
+      'IDEMPOTENCY_MISMATCH',
+    );
+
+    const after = await builder.getDraft(editor, ws.id, projectId);
+    expect(after.config.business.phone).toBe('+919844444444');
+    expect(after.canUndo).toBe(true);
+    expect((await publishing.status(owner, ws.id, projectId)).live?.id).toBe(live2.versionId);
+
+    await builder.undo(editor, at({ expectedRevision: after.revision }));
+    const undone = await builder.getDraft(editor, ws.id, projectId);
+    expect(undone.config).toEqual(before.config);
+    await builder.redo(editor, at({ expectedRevision: undone.revision }));
+    expect((await builder.getDraft(editor, ws.id, projectId)).config.business.phone).toBe('+919844444444');
+
+    const scope = (await db.resolveTenantScope(owner, ws.id))!;
+    const audit = await db.withTenant(scope, (tx) =>
+      tx.auditLog.findMany({ where: { projectId, action: 'draft.version_restored' } }),
+    );
+    expect(audit).toHaveLength(1);
+    expect(audit[0]!.metadata).toMatchObject({ versionId: live1.versionId, number: 1, kind: 'live' });
+    expect(
+      await code(
+        builder.restoreVersion(editor, at({ versionId: uuidv7(), expectedRevision: 1, changeId: uuidv7() })),
+      ),
+    ).toBe('NOT_FOUND');
+  });
+});

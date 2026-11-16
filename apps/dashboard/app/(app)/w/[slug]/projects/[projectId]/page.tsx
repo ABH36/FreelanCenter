@@ -76,6 +76,13 @@ export default async function ProjectPage({
         >
           {ws.can['draft.edit'] ? 'Edit site' : 'View site'}
         </Link>
+        {/* P3 S7b (FR-PUB-03): published versions, comparison and rollback. */}
+        <Link
+          href={`/w/${ws.slug}/projects/${project.id}/history`}
+          className="mt-3 mr-2 inline-flex rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-50"
+        >
+          Version history
+        </Link>
         {ws.can['templates.preview'] ? (
           <Link
             href={`/w/${ws.slug}/templates?project=${project.id}`}
