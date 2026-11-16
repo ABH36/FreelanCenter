@@ -242,8 +242,8 @@ importers:
         specifier: workspace:*
         version: link:../ui
       lucide:
-        specifier: 1.65.0
-        version: 1.65.0
+        specifier: 1.66.0
+        version: 1.66.0
       zod:
         specifier: 4.6.7
         version: 4.6.7
@@ -3998,8 +3998,8 @@ packages:
     resolution: {integrity: sha512-5J9ysMYUpYIg9RF2vJpy9SinEmSviFSe0GyPpCQ4L5QSkLAgeLXlTAOu2ZwWUU5m+0SBl6gUU1R1ZQB3aKypfA==}
     engines: {bun: '>=1.0.0', deno: '>=1.30.0', node: '>=8.0.0'}
 
-  lucide@1.65.0:
-    resolution: {integrity: sha512-mtWm+77jbrebaz5Nv7lqL0Oj41fuNPxtUOjm1UxHjCDiwKqE5uEYxcfyZcnZrz9KDcmYQbIWcovs/bn+s16kEw==}
+  lucide@1.66.0:
+    resolution: {integrity: sha512-Ngq8coV3XJ9S/DLTNnIWk9lmdJusoSnuuoO1rK7C0H9/VaV93LoWkv/u5GyUAJhL+rFesAd4gL3YG544bnH6gQ==}
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
@@ -8165,7 +8165,7 @@ snapshots:
 
   lru.min@1.1.5: {}
 
-  lucide@1.65.0: {}
+  lucide@1.66.0: {}
 
   magic-string@0.30.21:
     dependencies:

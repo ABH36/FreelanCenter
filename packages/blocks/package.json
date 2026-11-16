@@ -23,7 +23,7 @@
   "dependencies": {
     "@platform/schema": "workspace:*",
     "@platform/ui": "workspace:*",
-    "lucide": "1.65.0",
+    "lucide": "1.66.0",
     "zod": "4.6.7"
   },
   "peerDependencies": {
