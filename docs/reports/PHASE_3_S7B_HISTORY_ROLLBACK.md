@@ -1,6 +1,6 @@
 # Phase 3, slice S7b: version history, diff, side-by-side preview and rollback
 
-**Status:** built on `feat/p3-s7b-history-rollback` (commits `e842f04`, `2594655`, this report); CI-equivalent green (section 6); awaiting Owner approval. **Date:** 2026-11-16 · **Requirement:** FR-PUB-03 (version history with author, note, timestamp, visual/JSON diff, one-click rollback to any live version) · **ADRs:** 002, 004, 005 · **Module:** 06 · **Plan approved by the Owner 2026-11-16** with the three decisions as recommended (section 3). **No migration:** nothing to apply to the live database.
+**Status:** built on `feat/p3-s7b-history-rollback` (commits `e842f04`, `2594655`, this report); CI-equivalent green (section 6); **approved by the Owner 2026-11-16**. **Date:** 2026-11-16 · **Requirement:** FR-PUB-03 (version history with author, note, timestamp, visual/JSON diff, one-click rollback to any live version) · **ADRs:** 002, 004, 005 · **Module:** 06 · **Plan approved by the Owner 2026-11-16** with the three decisions as recommended (section 3). **No migration:** nothing to apply to the live database.
 
 ## 1. Why
 
@@ -96,6 +96,6 @@ Unchanged from S7a (DG-33): live public sites on production, and the CDN purge o
 
 ## 9. Open items
 
-- Owner approval of S7b.
+- ~~Owner approval of S7b~~ approved 2026-11-16.
 - After the merge: production check with the Chrome extension (history, compare, side-by-side preview, restore into the editor; rollback needs two live versions, which production can make on a test project). Also confirm the S7a audit rows (`site.published_staging`, `staging_link.created`, `staging_link.revoked`) and the new ones on the Audit log page.
 - Follow-ups in DG-36.

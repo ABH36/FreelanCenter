@@ -1,6 +1,6 @@
 # 06 — Versioning, Client Review and Publishing
 
-**Status:** P3 S7a built and approved (publish to staging/live, preflight, review links, live site source; `docs/reports/PHASE_3_S7A_PUBLISHING.md`). P3 S7b built (history, diff, side-by-side preview, rollback, restore into the draft; awaiting Owner approval, `docs/reports/PHASE_3_S7B_HISTORY_ROLLBACK.md`). S8 (client review) planned. **SRS:** FR-PUB-01..07, FR-PRJ-02.
+**Status:** P3 S7a built and approved (publish to staging/live, preflight, review links, live site source; `docs/reports/PHASE_3_S7A_PUBLISHING.md`). P3 S7b built (history, diff, side-by-side preview, rollback, restore into the draft; approved by the Owner 2026-11-16, `docs/reports/PHASE_3_S7B_HISTORY_ROLLBACK.md`). S8 (client review) planned. **SRS:** FR-PUB-01..07, FR-PRJ-02.
 
 ## Outcome
 
