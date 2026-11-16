@@ -628,6 +628,7 @@ export function Editor({
                 prepare={prepare}
                 canPublishStaging={canPublishStaging}
                 canPublishLive={canPublishLive}
+                historyHref={`/w/${slug}/projects/${target.projectId}/history`}
               />
             ) : selection.kind === 'page' ? null : (
               <p className="text-sm text-slate-600">This part cannot be edited here yet.</p>

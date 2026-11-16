@@ -191,7 +191,7 @@ async function seed(): Promise<Tenant> {
   });
   if (image.status !== 'ready') throw new Error('setup: the IDOR image was not processed');
   // P3 S7a: something on staging and a staging link to it.
-  await publishing.publish(ownerId, {
+  const staged = await publishing.publish(ownerId, {
     workspaceId: id,
     projectId: project.id,
     kind: 'staging',
@@ -216,6 +216,7 @@ async function seed(): Promise<Tenant> {
       previewLinkId: link.id,
       assetId: image.id,
       stagingLinkId: stagingLink.id,
+      siteVersionId: staged.versionId,
     },
   };
 }
@@ -424,6 +425,38 @@ const CALLS: Record<string, (actor: string, s: Selectors) => Promise<unknown>> =
   },
   revokeStagingLink: (a, s) =>
     publishing.revokeStagingLink(a, { workspaceId: s.workspaceId, linkId: s.stagingLinkId }),
+  // P3 S7b. Reads return ids and a flag only. The own version is a staging one, so the own rollback answers
+  // ROLLBACK_TARGET and the own restore LOCK_REQUIRED (the probe holds no lock): what matters is that a foreign id
+  // never gets past NOT_FOUND.
+  versionHistory: async (a, s) => {
+    const h = await publishing.history(a, { workspaceId: s.workspaceId, projectId: s.projectId });
+    return h.versions.map((v) => v.id);
+  },
+  compareVersions: async (a, s) => {
+    const c = await publishing.compare(a, {
+      workspaceId: s.workspaceId,
+      projectId: s.projectId,
+      from: s.siteVersionId,
+      to: s.siteVersionId,
+    });
+    return { same: c.diff.same };
+  },
+  getVersion: async (a, s) => ({ id: (await publishing.getVersion(a, s.workspaceId, s.siteVersionId)).id }),
+  rollback: (a, s) =>
+    publishing.rollback(a, {
+      workspaceId: s.workspaceId,
+      projectId: s.projectId,
+      versionId: s.siteVersionId,
+      expectedLiveVersionId: s.siteVersionId,
+    }),
+  restoreVersion: (a, s) =>
+    builder.restoreVersion(a, {
+      workspaceId: s.workspaceId,
+      projectId: s.projectId,
+      versionId: s.siteVersionId,
+      expectedRevision: 1,
+      changeId: crypto.randomUUID(),
+    }),
   // Asks for both tenants' image ids: only the images of the selected project may come back.
   renderAssets: async (a, s) => [
     ...(await assets.renderAssets(a, s.workspaceId, s.projectId, [A.own.assetId, B.own.assetId])).keys(),
@@ -450,6 +483,9 @@ const READS = new Set([
   'renderAssets',
   'publishingStatus',
   'preflight',
+  'versionHistory',
+  'compareVersions',
+  'getVersion',
 ]);
 
 const call = (method: string) => async (actor: string, s: Selectors) => {

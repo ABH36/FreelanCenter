@@ -21,9 +21,10 @@ const config: NextConfig = {
     // Baseline hardening (SEC-03). A full per-surface CSP lands with the builder (P3).
     return [
       {
-        // Every path except the editor preview (P3 S3), which the editor page frames and which sets its own strict policy
-        // in the route (frame-ancestors 'self', no script source). Sign-in, settings and every other page stay unframeable.
-        source: '/:path((?!editor-preview(?:/|$)).*)',
+        // Every path except the editor preview (P3 S3) and the version preview (P3 S7b), which dashboard pages frame and
+        // which set their own strict policy in the route (frame-ancestors 'self', no script source). Sign-in, settings
+        // and every other page stay unframeable.
+        source: '/:path((?!(?:editor|version)-preview(?:/|$)).*)',
         headers: [
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },

@@ -20,6 +20,11 @@
  * token is stateless and can be minted again from the row (same claims), so the dashboard can show the link again
  * without storing it. Revoking is final.
  *
+ * P3 S7b (FR-PUB-03, plan approved by the Owner 2026-11-16): `history` (paged list), `compare` (structured diff,
+ * version-diff.ts), `getVersion` (stored content for the side-by-side preview) and `rollback` (Live pointer back to
+ * an earlier live version; owners/admins; expected current live version; no preflight; host-cache invalidation).
+ * "Restore into the draft" is builder.restoreVersion.
+ *
  * Audit rows carry ids, kind, number, revision and counts only, never content.
  */
 import { createHash } from 'node:crypto';
@@ -36,6 +41,7 @@ import type { ImageWidth } from './image';
 import { OUTBOX_EVENTS, type Outbox } from './outbox';
 import { type PreflightCheck, type PublishKind, runPreflight } from './preflight';
 import { createScopedRunner, parse, requireId } from './scoped';
+import { type VersionDiff, diffConfigs } from './version-diff';
 
 export const PUBLISH_LIMITS = {
   noteMax: 500,
@@ -43,8 +49,10 @@ export const PUBLISH_LIMITS = {
   stagingLinkDays: 14,
   /** Active staging links per project; older ones can be turned off. */
   activeStagingLinks: 10,
-  /** Versions listed by `status` (S7b adds the full history). */
+  /** Versions listed by `status`; the history page lists all. */
   recentVersions: 5,
+  /** P3 S7b: versions per history page. */
+  historyPage: 20,
 } as const;
 
 /** Where staging links point. Same secret as preview links (domain-separated in the token), same host. */
@@ -106,7 +114,40 @@ export interface PublishResult {
   warnings: number;
 }
 
+export interface HistoryVersion extends VersionSummary {
+  /** This version is what Live or Staging shows now. */
+  current: PublishKind | null;
+}
+
+export interface VersionHistory {
+  versions: HistoryVersion[];
+  /** Pass as `after` for the next (older) page; null on the last page. */
+  next: string | null;
+  liveVersionId: string | null;
+  stagingVersionId: string | null;
+}
+
+export interface StoredVersion extends VersionSummary {
+  projectId: string;
+  config: SiteConfig;
+  assets: VersionAssets;
+}
+
+export interface VersionComparison {
+  from: VersionSummary;
+  to: VersionSummary;
+  diff: VersionDiff;
+}
+
+export interface RollbackResult {
+  versionId: string;
+  number: number | null;
+  /** Live already showed this version: nothing was changed. */
+  replayed: boolean;
+}
+
 const kindSchema = z.enum(['staging', 'live']);
+const historyKindSchema = z.enum(['all', 'staging', 'live']);
 const revisionSchema = z.number().int().min(1).max(2_147_483_646);
 const keySchema = z.uuid();
 const noteSchema = z
@@ -472,6 +513,180 @@ export function createPublishingService(deps: PublishingServiceDeps) {
           recent: recent.map((v) => summary(v, who)),
         };
       });
+    },
+
+    /**
+     * P3 S7b (FR-PUB-03): the project's versions, newest first, `PUBLISH_LIMITS.historyPage` at a time. `after` is
+     * the id of the last version of the previous page. Any member may read.
+     */
+    async history(
+      actorUserId: string,
+      input: { workspaceId: unknown; projectId: unknown; kind?: unknown; after?: unknown },
+    ): Promise<VersionHistory> {
+      const kind = parse(historyKindSchema, input.kind ?? 'all', 'kind');
+      const after = input.after === undefined || input.after === null ? null : requireId(input.after);
+      return query(actorUserId, input.workspaceId, 'projects.view', async (tx) => {
+        const project = await findProject(tx, input.projectId);
+        const pointers = await tx.sitePointer.findMany({
+          where: { projectId: project.id },
+          select: { kind: true, siteVersionId: true },
+        });
+        const where = { projectId: project.id, ...(kind === 'all' ? {} : { kind }) };
+        if (after) {
+          const cursor = await tx.siteVersion.findFirst({
+            where: { ...where, id: after },
+            select: { id: true },
+          });
+          if (!cursor) throw new WorkspaceError('NOT_FOUND');
+        }
+        const rows = (await tx.siteVersion.findMany({
+          where,
+          // Ids are UUID v7 (time ordered): the tie-breaker keeps pages stable for versions of the same instant.
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          take: PUBLISH_LIMITS.historyPage + 1,
+          ...(after ? { cursor: { id: after }, skip: 1 } : {}),
+          select: versionSelect,
+        })) as VersionRow[];
+        const page = rows.slice(0, PUBLISH_LIMITS.historyPage);
+        const who = await names(
+          tx,
+          page.map((v) => v.createdBy),
+        );
+        const liveId = pointers.find((p) => p.kind === 'live')?.siteVersionId ?? null;
+        const stagingId = pointers.find((p) => p.kind === 'staging')?.siteVersionId ?? null;
+        return {
+          versions: page.map((v) => ({
+            ...summary(v, who),
+            current: v.id === liveId ? 'live' : v.id === stagingId ? 'staging' : null,
+          })),
+          next: rows.length > PUBLISH_LIMITS.historyPage ? (page[page.length - 1]?.id ?? null) : null,
+          liveVersionId: liveId,
+          stagingVersionId: stagingId,
+        };
+      });
+    },
+
+    /**
+     * One stored version with its content, for the side-by-side preview. The version id alone selects it; RLS keeps
+     * it inside the caller's workspace and a deleted project's versions are not shown.
+     */
+    async getVersion(actorUserId: string, workspaceId: unknown, versionId: unknown): Promise<StoredVersion> {
+      const id = requireId(versionId);
+      return query(actorUserId, workspaceId, 'projects.view', async (tx) => {
+        const row = await tx.siteVersion.findFirst({
+          where: { id, project: { deletedAt: null } },
+          select: { ...versionSelect, projectId: true, config: true, assets: true },
+        });
+        if (!row) throw new WorkspaceError('NOT_FOUND');
+        const parsed = parseSiteConfig(row.config);
+        if (!parsed.ok) throw new WorkspaceError('VERSION_UNREADABLE');
+        const who = await names(tx, [row.createdBy]);
+        return {
+          ...summary(row as VersionRow, who),
+          projectId: row.projectId,
+          config: parsed.config,
+          assets: (row.assets ?? {}) as VersionAssets,
+        };
+      });
+    },
+
+    /** FR-PUB-03 JSON diff: what changed from version `from` to version `to` of one project. */
+    async compare(
+      actorUserId: string,
+      input: { workspaceId: unknown; projectId: unknown; from: unknown; to: unknown },
+    ): Promise<VersionComparison> {
+      const fromId = requireId(input.from);
+      const toId = requireId(input.to);
+      return query(actorUserId, input.workspaceId, 'projects.view', async (tx) => {
+        const project = await findProject(tx, input.projectId);
+        const rows = await tx.siteVersion.findMany({
+          where: { projectId: project.id, id: { in: [fromId, toId] } },
+          select: { ...versionSelect, config: true },
+        });
+        const from = rows.find((r) => r.id === fromId);
+        const to = rows.find((r) => r.id === toId);
+        if (!from || !to) throw new WorkspaceError('NOT_FOUND');
+        const a = parseSiteConfig(from.config);
+        const b = parseSiteConfig(to.config);
+        if (!a.ok || !b.ok) throw new WorkspaceError('VERSION_UNREADABLE');
+        const who = await names(tx, [from.createdBy, to.createdBy]);
+        return {
+          from: summary(from as VersionRow, who),
+          to: summary(to as VersionRow, who),
+          diff: diffConfigs(a.config, b.config),
+        };
+      });
+    },
+
+    /**
+     * FR-PUB-03 one-click rollback: point Live at an earlier live version. Owners and admins only (site.publish).
+     * `expectedLiveVersionId` is the live version the person saw: if Live moved since, LIVE_CHANGED. A retry after
+     * success finds Live already on the target and changes nothing (no second audit row). No preflight: the version
+     * passed it when it was published, and rollback is the way out of an emergency; it must still be a valid
+     * SiteConfig today. Cache invalidation as for a live publish.
+     */
+    async rollback(
+      actorUserId: string,
+      input: { workspaceId: unknown; projectId: unknown; versionId: unknown; expectedLiveVersionId: unknown },
+    ): Promise<RollbackResult> {
+      const versionId = requireId(input.versionId);
+      const expected = requireId(input.expectedLiveVersionId);
+      const outcome = await command<RollbackResult & { outboxIds: string[] }>(
+        actorUserId,
+        input.workspaceId,
+        { action: 'site.rolled_back', capability: 'site.publish' },
+        async (tx, scope) => {
+          const project = await findProject(tx, input.projectId);
+          if (project.status === 'archived') throw new WorkspaceError('ARCHIVED');
+          const target = await tx.siteVersion.findFirst({
+            where: { id: versionId, projectId: project.id },
+            select: { id: true, kind: true, number: true, config: true },
+          });
+          if (!target) throw new WorkspaceError('NOT_FOUND');
+          if (target.kind !== 'live') throw new WorkspaceError('ROLLBACK_TARGET');
+          // Serialises against another rollback or a live publish of this project.
+          const [pointer] = await tx.$queryRaw<{ id: string; site_version_id: string }[]>`
+            SELECT id, site_version_id FROM app.site_pointers
+             WHERE workspace_id = ${scope.workspaceId}::uuid AND project_id = ${project.id}::uuid AND kind = 'live'
+             FOR UPDATE`;
+          if (!pointer) throw new WorkspaceError('NOT_PUBLISHED');
+          if (pointer.site_version_id === target.id) {
+            return {
+              result: { versionId: target.id, number: target.number, replayed: true, outboxIds: [] },
+              audit: null,
+            };
+          }
+          if (pointer.site_version_id !== expected) throw new WorkspaceError('LIVE_CHANGED');
+          if (!parseSiteConfig(target.config).ok) throw new WorkspaceError('VERSION_UNREADABLE');
+          const previous = await tx.siteVersion.findUnique({
+            where: { id: pointer.site_version_id },
+            select: { number: true },
+          });
+          await tx.sitePointer.update({
+            where: { id: pointer.id },
+            data: { siteVersionId: target.id },
+            select: { id: true },
+          });
+          const outboxIds = [await hostsChanged(tx, scope, project.id)];
+          return {
+            result: { versionId: target.id, number: target.number, replayed: false, outboxIds },
+            audit: {
+              targetType: 'site_version',
+              targetId: target.id,
+              projectId: project.id,
+              metadata: {
+                from_version: pointer.site_version_id,
+                from_number: previous?.number ?? null,
+                to_number: target.number,
+              },
+            },
+          };
+        },
+      );
+      if (outcome.outboxIds.length)
+        await deps.outbox.dispatch(requireId(input.workspaceId), outcome.outboxIds);
+      const { outboxIds: _ignored, ...result } = outcome;
+      return result;
     },
 
     /** Decision 1: a 14-day link to the project's current staging version. Needs something on staging. */

@@ -18,7 +18,8 @@ export type Selector =
   | 'notificationId'
   | 'previewLinkId'
   | 'assetId'
-  | 'stagingLinkId';
+  | 'stagingLinkId'
+  | 'siteVersionId';
 
 export type ActionRegistration =
   { service: string; selectors: Selector[] } | { service: string | null; noSelector: string };
@@ -98,6 +99,12 @@ export const SERVER_ACTIONS: Record<string, ActionRegistration> = {
   publishAction: { service: 'publish', selectors: ['workspaceId', 'projectId'] },
   createStagingLinkAction: { service: 'createStagingLink', selectors: ['workspaceId', 'projectId'] },
   revokeStagingLinkAction: { service: 'revokeStagingLink', selectors: ['workspaceId', 'stagingLinkId'] },
+  // P3 S7b: rollback and restore into the draft (FR-PUB-03). The version id is resolved inside the actor's project.
+  rollbackAction: { service: 'rollback', selectors: ['workspaceId', 'projectId', 'siteVersionId'] },
+  restoreVersionAction: {
+    service: 'restoreVersion',
+    selectors: ['workspaceId', 'projectId', 'siteVersionId'],
+  },
   setWorkspaceStatusAction: {
     service: 'setWorkspaceStatus',
     noSelector:
@@ -141,6 +148,19 @@ export const PAGE_LOADERS: Record<string, { service: string; selectors: Selector
   'route:/editor-preview/[slug]/[projectId] (images)': {
     service: 'renderAssets',
     selectors: ['workspaceId', 'projectId'],
+  },
+  // P3 S7b: version history, the comparison of two versions and the stored-version preview (FR-PUB-03).
+  'page:/w/[slug]/projects/[projectId]/history': {
+    service: 'versionHistory',
+    selectors: ['workspaceId', 'projectId'],
+  },
+  'page:/w/[slug]/projects/[projectId]/history (compare)': {
+    service: 'compareVersions',
+    selectors: ['workspaceId', 'projectId', 'siteVersionId'],
+  },
+  'route:/version-preview/[slug]/[versionId]': {
+    service: 'getVersion',
+    selectors: ['workspaceId', 'siteVersionId'],
   },
   'page:/w/[slug]/templates (prefill from a project)': {
     service: 'getProject',

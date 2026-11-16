@@ -43,7 +43,11 @@ export type WorkspaceErrorCode =
   // P3 S7a: publishing.
   | 'PREFLIGHT_BLOCKED'
   | 'NOT_PUBLISHED'
-  | 'STAGING_LINKS_NOT_CONFIGURED';
+  | 'STAGING_LINKS_NOT_CONFIGURED'
+  // P3 S7b: history and rollback.
+  | 'LIVE_CHANGED'
+  | 'ROLLBACK_TARGET'
+  | 'VERSION_UNREADABLE';
 
 const MESSAGES: Record<WorkspaceErrorCode, string> = {
   NOT_FOUND: 'Not found.',
@@ -84,6 +88,9 @@ const MESSAGES: Record<WorkspaceErrorCode, string> = {
   PREFLIGHT_BLOCKED: 'The site has problems that must be fixed before it can be published. See the checks.',
   NOT_PUBLISHED: 'Publish the site to staging first.',
   STAGING_LINKS_NOT_CONFIGURED: 'Staging links are not set up in this environment yet. Contact support.',
+  LIVE_CHANGED: 'The live version changed a moment ago. Check the history and try again.',
+  ROLLBACK_TARGET: 'Only an earlier Live version can be put back on Live. Publish a staging version instead.',
+  VERSION_UNREADABLE: 'This version can no longer be shown or restored. Contact support.',
 };
 
 export class WorkspaceError extends Error {

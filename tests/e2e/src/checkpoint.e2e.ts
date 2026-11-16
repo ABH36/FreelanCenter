@@ -612,6 +612,105 @@ test('A publishes to Staging, shares a review link, fixes the demo details, publ
   expect(await withdrawn.text()).toContain('This review link was withdrawn');
 });
 
+// P3 S7b (FR-PUB-03): a second Live version, the history with authors and notes, the diff and side-by-side preview of
+// two versions, one-click rollback (the subdomain serves the older version at once) and "restore into the editor"
+// as one change that Undo reverses.
+test('A compares two live versions, rolls Live back, and restores an old version into the editor', async () => {
+  test.setTimeout(240_000);
+  const page = a.page;
+  const visit = (path: string) =>
+    page.request.get(`http://127.0.0.1:${SITES_PORT}${path}`, {
+      headers: { host: `${hostname}:${SITES_PORT}` },
+      maxRedirects: 0,
+    });
+  const firstName = `Pulse Live ${run}`;
+  const secondName = `Pulse Second ${run}`;
+
+  // Version 3 on Live, with another name.
+  await page.goto(`/w/${a.slug}/projects/${projectId}/editor`);
+  const nav = page.getByRole('navigation', { name: 'Site parts' });
+  const status = page.getByTestId('save-status');
+  await nav.getByRole('button', { name: 'Business details' }).click();
+  const name = page.getByRole('textbox', { name: 'Name', exact: true });
+  await expect(name).toBeEnabled({ timeout: 30_000 });
+  await name.fill(secondName);
+  await expect(status).toHaveText('All changes saved', { timeout: 30_000 });
+  await nav.getByRole('button', { name: 'Publish', exact: true }).click();
+  await page.getByText('Live (public website)').click();
+  const publishLive = page.getByRole('button', { name: 'Publish to Live' });
+  await expect(publishLive).toBeEnabled({ timeout: 30_000 });
+  await page.getByLabel('Note for the history (optional)').fill('New name');
+  await publishLive.click();
+  await expect(page.getByRole('status').filter({ hasText: /Published version 3 to Live/ })).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect.poll(async () => (await visit('/')).text(), { timeout: 30_000 }).toContain(secondName);
+
+  // The history: newest first, who, the note, what is on Live and Staging now.
+  await page.getByRole('link', { name: /^Version history/ }).click();
+  await expect(page.getByRole('heading', { name: 'Version history', level: 1 })).toBeVisible();
+  const v3 = page.getByTestId('version-3');
+  const v2 = page.getByTestId('version-2');
+  await expect(v3).toContainText('Now on Live');
+  await expect(v3).toContainText('“New name”');
+  await expect(v2).toContainText('“First launch”');
+  await expect(page.getByTestId('version-1')).toContainText('Now on Staging');
+
+  // Compare 2 with 3: the changed field in words, and both versions side by side.
+  await v3.getByRole('link', { name: 'Compare with Version 2' }).click();
+  const diff = page.getByTestId('diff-list');
+  await expect(diff).toContainText('Business details > Name', { timeout: 30_000 });
+  await expect(diff).toContainText(`${firstName} → ${secondName}`);
+  await expect(page.locator('iframe[title="Version 2 preview"]')).toBeVisible();
+  await expect(page.locator('iframe[title="Version 3 preview"]')).toBeVisible();
+  const frameSrc = (await page.locator('iframe[title="Version 2 preview"]').getAttribute('src'))!;
+  const stored = await page.request.get(frameSrc);
+  expect(stored.status()).toBe(200);
+  const csp = stored.headers()['content-security-policy'] ?? '';
+  expect(csp).toContain("frame-ancestors 'self'");
+  expect(csp).not.toContain('script-src');
+  expect(stored.headers()['x-robots-tag']).toContain('noindex');
+  const storedHtml = await stored.text();
+  expect(storedHtml).toContain(firstName);
+  expect(storedHtml).not.toMatch(/<script/i);
+
+  // Rollback: asks once, then Live serves version 2 again at once.
+  await page.getByRole('link', { name: 'Close the comparison' }).click();
+  await v2.getByRole('button', { name: 'Put back on Live' }).click();
+  await v2.getByRole('button', { name: 'Cancel' }).click();
+  await expect(v3).toContainText('Now on Live');
+  await v2.getByRole('button', { name: 'Put back on Live' }).click();
+  await v2.getByRole('button', { name: 'Put version 2 on Live' }).click();
+  await expect(page.getByTestId('version-2')).toContainText('Now on Live', { timeout: 30_000 });
+  await expect.poll(async () => (await visit('/')).text(), { timeout: 30_000 }).toContain(firstName);
+
+  // Restore version 2 into the editor; Undo brings the newer draft back.
+  await page.getByTestId('version-2').getByRole('button', { name: 'Restore into the editor' }).click();
+  await page.getByTestId('version-2').getByRole('button', { name: 'Restore version 2' }).click();
+  await page.waitForURL(`**/projects/${projectId}/editor`, { timeout: 30_000 });
+  await nav.getByRole('button', { name: 'Business details' }).click();
+  await expect(name).toHaveValue(firstName, { timeout: 30_000 });
+  await expect(name).toBeEnabled({ timeout: 30_000 });
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(status).toHaveText(/^Undone/, { timeout: 30_000 });
+  await expect(name).toHaveValue(secondName);
+  // Live was not touched by the restore or the undo.
+  expect(await (await visit('/')).text()).toContain(firstName);
+});
+
+test("B cannot open A's version history or a stored version of A's site", async () => {
+  const history = await b.page.goto(`/w/${a.slug}/projects/${projectId}/history`);
+  expect(history?.status()).toBe(404);
+  const app = appPool();
+  const { rows } = await asTenant(app, a.workspaceId, a.userId, (c) =>
+    c.query<{ id: string }>(`SELECT id FROM app.site_versions WHERE project_id = $1 LIMIT 1`, [projectId]),
+  ).finally(() => app.end());
+  const versionId = rows[0]!.id;
+  expect((await b.page.request.get(`/version-preview/${a.slug}/${versionId}`)).status()).toBe(404);
+  expect((await b.page.request.get(`/version-preview/${b.slug}/${versionId}`)).status()).toBe(404);
+  expect((await a.page.request.get(`/version-preview/${a.slug}/${versionId}`)).status()).toBe(200);
+});
+
 test('the preview may be framed by the dashboard only and runs no script; the editor page cannot be framed', async () => {
   const editor = await a.page.request.get(`/w/${a.slug}/projects/${projectId}/editor`);
   expect(editor.headers()['content-security-policy']).toContain("frame-ancestors 'none'");
@@ -649,6 +748,8 @@ test('the dashboard pages pass axe (WCAG 2.1 A and AA)', async () => {
     `/w/${a.slug}/projects/new`,
     `/w/${a.slug}/projects/${projectId}`,
     `/w/${a.slug}/projects/${projectId}/editor`,
+    // P3 S7b: the version history (its comparison frames hold template content, excluded like the editor preview).
+    `/w/${a.slug}/projects/${projectId}/history`,
     `/w/${a.slug}/templates`,
     `/w/${a.slug}/members`,
     `/w/${a.slug}/notifications`,

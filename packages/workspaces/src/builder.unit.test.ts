@@ -158,3 +158,21 @@ describe('inverse of a patch (undo)', () => {
     expect(applyRestore(base, [{ op: 'restoreSections', pageId: 'missing', sections: [] }]).ok).toBe(false);
   });
 });
+
+describe('restoring a published version into the draft (P3 S7b)', () => {
+  it('records the whole site, and its inverse brings the previous draft back exactly', () => {
+    const patched = applyPatch(base, [
+      { op: 'updateBusiness', value: { name: 'Changed later' } },
+      { op: 'updateSection', sectionId: 's1', visible: false },
+    ]);
+    if (!patched.ok) throw new Error('patch');
+    const ops = [{ op: 'restoreVersion', versionId: '0190f0f0-0000-7000-8000-000000000001', number: 1 }];
+    expect(touchedParts(patched.config, base, ops)).toEqual(['all']);
+    const inverse = inverseFor(patched.config, ['all']);
+    expect(inverse.map((o) => o.op)).toEqual(['restoreConfig']);
+    const undone = applyRestore(base, JSON.parse(JSON.stringify(inverse)));
+    expect(undone.ok && undone.config).toEqual(patched.config);
+    // Redo of that undo: the inverse of a restoreConfig is again the whole site.
+    expect(touchedParts(base, patched.config, inverse)).toEqual(['all']);
+  });
+});
