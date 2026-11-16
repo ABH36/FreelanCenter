@@ -85,8 +85,15 @@ export default async function AuditPage({
       names.set(id, name);
   }
   names.set(ws.id, ws.name);
-  const targetLabel = (_type: string | null, id: string | null) =>
-    id ? ` ${names.get(id) ?? id.slice(0, 8)}` : '';
+  // P3 S7b extension check 2026-11-16: UUID v7 ids made in the same minute share their first characters, so two
+  // versions both read "01a1e33a". A version is named by its number; any other unnamed id by its random tail.
+  const targetLabel = (type: string | null, id: string | null, metadata: unknown) => {
+    if (!id) return '';
+    const m = (metadata ?? {}) as { number?: unknown; to_number?: unknown };
+    const number = typeof m.to_number === 'number' ? m.to_number : m.number;
+    if (type === 'site_version' && typeof number === 'number') return ` ${number}`;
+    return ` ${names.get(id) ?? `…${id.slice(-8)}`}`;
+  };
   /** Readable target kinds; a preview-link event names the link (and so the prospect) from its metadata. */
   const TYPE_LABEL: Record<string, string> = {
     template: 'Template',
@@ -95,6 +102,8 @@ export default async function AuditPage({
     workspace: 'Workspace',
     membership: 'Member',
     invitation: 'Invitation',
+    site_version: 'Site version',
+    staging_link: 'Review link',
   };
   const typeLabel = (type: string | null) => (type ? (TYPE_LABEL[type] ?? type.replace(/_/g, ' ')) : '—');
   const linkOf = (metadata: unknown) => {
@@ -181,13 +190,13 @@ export default async function AuditPage({
                     {r.projectId ? (
                       <Link href={`/w/${ws.slug}/projects/${r.projectId}`} className="hover:underline">
                         {typeLabel(r.targetType)}
-                        {targetLabel(r.targetType, r.targetId)}
+                        {targetLabel(r.targetType, r.targetId, r.metadata)}
                         {linkOf(r.metadata)}
                       </Link>
                     ) : (
                       <span className="break-words">
                         {typeLabel(r.targetType)}
-                        {targetLabel(r.targetType, r.targetId)}
+                        {targetLabel(r.targetType, r.targetId, r.metadata)}
                         {linkOf(r.metadata)}
                       </span>
                     )}

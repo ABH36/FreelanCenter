@@ -682,7 +682,29 @@ test('A compares two live versions, rolls Live back, and restores an old version
   await v2.getByRole('button', { name: 'Put back on Live' }).click();
   await v2.getByRole('button', { name: 'Put version 2 on Live' }).click();
   await expect(page.getByTestId('version-2')).toContainText('Now on Live', { timeout: 30_000 });
+  // The page says what happened (extension check 2026-11-16: the row's message vanished with its button).
+  await expect(page.getByRole('status').filter({ hasText: 'Live now shows version 2 again.' })).toBeVisible();
+  // After the rollback version 3's previous version is the live one: one compare button, not two for the same pair.
+  await expect(page.getByTestId('version-3').getByRole('link', { name: 'Compare with Live' })).toHaveCount(0);
   await expect.poll(async () => (await visit('/')).text(), { timeout: 30_000 }).toContain(firstName);
+
+  // Phone width (extension check 2026-11-16 could not test it): the history and a comparison fit without sideways
+  // scrolling.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByTestId('version-3').getByRole('link', { name: 'Compare with Version 2' }).click();
+  await expect(page.getByTestId('diff-list')).toBeVisible({ timeout: 30_000 });
+  // A string runs in the page (this package has no DOM types).
+  const overflow = await page.evaluate<number>(
+    'document.documentElement.scrollWidth - document.documentElement.clientWidth',
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.getByRole('link', { name: 'Close the comparison' }).click();
+
+  // The audit log names versions by number, not by an id prefix that versions of one minute share.
+  await page.goto(`/w/${a.slug}/audit`);
+  await expect(page.getByRole('cell', { name: /^Site version 2$/ }).first()).toBeVisible();
+  await page.goBack();
 
   // Restore version 2 into the editor; Undo brings the newer draft back.
   await page.getByTestId('version-2').getByRole('button', { name: 'Restore into the editor' }).click();

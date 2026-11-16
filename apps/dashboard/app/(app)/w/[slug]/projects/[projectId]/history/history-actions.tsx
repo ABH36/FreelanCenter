@@ -120,8 +120,10 @@ export function RollbackButton({
       if (result.code === 'LIVE_CHANGED') router.refresh();
       return;
     }
+    // The row's own button disappears once this version is on Live, so the page says it (extension check
+    // 2026-11-16: the message was lost with the button).
     setMessage(`Live now shows ${vName(result.value.number)} again.`);
-    router.refresh();
+    router.replace(`${window.location.pathname}?rolledBack=${result.value.number ?? ''}`);
   };
   return (
     <>

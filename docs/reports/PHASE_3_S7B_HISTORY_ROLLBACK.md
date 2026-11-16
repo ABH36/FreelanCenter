@@ -99,3 +99,27 @@ Unchanged from S7a (DG-33): live public sites on production, and the CDN purge o
 - ~~Owner approval of S7b~~ approved 2026-11-16.
 - After the merge: production check with the Chrome extension (history, compare, side-by-side preview, restore into the editor; rollback needs two live versions, which production can make on a test project). Also confirm the S7a audit rows (`site.published_staging`, `staging_link.created`, `staging_link.revoked`) and the new ones on the Audit log page.
 - Follow-ups in DG-36.
+
+## 10. Production check (2026-11-16, after PR #94 merged as `f6cd026`)
+
+Production dashboard and sites deployed from `f6cd026` (bom1), health 200, signed-out `/history` and `/version-preview` redirect to sign-in. The Owner's Chrome-extension check on a new test project "S7b Check" (Gym Bold) **passed steps 1–8**:
+
+- two Live publishes (only the form-destination warning, decision 2), version 1 "First live" and version 2 "Second live";
+- history rows with badges, author, notes; "Version history" on the project page;
+- compare: "Changed: Business details > Name, S7b Check One → S7b Check Two", both stored versions with their banner and names;
+- rollback: the confirmation text, Cancel changed nothing, then version 1 "Now on Live";
+- restore version 1 into the editor ("S7b Check One"), Undo back to "S7b Check Two" ("Undone · all changes saved");
+- Audit log: `site.published_live` ×2, `site.rolled_back`, `draft.version_restored`, `draft.undone`, and the S7a rows `site.published_staging`, `staging_link.created`, `staging_link.revoked` (open item of S7a closed).
+
+Step 9 (phone width) could not be done in the extension (the window would not resize). Findings, all fixed on `fix/p3-s7b-history-polish`:
+
+| Finding                                                                                                                               | Fix                                                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "Put version 1 on Live" showed no success message (the row's button, and with it the message, disappears once the version is on Live) | the page shows "Live now shows version N again." after the rollback (e2e)                                                                             |
+| The audit log named both versions "site version 01a1e33a": UUID v7 ids made in the same minute share their first 8 characters         | versions are named by their number ("Site version 2"); other unnamed ids by their random last 8 characters; review links labelled "Review link" (e2e) |
+| Versions published in one minute all read "12:50 pm"                                                                                  | times on the history page include seconds                                                                                                             |
+| After a rollback, "Compare with Version 1" and "Compare with Live" compared the same pair                                             | "Compare with Live" is hidden when it is the same pair (e2e)                                                                                          |
+| At 980 px the two previews were stacked                                                                                               | side by side from 768 px                                                                                                                              |
+| Phone width untested                                                                                                                  | e2e now checks the history page with a comparison at 390 px: no horizontal scrolling                                                                  |
+
+Explained, not changed: "Show this page below" appears only on page and section changes (a business detail is site-wide); the Publish panel opens on Staging every time on purpose (the safer target); the two "[EXCEPTION] Object" console entries appeared on the project list too, which S7b does not change; they may come from a browser extension and from a browser extension and will be rechecked in a clean browser profile in the next check.
