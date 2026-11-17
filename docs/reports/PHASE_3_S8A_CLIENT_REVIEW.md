@@ -70,7 +70,25 @@ Filled after the e2e and CI-equivalent runs.
 
 ## 6. CI-equivalent
 
-Pending.
+Run 2026-11-17 in a clean detached worktree at `62ade56` against a freshly recreated local database. All 28 steps passed:
+
+| Step                                                | Result                                                                                                                                                                        |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| install, format, sync-plan, generate                | pass (Prettier clean; `DEVELOPMENT_PLAN.md` byte-identical to `SRS.md`)                                                                                                       |
+| lint, typecheck, unit (whole monorepo)              | 18/18, 18/18 and 15/15 tasks                                                                                                                                                  |
+| traceability, build                                 | pass; 3/3 build tasks                                                                                                                                                         |
+| audit (gate `high`)                                 | pass: no high or critical. 3 moderate (`next` GHSA-mfr8-8qww-v76h, which the Next 16.4.5 PR fixes; `glob` and `minimatch` in build and dev tools only); recorded in DG-37 (f) |
+| db down/up, bootstrap twice, migrate, configure     | pass; the S8a migration applies on a fresh database                                                                                                                           |
+| drift                                               | "No difference detected"                                                                                                                                                      |
+| `db:verify`                                         | 47 passed, 0 failed                                                                                                                                                           |
+| DB integration with `--coverage`, then a second run | pass both times; coverage 95.08% lines, 85.95% branches, 92.13% functions                                                                                                     |
+| isolation matrix                                    | pass (report written)                                                                                                                                                         |
+| mutation                                            | 13/13 mutations killed; suite green after revert                                                                                                                              |
+| auth integration, twice                             | 213/213 both runs                                                                                                                                                             |
+| workspaces, jobs and hosting integration            | pass                                                                                                                                                                          |
+| seed templates                                      | pass                                                                                                                                                                          |
+
+e2e and the quality suite run with the dev servers. Their webServer exits under Next 16.4.3 because the Next CLI now asks for a security upgrade (GHSA above). They will run after the Next 16.4.5 PR is merged and S8a is rebased onto it (section 5).
 
 ## 7. Cost
 
