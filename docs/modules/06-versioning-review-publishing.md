@@ -1,6 +1,6 @@
 # 06 — Versioning, Client Review and Publishing
 
-**Status:** P3 S7a built and approved (publish to staging/live, preflight, review links, live site source; `docs/reports/PHASE_3_S7A_PUBLISHING.md`). P3 S7b built (history, diff, side-by-side preview, rollback, restore into the draft; approved by the Owner 2026-11-16, `docs/reports/PHASE_3_S7B_HISTORY_ROLLBACK.md`). S8 (client review) planned. **SRS:** FR-PUB-01..07, FR-PRJ-02.
+**Status:** P3 S7a built and approved (publish to staging/live, preflight, review links, live site source; `docs/reports/PHASE_3_S7A_PUBLISHING.md`). P3 S7b built (history, diff, side-by-side preview, rollback, restore into the draft; approved by the Owner 2026-11-16, `docs/reports/PHASE_3_S7B_HISTORY_ROLLBACK.md`). P3 S8a built (client review: comments pinned to sections, approval, replies; `docs/reports/PHASE_3_S8A_CLIENT_REVIEW.md`); S8b (approval policy, status, notifications) next. **SRS:** FR-PUB-01..07, FR-PRJ-02.
 
 ## Outcome
 
@@ -48,6 +48,15 @@ Preflight blocks invalid schema, unsafe/missing form destination and other block
 - `publishing.rollback`: Live pointer to an earlier **live** version (staging versions refused, `ROLLBACK_TARGET`); owners/admins (`site.publish`, and the S1 `publisher_update` policy underneath); the live version the person saw must still be on Live (`LIVE_CHANGED`); a retry finds Live already there and changes nothing; the target must still parse; no preflight (it passed at publish; rollback is the emergency path); pointer row locked `FOR UPDATE`; `site.rolled_back` audit (from/to numbers); `sites.hosts.changed.v1` outbox for host-cache invalidation. Archived projects refused.
 - `builder.restoreVersion` (Owner decision 1): any stored version back into the draft as one change set (`restoreVersion` operation, inverse `restoreConfig` = the whole previous draft), so Undo/Redo work; needs the edit lock (the dashboard action takes and returns it when free), the expected revision and a change id; `draft.version_restored` audit. Live and Staging untouched.
 - Follow-ups on record in DG-36 (notifications, pixel diff, hidden images, size limit).
+
+**Client review (P3 S8a, plan approved 2026-11-16, migration `20261116120000_p3_s8a_client_review`).**
+
+- Tables: `review_comments` (SRS ReviewComment: version, link, page and section pin or none = whole site/page, author kind client/member, client name and optional e-mail, keyed IP hash, body ≤ 2000, `parent_id` for a member reply, resolution) and `review_approvals` (one per link and version, immutable, name, optional e-mail, IP hash). Guards set authors and times; a reply takes project, version, link and pin from its client comment; only resolution changes; nothing is deleted.
+- RLS: members read; owners/admins/editors reply and resolve; app_user can never write a client comment or an approval.
+- Visitor functions (app_public), each re-checking the link (revoked, expired, paused/archived project, suspended workspace): `add_review_comment` (answers ok/stale/no_section/invalid/limit or the link state; the version must be the one the link shows now; the page/section must exist in it; 300 client comments per version under an advisory lock), `approve_review_version` (ok/already; audit `review.version_approved`, actor_type client), `get_review_thread` (the link's comments and replies on the version, no e-mail/IP/member identity), `get_review_approval`. Helper `review_link_target` executable by no role.
+- Sites: on a staging link every shown section ends with "Comment on this section" and the banner links "Comments and approval" (renderer `review` option, review mode only). Panel `/s/<token>/_review`: approve form, comment form with a pin dropdown (whole site, page, shown section), the thread; no script, CSP `form-action 'self'`; POST `/_review/comment|approve` → 303 back with `?done=`. Same-origin check (Origin, else Sec-Fetch-Site), form bodies ≤ 16 KB, honeypot, Upstash limits 30/h per link and 10/min per IP (fail open), IP kept as HMAC. English and Hindi.
+- Dashboard: `review.feedback` (any member), `review.reply`, `review.setResolved` (owner/admin/editor; audits `review.comment_replied/resolved/reopened`, ids only); editor "Client feedback" panel with the open count in the menu, "Show in editor"; approval line in the Publish panel; "Approved by" badge in the history; audit labels.
+- S8b (next): workspace policy "require client approval before Live" in publish, status transitions, notifications, settings (DG-37).
 
 ## Evidence
 

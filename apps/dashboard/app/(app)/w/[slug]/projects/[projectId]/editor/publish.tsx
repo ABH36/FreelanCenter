@@ -21,6 +21,7 @@ import {
   publishingStatusAction,
   revokeStagingLinkAction,
 } from '@/app/actions/publishing';
+import { type ClientFeedback, reviewFeedbackAction } from '@/app/actions/review';
 
 type Kind = 'staging' | 'live';
 
@@ -87,6 +88,10 @@ export function PublishPanel({
   const [message, setMessage] = useState('');
   const [problem, setProblem] = useState('');
   const [copied, setCopied] = useState<string | null>(null);
+  const [approvals, setApprovals] = useState<ClientFeedback['approvals']>([]);
+  const stagingApproval = status?.staging
+    ? approvals.find((a) => a.siteVersionId === status.staging?.id)
+    : undefined;
 
   const refresh = useCallback(
     async (forKind: Kind) => {
@@ -97,6 +102,9 @@ export function PublishPanel({
       ]);
       if (s.ok) setStatus(s.value);
       else setProblem(s.error);
+      // P3 S8a: whether the client approved what is on staging now.
+      const f = await reviewFeedbackAction(target);
+      if (f.ok) setApprovals(f.value.approvals);
       if (p.ok) setChecks({ ok: p.value.ok, checks: p.value.checks });
       else setProblem(p.error);
     },
@@ -190,6 +198,16 @@ export function PublishPanel({
       <dl className="space-y-1 rounded-md border border-slate-200 p-3">
         <VersionLine label="Live" v={status?.live ?? null} />
         <VersionLine label="Staging" v={status?.staging ?? null} />
+        {status?.staging ? (
+          <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
+            <dt className="font-medium">Client approval</dt>
+            <dd className="text-slate-700" data-testid="publish-approval">
+              {stagingApproval
+                ? `Approved by ${stagingApproval.approverName} · ${when(stagingApproval.approvedAt)}`
+                : 'Not approved yet'}
+            </dd>
+          </div>
+        ) : null}
         {host ? (
           <div className="pt-1 text-xs text-slate-700">
             Live address:{' '}
@@ -288,7 +306,8 @@ export function PublishPanel({
         </h3>
         <p className="text-sm text-slate-700">
           Send your client a link to the staging version. It needs no account, lasts 14 days, is hidden from
-          search engines, and always shows the latest staging version.
+          search engines, and always shows the latest staging version. Your client can comment on each section
+          and approve the version there; you see it under Client feedback.
         </p>
         {status && !status.stagingLinksConfigured ? (
           <p className="text-sm text-slate-700">Review links are not set up in this environment yet.</p>

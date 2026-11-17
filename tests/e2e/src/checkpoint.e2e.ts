@@ -720,6 +720,128 @@ test('A compares two live versions, rolls Live back, and restores an old version
   expect(await (await visit('/')).text()).toContain(firstName);
 });
 
+// P3 S8a (FR-PUB-05): client review. The client opens the review link in a fresh browser (no account), comments on a
+// section from the link under it, approves the version; A sees both under Client feedback, replies and marks the
+// comment done, and the client sees the reply. The review page runs no script and passes axe; a cross-site form
+// is refused.
+test('A gets a comment and an approval through the review link, replies, and the client sees the reply', async ({
+  browser,
+}) => {
+  test.setTimeout(240_000);
+  const page = a.page;
+  await page.goto(`/w/${a.slug}/projects/${projectId}/editor`);
+  const nav = page.getByRole('navigation', { name: 'Site parts' });
+  await nav.getByRole('button', { name: 'Publish', exact: true }).click();
+  await page.getByRole('button', { name: 'Publish to Staging' }).click();
+  const published = page.getByRole('status').filter({ hasText: /Published version \d+ to Staging/ });
+  await expect(published).toBeVisible({ timeout: 30_000 });
+  const stagingNumber = /version (\d+)/.exec((await published.textContent()) ?? '')![1]!;
+  await expect(page.getByTestId('publish-approval')).toHaveText('Not approved yet', { timeout: 30_000 });
+  await page.getByRole('button', { name: 'Create review link' }).click();
+  const open = page.getByRole('link', { name: 'Open' }).first();
+  await expect(open).toBeVisible({ timeout: 30_000 });
+  const reviewUrl = (await open.getAttribute('href'))!;
+
+  const client = await browser.newContext();
+  try {
+    const c = await client.newPage();
+    await c.addInitScript(
+      "document.addEventListener('securitypolicyviolation', (e) => { (globalThis.__v ??= []).push(e.violatedDirective); });",
+    );
+    expect((await c.goto(reviewUrl))?.status()).toBe(200);
+    // Every shown section ends with a link to comment on it; the first one opens the panel with it chosen.
+    await c
+      .getByRole('link', { name: /^Comment on this section/ })
+      .first()
+      .click();
+    await expect(c).toHaveURL(/\/_review\?page=[\w-]+&section=[\w-]+#comment$/);
+    await expect(c.getByRole('heading', { level: 1 })).toContainText('Review ');
+    const where = c.getByLabel('Where');
+    expect(await where.inputValue()).toMatch(/^s:[\w-]+:[\w-]+$/);
+
+    const form = c.getByRole('region', { name: 'Leave a comment' });
+    await form.getByLabel('Comment').fill(`Please make the phone number bigger ${run}`);
+    await form.getByLabel('Your name').fill('Ramesh Client');
+    await form.getByLabel('Your e-mail (optional)').fill(`ramesh-${run}@example.test`);
+    await form.getByRole('button', { name: 'Send comment' }).click();
+    await expect(c).toHaveURL(/\/_review\?done=comment#comments$/);
+    await expect(c.getByRole('status')).toHaveText('Thank you, your comment was sent.');
+    await expect(c.getByRole('region', { name: /^Comments/ })).toContainText(`phone number bigger ${run}`);
+
+    const approve = c.getByRole('region', { name: 'Approve this version' });
+    await approve.getByLabel('Your name').fill('Ramesh Client');
+    await approve.getByLabel('I approve this version of the website').check();
+    await approve.getByRole('button', { name: 'Approve' }).click();
+    await expect(c.getByRole('status')).toHaveText('Thank you, your approval was recorded.');
+    await expect(approve).toContainText('Approved by Ramesh Client on');
+
+    // No script, no CSP violation, no cookie; the panel passes axe.
+    expect(await c.evaluate(() => (globalThis as unknown as { __v?: string[] }).__v ?? [])).toEqual([]);
+    expect(await client.cookies()).toEqual([]);
+    expect(await c.content()).not.toMatch(/<script/i);
+    const axe = await new AxeBuilder({ page: c })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+    expect(axe.violations.map((v) => `${v.id}: ${v.nodes[0]?.target.join(' ')}`)).toEqual([]);
+
+    // A form posted from another site is refused.
+    const u = new URL(reviewUrl);
+    // Node does not resolve *.localhost, so the request goes to 127.0.0.1 with the preview host (like visit() above).
+    const forged = await c.request.post(`http://127.0.0.1:${SITES_PORT}${u.pathname}/_review/approve`, {
+      headers: { origin: 'https://evil.example', host: `${u.hostname}:${SITES_PORT}` },
+      form: { v: '00000000-0000-7000-8000-000000000000', name: 'x', confirm: 'yes' },
+      maxRedirects: 0,
+    });
+    expect(forged.status()).toBe(403);
+
+    // A: the menu counts the open comment; the panel shows it with the approval.
+    await page.reload();
+    await expect(nav.getByTestId('feedback-count')).toHaveText(/^1/, { timeout: 30_000 });
+    await nav.getByRole('button', { name: /^Client feedback/ }).click();
+    const panel = page.getByTestId('feedback-panel');
+    await expect(panel.getByTestId('feedback-approvals')).toContainText(
+      `Ramesh Client approved staging version ${stagingNumber}`,
+    );
+    const comment = panel.getByTestId('feedback-comment').filter({ hasText: `phone number bigger ${run}` });
+    await expect(comment).toContainText(`ramesh-${run}@example.test`);
+    await comment.getByLabel(/^Reply to Ramesh Client/).fill(`Done, the number is bigger now ${run}`);
+    await comment.getByRole('button', { name: 'Send reply' }).click();
+    await expect(page.getByText('Reply sent. The client sees it on the review page.')).toBeVisible({
+      timeout: 30_000,
+    });
+    await comment.getByRole('button', { name: 'Mark done' }).click();
+    await expect(panel.getByText('Every comment is done.')).toBeVisible({ timeout: 30_000 });
+    await expect(nav.getByTestId('feedback-count')).toHaveCount(0);
+    await panel.getByRole('button', { name: 'all' }).click();
+    await expect(panel.getByTestId('feedback-comment').first()).toContainText('Done');
+    // "Show in editor" opens the pinned section.
+    await panel.getByRole('button', { name: 'Show in editor' }).first().click();
+    await expect(nav.locator('[aria-current="true"]')).toHaveCount(1);
+
+    // The client sees the reply and that the comment is done.
+    await c.reload();
+    const thread = c.getByRole('region', { name: /^Comments/ });
+    await expect(thread).toContainText('Reply from');
+    await expect(thread).toContainText(`the number is bigger now ${run}`);
+    await expect(thread.locator('.badge')).toHaveText('Done');
+  } finally {
+    await client.close();
+  }
+
+  // The publish panel and the history name the approval; the audit log names the client's approval.
+  await nav.getByRole('button', { name: 'Publish', exact: true }).click();
+  await expect(page.getByTestId('publish-approval')).toHaveText(/^Approved by Ramesh Client · /, {
+    timeout: 30_000,
+  });
+  await page.goto(`/w/${a.slug}/projects/${projectId}/history`);
+  await expect(page.getByTestId(`version-${stagingNumber}`).getByTestId('version-approved')).toHaveText(
+    'Approved by Ramesh Client',
+  );
+  await page.goto(`/w/${a.slug}/audit`);
+  await expect(page.getByText('Client approved a version').first()).toBeVisible();
+  await expect(page.getByText('Client (review link)').first()).toBeVisible();
+});
+
 test("B cannot open A's version history or a stored version of A's site", async () => {
   const history = await b.page.goto(`/w/${a.slug}/projects/${projectId}/history`);
   expect(history?.status()).toBe(404);

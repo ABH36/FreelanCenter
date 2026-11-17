@@ -178,6 +178,15 @@ export {
   versionChecksum,
 } from './publishing';
 export {
+  type ProjectFeedback,
+  REVIEW_LIMITS,
+  type ReviewApprovalView,
+  type ReviewCommentView,
+  type ReviewReply,
+  type ReviewService,
+  createReviewService,
+} from './review';
+export {
   DIFF_LIMITS,
   type DiffArea,
   type DiffChange,

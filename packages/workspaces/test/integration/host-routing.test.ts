@@ -307,6 +307,7 @@ describe('dashboard changes reach apps/sites through the outbox and the host cac
       del: async () => {
         throw new Error('upstash DEL failed (503)');
       },
+      incr: async () => 1,
     };
     const handler = createHostCacheInvalidationHandler({ db, cache: down });
     await expect(handler.invalidate({ workspaceId: ws.id, projectId: id })).rejects.toThrow('503');
