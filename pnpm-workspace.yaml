@@ -33,3 +33,12 @@ overrides:
   sharp: '>=0.35.5' # GHSA-wq5f-xc86-pv6w (high)
   fast-uri: '>=3.1.9' # GHSA moderate/low x4 (scheme spoofing, host confusion); via the Prisma CLI's local dev server
   vite: '>=8.3.3' # GHSA-587h-7wmj-h5pm (high); dev-only, pulled in by vitest
+
+# Audit exceptions: one advisory per entry, each with a reason and a gap-register line, removed as soon as a
+# patched release passes the 14-day release-age rule. Owner-approved 2026-11-18.
+auditConfig:
+  ignoreGhsas:
+    # picomatch <=4.0.7 ReDoS via crafted extglob patterns (high). No patched release exists yet. picomatch runs
+    # only in build and dev tooling (@sentry/nextjs build plugin, eslint, vite/vitest) on our own fixed globs;
+    # no request path passes user input to it. DG-38.
+    - GHSA-fc5q-39xc-vjpf
