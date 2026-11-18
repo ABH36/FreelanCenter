@@ -1,6 +1,6 @@
 # Phase 3, slice S8a: client review (comments pinned to sections, approval, replies)
 
-**Status:** built on `feat/p3-s8a-client-review`; CI-equivalent and e2e green (sections 5-6); awaiting Owner approval. **Date:** 2026-11-16 · **Requirement:** FR-PUB-05 (Client Review Mode: pinned comments on blocks/sections, ReviewComment; the client comments and clicks Approve through the tokenised review link; the approval is recorded with who, when and which version) · **ADRs:** 002, 004, 005 · **Modules:** 06 (08 for the later portal) · **Plan approved by the Owner 2026-11-16** with all seven decisions as recommended (section 3). **Migration:** `20261116120000_p3_s8a_client_review`; the live database needs a separate Owner OK (DG-37 (a)).
+**Status:** built on `feat/p3-s8a-client-review`; CI-equivalent and e2e green (sections 5-6); **approved by the Owner 2026-11-18**; merged in PR #98 (`fb73c5f`). **Date:** 2026-11-16 · **Requirement:** FR-PUB-05 (Client Review Mode: pinned comments on blocks/sections, ReviewComment; the client comments and clicks Approve through the tokenised review link; the approval is recorded with who, when and which version) · **ADRs:** 002, 004, 005 · **Modules:** 06 (08 for the later portal) · **Plan approved by the Owner 2026-11-16** with all seven decisions as recommended (section 3). **Migration:** `20261116120000_p3_s8a_client_review`; the live database needs a separate Owner OK (DG-37 (a)).
 
 ## 1. Why
 
@@ -107,6 +107,6 @@ Unchanged (DG-33): review links stay on the preview host path `/s/<token>`; the 
 
 ## 9. Open items
 
-- Owner approval of S8a.
+- ~~Owner approval of S8a~~: approved 2026-11-18, merged in PR #98.
 - After the merge: live migration with a separate Owner OK (DG-37 (a)), then a production check with the Chrome extension (comment from a section link, approve, reply, mark done, client sees the reply; console errors in a clean profile).
 - S8b (DG-37 (b)).
