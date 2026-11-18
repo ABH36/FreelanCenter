@@ -1,6 +1,6 @@
 # Phase 3, slice S8a: client review (comments pinned to sections, approval, replies)
 
-**Status:** built on `feat/p3-s8a-client-review`; CI-equivalent and e2e green (sections 5-6); awaiting Owner approval. **Date:** 2026-11-16 · **Requirement:** FR-PUB-05 (Client Review Mode: pinned comments on blocks/sections, ReviewComment; the client comments and clicks Approve through the tokenised review link; the approval is recorded with who, when and which version) · **ADRs:** 002, 004, 005 · **Modules:** 06 (08 for the later portal) · **Plan approved by the Owner 2026-11-16** with all seven decisions as recommended (section 3). **Migration:** `20261116120000_p3_s8a_client_review`; the live database needs a separate Owner OK (DG-37 (a)).
+**Status:** built on `feat/p3-s8a-client-review`; CI-equivalent and e2e green (sections 5-6); **approved by the Owner 2026-11-18**; merged in PR #98 (`fb73c5f`). **Date:** 2026-11-16 · **Requirement:** FR-PUB-05 (Client Review Mode: pinned comments on blocks/sections, ReviewComment; the client comments and clicks Approve through the tokenised review link; the approval is recorded with who, when and which version) · **ADRs:** 002, 004, 005 · **Modules:** 06 (08 for the later portal) · **Plan approved by the Owner 2026-11-16** with all seven decisions as recommended (section 3). **Migration:** `20261116120000_p3_s8a_client_review`; the live database needs a separate Owner OK (DG-37 (a)).
 
 ## 1. Why
 
@@ -107,6 +107,21 @@ Unchanged (DG-33): review links stay on the preview host path `/s/<token>`; the 
 
 ## 9. Open items
 
-- Owner approval of S8a.
-- After the merge: live migration with a separate Owner OK (DG-37 (a)), then a production check with the Chrome extension (comment from a section link, approve, reply, mark done, client sees the reply; console errors in a clean profile).
+- ~~Owner approval of S8a~~: approved 2026-11-18, merged in PR #98.
+- ~~Live migration~~: applied 2026-11-18 with the Owner's OK (section 10). Next: a production check with the Chrome extension (comment from a section link, approve, reply, mark done, client sees the reply; console errors in a clean profile).
 - S8b (DG-37 (b)).
+
+## 10. Live application (2026-11-18, Owner-approved)
+
+The Owner approved the live migration in writing on 2026-11-18, after the PR #98 merge. It was run from the developer machine against the Supabase `ap-south-1` project as `migrator`, which is not a superuser and has no BYPASSRLS. Production deployed `fb73c5f` at 05:03 UTC and the migration finished a few minutes later. During that gap, the history page, the feedback panel and the review page could fail on production, because their tables and functions did not exist yet. The migration only adds objects, so nothing that was already running was affected. No secret was printed or stored.
+
+| Step                                                     | Result                                                                                                                                                            |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Read-only pre-check (read-only transaction, rolled back) | remote host, role `migrator`, not superuser, no BYPASSRLS; 14 migrations, none unfinished or rolled back, latest S7a; S8a not recorded; neither new table present |
+| `prisma migrate deploy` (`DB_TARGET=env`)                | applied `20261116120000_p3_s8a_client_review`                                                                                                                     |
+| `prisma migrate status`                                  | database schema is up to date (15 migrations)                                                                                                                     |
+| Live database vs `schema.prisma`                         | no difference detected                                                                                                                                            |
+| `db:verify --target env`                                 | **47 passed, 0 failed** (new: both review tables unreadable for app_public, four visitor functions, unknown-link answers)                                         |
+| `test:live`                                              | two runs: 6 passed, 1 skipped (unchanged)                                                                                                                         |
+
+Lesson for the next migration: apply an additive migration **before** the merge, as S7a did, so that production never runs code whose database objects do not exist yet.
