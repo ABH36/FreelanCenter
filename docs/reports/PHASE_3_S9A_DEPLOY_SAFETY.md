@@ -1,6 +1,6 @@
 # Phase 3, slice S9a: deploy safety, one clock and clearer approval wording
 
-**Status:** built on `feat/p3-s9a-deploy-safety`; tests in section 5; **awaiting the Owner's approval**. **Date:** 2026-11-18 · **Requirements:** FR-OBS-01 (alerting on a failed release step), NFR-OPS-01 (environments reproducible and verifiable), FR-PUB-06 (approval shown in the Publish panel), FR-BLD-01/06 (editor saves; no silent loss) · **Modules:** 05, 06, 16 · **Gap:** DG-39 (a), (b), (c) · **Plan approved by the Owner 2026-11-18** ("okay plan approve hai or tumhare recommendation bhi sahi hai"): split S9a → S9b → S9c, free reload notice instead of Vercel Skew Protection, 12-hour IST clock. **Migration:** none, so no live database step.
+**Status:** built on `feat/p3-s9a-deploy-safety`; tests in section 5; **approved by the Owner 2026-11-18** ("S9a approve hai okay"). **Date:** 2026-11-18 · **Requirements:** FR-OBS-01 (alerting on a failed release step), NFR-OPS-01 (environments reproducible and verifiable), FR-PUB-06 (approval shown in the Publish panel), FR-BLD-01/06 (editor saves; no silent loss) · **Modules:** 05, 06, 16 · **Gap:** DG-39 (a), (b), (c) · **Plan approved by the Owner 2026-11-18** ("okay plan approve hai or tumhare recommendation bhi sahi hai"): split S9a → S9b → S9c, free reload notice instead of Vercel Skew Protection, 12-hour IST clock. **Migration:** none, so no live database step.
 
 ## 1. Why
 
