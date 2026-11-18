@@ -38,6 +38,11 @@ const ACTION_LABELS: Record<string, string> = {
   'template.preview_link.created': 'Preview link created',
   'template.preview_link.revoked': 'Preview link turned off',
   'audit.exported': 'Audit log exported',
+  // P3 S8a: client review.
+  'review.version_approved': 'Client approved a version',
+  'review.comment_replied': 'Replied to a client comment',
+  'review.comment_resolved': 'Client comment marked done',
+  'review.comment_reopened': 'Client comment opened again',
 };
 const actionLabel = (action: string) =>
   ACTION_LABELS[action] ?? action.replace(/[._]/g, ' ').replace(/^./, (c) => c.toUpperCase());
@@ -104,6 +109,7 @@ export default async function AuditPage({
     invitation: 'Invitation',
     site_version: 'Site version',
     staging_link: 'Review link',
+    review_comment: 'Client comment',
   };
   const typeLabel = (type: string | null) => (type ? (TYPE_LABEL[type] ?? type.replace(/_/g, ' ')) : '—');
   const linkOf = (metadata: unknown) => {
@@ -184,7 +190,12 @@ export default async function AuditPage({
                     {r.result}
                   </td>
                   <td className="px-3 py-2 text-xs">
-                    {r.actorName ?? (r.actorId ? r.actorId.slice(0, 8) : r.actorType)}
+                    {r.actorName ??
+                      (r.actorId
+                        ? r.actorId.slice(0, 8)
+                        : r.actorType === 'client'
+                          ? 'Client (review link)'
+                          : r.actorType)}
                   </td>
                   <td className="px-3 py-2 text-xs">
                     {r.projectId ? (

@@ -27,6 +27,7 @@ import {
   type Outbox,
   type ProjectService,
   type PublishingService,
+  type ReviewService,
   type TemplateService,
   type WorkspaceContext,
   type WorkspaceService,
@@ -40,6 +41,7 @@ import {
   createOutbox,
   createProjectService,
   createPublishingService,
+  createReviewService,
   createTemplateService,
   createWorkspaceService,
   previewSettingsFromEnv,
@@ -64,6 +66,8 @@ interface WorkspaceRuntime {
   assets: AssetService;
   /** P3 S7a: publishing, preflight and staging links (module 06). */
   publishing: PublishingService;
+  /** P3 S8a: client review (feedback, replies, resolution). */
+  review: ReviewService;
   notifications: NotificationService;
   audit: AuditService;
   jobs: Jobs;
@@ -175,6 +179,7 @@ function build(): WorkspaceRuntime {
     builder: instrument(logger, 'builder', builder),
     assets: instrument(logger, 'assets', assets),
     publishing: instrument(logger, 'publishing', publishing),
+    review: instrument(logger, 'review', createReviewService({ db, logger })),
     notifications: instrument(logger, 'notifications', notifications),
     audit: instrument(logger, 'audit', audit),
     jobs,
@@ -205,6 +210,7 @@ export const templateService = async (): Promise<TemplateService> => (await read
 export const builderService = async (): Promise<BuilderService> => (await ready()).builder;
 export const assetService = async (): Promise<AssetService> => (await ready()).assets;
 export const publishingService = async (): Promise<PublishingService> => (await ready()).publishing;
+export const reviewService = async (): Promise<ReviewService> => (await ready()).review;
 export const notificationService = async (): Promise<NotificationService> => (await ready()).notifications;
 export const auditService = async (): Promise<AuditService> => (await ready()).audit;
 export const workspaceOutbox = async (): Promise<Outbox> => (await ready()).outbox;

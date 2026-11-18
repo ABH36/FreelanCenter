@@ -6,7 +6,7 @@
 import pg from 'pg';
 import { createTenantDatabase, uuidv7, type TenantDatabase, type TenantScope, type Tx } from '@platform/db';
 import { LOCAL_DATABASE_URLS } from '@platform/db/testing';
-import { TENANT_TABLES, type FactoryContext, type TableName } from './factories';
+import { TENANT_TABLES, type FactoryContext, type TableName, type TenantTableSpec } from './factories';
 
 export { expectPgError, sqlStates } from '@platform/db/testing';
 export const urls = LOCAL_DATABASE_URLS;
@@ -44,24 +44,63 @@ export interface Tenant {
   ctx: FactoryContext;
 }
 
-export function factoryContext(auth: pg.Pool, workspaceId: string, ownerId: string): FactoryContext {
-  return { workspaceId, ownerId, unique, createUser: () => createUser(auth) };
+/** The visitor role's pool (P3 S8a), shared by every factory context of the process. */
+let visitorPool: pg.Pool | null = null;
+function visitorRole(): pg.Pool {
+  return (visitorPool ??= pool(urls.public, 2));
 }
+export async function closeVisitor(): Promise<void> {
+  const p = visitorPool;
+  visitorPool = null;
+  await p?.end();
+}
+
+export function factoryContext(
+  auth: pg.Pool,
+  db: TenantDatabase,
+  workspaceId: string,
+  ownerId: string,
+): FactoryContext {
+  return {
+    workspaceId,
+    ownerId,
+    unique,
+    createUser: () => createUser(auth),
+    commit: async (fn) => {
+      const scope = await db.resolveTenantScope(ownerId, workspaceId);
+      if (!scope) throw new Error('isolation: the owner has no membership in this workspace');
+      return db.withTenant(scope, fn);
+    },
+    visitor: async (sql, params) => (await visitorRole().query(sql, params)).rows,
+  };
+}
+
+const isLate = (table: TableName) => (TENANT_TABLES[table] as TenantTableSpec).late === true;
 
 /** A workspace with its owner membership and one row in every registered tenant table. */
 export async function seedTenant(db: TenantDatabase, auth: pg.Pool): Promise<Tenant> {
   const ownerId = await createUser(auth);
-  return db.withNewWorkspace(ownerId, async (tx, scope) => {
-    const ctx = factoryContext(auth, scope.workspaceId, ownerId);
+  const tenant = await db.withNewWorkspace(ownerId, async (tx, scope) => {
+    const ctx = factoryContext(auth, db, scope.workspaceId, ownerId);
     const rows = {} as Record<TableName, string>;
     // The workspace and the owner membership come first: every other factory depends on them.
     rows.workspaces = await create(tx, 'workspaces', ctx);
     await tx.membership.create({ data: { workspaceId: scope.workspaceId, userId: ownerId, role: 'owner' } });
     for (const table of Object.keys(TENANT_TABLES) as TableName[]) {
-      if (table !== 'workspaces') rows[table] = await create(tx, table, ctx);
+      if (table !== 'workspaces' && !isLate(table)) rows[table] = await create(tx, table, ctx);
     }
     return { scope, ownerId, rows, ctx };
   });
+  // P3 S8a: tables only a visitor function writes need committed parents, so they come after the workspace.
+  for (const table of Object.keys(TENANT_TABLES) as TableName[]) {
+    if (!isLate(table)) continue;
+    const spec = TENANT_TABLES[table] as TenantTableSpec;
+    const deps = await spec.prepare(null as unknown as Tx, tenant.ctx);
+    tenant.rows[table] = spec.seed
+      ? await spec.seed(tenant.ctx, deps)
+      : await tenant.ctx.commit((tx) => spec.insert(tx, tenant.ctx, deps));
+  }
+  return tenant;
 }
 
 /** prepare + insert in the caller's transaction. */
@@ -99,7 +138,7 @@ export async function createWorld(): Promise<World> {
     B,
     close: async () => {
       await db.disconnect();
-      await Promise.all([admin.end(), auth.end(), rawApp.end()]);
+      await Promise.all([admin.end(), auth.end(), rawApp.end(), closeVisitor()]);
     },
   };
 }

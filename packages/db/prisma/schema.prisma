@@ -287,6 +287,8 @@ model Workspace {
   siteVersions         SiteVersion[]
   sitePointers         SitePointer[]
   stagingLinks         StagingLink[]
+  reviewComments       ReviewComment[]
+  reviewApprovals      ReviewApproval[]
   projectEditLocks     ProjectEditLock[]
   assets               Asset[]
 
@@ -368,6 +370,8 @@ model Project {
   siteVersions      SiteVersion[]
   sitePointers      SitePointer[]
   stagingLinks      StagingLink[]
+  reviewComments    ReviewComment[]
+  reviewApprovals   ReviewApproval[]
   projectEditLocks  ProjectEditLock[]
   assets            Asset[]
 
@@ -727,25 +731,27 @@ model ChangeSet {
 
 /// An immutable published snapshot (Q7: no UPDATE/DELETE/TRUNCATE for any role).
 model SiteVersion {
-  id                  String          @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  workspaceId         String          @map("workspace_id") @db.Uuid
-  projectId           String          @map("project_id") @db.Uuid
+  id                  String           @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  workspaceId         String           @map("workspace_id") @db.Uuid
+  projectId           String           @map("project_id") @db.Uuid
   kind                SiteVersionKind
-  config              Json            @db.JsonB
-  schemaVersion       String          @map("schema_version")
+  config              Json             @db.JsonB
+  schemaVersion       String           @map("schema_version")
   /// SHA-256 (hex) of the canonical config.
   checksum            String
-  sourceDraftRevision Int             @map("source_draft_revision")
+  sourceDraftRevision Int              @map("source_draft_revision")
   note                String?
-  createdBy           String?         @map("created_by") @db.Uuid
-  createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  workspace           Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
-  project             Project         @relation(fields: [workspaceId, projectId], references: [workspaceId, id], onDelete: Restrict)
+  createdBy           String?          @map("created_by") @db.Uuid
+  createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  workspace           Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  project             Project          @relation(fields: [workspaceId, projectId], references: [workspaceId, id], onDelete: Restrict)
   pointers            SitePointer[]
+  reviewComments      ReviewComment[]
+  reviewApprovals     ReviewApproval[]
   /// P3 S7a: asset id -> { width: URL } of the images the version shows, so it never depends on the library.
-  assets              Json            @default("{}") @db.JsonB
+  assets              Json             @default("{}") @db.JsonB
   /// P3 S7a: the browser's idempotency key of the publish request.
-  publishKey          String?         @map("publish_key") @db.Uuid
+  publishKey          String?          @map("publish_key") @db.Uuid
   /// P3 S7a: 1, 2, 3 ... per project, set by the database (null on rows written before S7).
   number              Int?
 
@@ -779,16 +785,18 @@ model SitePointer {
 /// P3 S7a: a signed, revocable link to a project's current staging version (`/s/<token>` on the sites app).
 /// Triggers, policies and grants live in migration 20261115210000_p3_s7a_publishing.
 model StagingLink {
-  id          String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  workspaceId String    @map("workspace_id") @db.Uuid
-  projectId   String    @map("project_id") @db.Uuid
-  createdBy   String?   @map("created_by") @db.Uuid
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  expiresAt   DateTime  @map("expires_at") @db.Timestamptz(6)
-  revokedAt   DateTime? @map("revoked_at") @db.Timestamptz(6)
-  revokedBy   String?   @map("revoked_by") @db.Uuid
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
-  project     Project   @relation(fields: [workspaceId, projectId], references: [workspaceId, id], onDelete: Restrict)
+  id              String           @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  workspaceId     String           @map("workspace_id") @db.Uuid
+  projectId       String           @map("project_id") @db.Uuid
+  createdBy       String?          @map("created_by") @db.Uuid
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt       DateTime         @map("expires_at") @db.Timestamptz(6)
+  revokedAt       DateTime?        @map("revoked_at") @db.Timestamptz(6)
+  revokedBy       String?          @map("revoked_by") @db.Uuid
+  workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  project         Project          @relation(fields: [workspaceId, projectId], references: [workspaceId, id], onDelete: Restrict)
+  reviewComments  ReviewComment[]
+  reviewApprovals ReviewApproval[]
 
   @@unique([workspaceId, id])
   @@index([workspaceId, projectId, createdAt(sort: Desc)])
@@ -857,5 +865,74 @@ model Asset {
   @@unique([workspaceId, id])
   @@index([workspaceId, projectId, createdAt(sort: Desc)])
   @@map("assets")
+  @@schema("app")
+}
+
+enum ReviewAuthorKind {
+  client
+  member
+
+  @@map("review_author_kind")
+  @@schema("app")
+}
+
+/// P3 S8a (FR-PUB-05): a client comment through a staging link, pinned to a page/section of the version it saw, or a
+/// member's reply to one. Authors, times and a reply's pin are set by the database; only resolution changes; never deleted.
+model ReviewComment {
+  id            String           @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  workspaceId   String           @map("workspace_id") @db.Uuid
+  projectId     String           @map("project_id") @db.Uuid
+  siteVersionId String           @map("site_version_id") @db.Uuid
+  stagingLinkId String           @map("staging_link_id") @db.Uuid
+  pageId        String?          @map("page_id")
+  sectionId     String?          @map("section_id")
+  authorKind    ReviewAuthorKind @map("author_kind")
+  /// Client comments: the name the client typed (personal data, data-classification.md).
+  authorName    String?          @map("author_name")
+  authorEmail   String?          @map("author_email")
+  authorUserId  String?          @map("author_user_id") @db.Uuid
+  body          String
+  parentId      String?          @map("parent_id") @db.Uuid
+  /// Keyed hash of the client's IP (abuse investigation only); never the address.
+  ipHash        String?          @map("ip_hash")
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  resolvedAt    DateTime?        @map("resolved_at") @db.Timestamptz(6)
+  resolvedBy    String?          @map("resolved_by") @db.Uuid
+  workspace     Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  project       Project          @relation(fields: [workspaceId, projectId], references: [workspaceId, id], onDelete: Restrict)
+  siteVersion   SiteVersion      @relation(fields: [workspaceId, siteVersionId], references: [workspaceId, id], onDelete: Restrict)
+  stagingLink   StagingLink      @relation(fields: [workspaceId, stagingLinkId], references: [workspaceId, id], onDelete: Restrict)
+  parent        ReviewComment?   @relation("ReviewReplies", fields: [workspaceId, parentId], references: [workspaceId, id], onDelete: Restrict)
+  replies       ReviewComment[]  @relation("ReviewReplies")
+
+  @@unique([workspaceId, id])
+  @@index([workspaceId, projectId, createdAt(sort: Desc)])
+  @@index([stagingLinkId, siteVersionId, createdAt])
+  @@index([siteVersionId])
+  @@map("review_comments")
+  @@schema("app")
+}
+
+/// P3 S8a (FR-PUB-05): a client's approval of one version through one link (who, when, which version). Immutable.
+model ReviewApproval {
+  id            String      @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  workspaceId   String      @map("workspace_id") @db.Uuid
+  projectId     String      @map("project_id") @db.Uuid
+  siteVersionId String      @map("site_version_id") @db.Uuid
+  stagingLinkId String      @map("staging_link_id") @db.Uuid
+  approverName  String      @map("approver_name")
+  approverEmail String?     @map("approver_email")
+  ipHash        String?     @map("ip_hash")
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  workspace     Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  project       Project     @relation(fields: [workspaceId, projectId], references: [workspaceId, id], onDelete: Restrict)
+  siteVersion   SiteVersion @relation(fields: [workspaceId, siteVersionId], references: [workspaceId, id], onDelete: Restrict)
+  stagingLink   StagingLink @relation(fields: [workspaceId, stagingLinkId], references: [workspaceId, id], onDelete: Restrict)
+
+  @@unique([workspaceId, id])
+  @@unique([workspaceId, stagingLinkId, siteVersionId])
+  @@index([workspaceId, projectId, createdAt(sort: Desc)])
+  @@index([siteVersionId])
+  @@map("review_approvals")
   @@schema("app")
 }

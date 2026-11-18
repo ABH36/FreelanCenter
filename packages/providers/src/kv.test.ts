@@ -95,9 +95,34 @@ describe('memory store', () => {
     expect(await store.get('k')).toBeNull();
     await store.set('a', '1', 5);
     expect(await store.del(['a', 'missing'])).toBe(1);
-    expect(store.calls).toEqual({ get: 2, set: 2, del: 1 });
+    expect(store.calls).toEqual({ get: 2, set: 2, del: 1, incr: 0 });
     store.clear();
     expect(store.ttlOf('a')).toBeNull();
+  });
+
+  it('incr counts within a window and starts again after it (P3 S8a)', async () => {
+    let now = 0;
+    const store = createMemoryStore({ now: () => now });
+    expect([await store.incr('r', 60), await store.incr('r', 60), await store.incr('r', 60)]).toEqual([
+      1, 2, 3,
+    ]);
+    expect(store.ttlOf('r')).toBe(60);
+    now += 60_000;
+    expect(await store.incr('r', 60)).toBe(1);
+    await expect(store.incr('r', 0)).rejects.toThrow(RangeError);
+  });
+});
+
+describe('Upstash incr (P3 S8a)', () => {
+  it('creates the key with its expiry first (SET NX EX), then INCRs it', async () => {
+    const { store, calls } = upstash((args) => Response.json({ result: args[0] === 'INCR' ? 4 : null }));
+    await expect(store.incr('sites:review:v1:link:x', 3600)).resolves.toBe(4);
+    expect(calls.map((c) => JSON.parse(String(c.init.body)))).toEqual([
+      ['SET', 'sites:review:v1:link:x', '0', 'EX', 3600, 'NX'],
+      ['INCR', 'sites:review:v1:link:x'],
+    ]);
+    const { store: odd } = upstash(() => Response.json({ result: 'OK' }));
+    await expect(odd.incr('k', 5)).rejects.toBeInstanceOf(KeyValueError);
   });
 });
 

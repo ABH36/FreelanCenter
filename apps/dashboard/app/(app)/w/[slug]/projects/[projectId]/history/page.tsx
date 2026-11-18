@@ -17,6 +17,7 @@ import {
   projectService,
   publishingService,
   requireUserId,
+  reviewService,
 } from '@/lib/workspaces';
 import { RestoreButton, RollbackButton } from './history-actions';
 
@@ -101,6 +102,13 @@ export default async function HistoryPage({
     });
   const listing =
     history ?? (await publishing.history(userId, { workspaceId: ws.id, projectId: project.id, kind }));
+  // P3 S8a: which staging versions the client approved (first approval per version).
+  const approvedBy = new Map<string, string>();
+  for (const a of (
+    await (await reviewService()).feedback(userId, { workspaceId: ws.id, projectId: project.id })
+  ).approvals) {
+    approvedBy.set(a.siteVersionId, a.approverName);
+  }
 
   let comparison: VersionComparison | null = null;
   let compareProblem = '';
@@ -264,6 +272,7 @@ export default async function HistoryPage({
                 <VersionRow
                   key={v.id}
                   v={v}
+                  approvedBy={approvedBy.get(v.id) ?? null}
                   older={versions[i + 1] ?? null}
                   liveVersionId={listing.liveVersionId}
                   compareHref={(from, to) => href({ kind: search.kind, after: search.after, from, to })}
@@ -322,6 +331,7 @@ export default async function HistoryPage({
 
 function VersionRow({
   v,
+  approvedBy,
   older,
   liveVersionId,
   compareHref,
@@ -329,6 +339,8 @@ function VersionRow({
   restore,
 }: {
   v: HistoryVersion;
+  /** P3 S8a: the client who approved this (staging) version, if any. */
+  approvedBy: string | null;
   older: HistoryVersion | null;
   liveVersionId: string | null;
   compareHref: (from: string, to: string) => string;
@@ -349,6 +361,14 @@ function VersionRow({
         {v.current ? (
           <span className="rounded-full bg-slate-900 px-2 py-0.5 text-xs font-medium text-white">
             Now on {kindLabel(v.current)}
+          </span>
+        ) : null}
+        {approvedBy ? (
+          <span
+            className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-900"
+            data-testid="version-approved"
+          >
+            Approved by {approvedBy}
           </span>
         ) : null}
         <span className="text-slate-700">

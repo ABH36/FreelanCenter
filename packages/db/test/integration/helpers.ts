@@ -53,7 +53,7 @@ export interface SeededWorkspace {
 export async function seedWorkspace(db: TenantDatabase, auth: pg.Pool): Promise<SeededWorkspace> {
   const ownerId = await createUser(auth);
   const slug = uniqueSlug();
-  return db.withNewWorkspace(ownerId, async (tx, scope) => {
+  const seeded = await db.withNewWorkspace(ownerId, async (tx, scope) => {
     await tx.workspace.create({
       data: { id: scope.workspaceId, name: `Workspace ${slug}`, slug, createdBy: ownerId },
     });
@@ -179,7 +179,7 @@ export async function seedWorkspace(db: TenantDatabase, auth: pg.Pool): Promise<
       data: { ...builder, holderUserId: ownerId, expiresAt: new Date(Date.now() + 60_000) },
     });
     // P3 S7a: one review link to the staging version.
-    await tx.stagingLink.create({
+    const link = await tx.stagingLink.create({
       data: { ...builder, expiresAt: new Date(Date.now() + 86_400_000) },
     });
     // P3 S6: one pending image in the project's library.
@@ -192,8 +192,47 @@ export async function seedWorkspace(db: TenantDatabase, auth: pg.Pool): Promise<
         storageToken: createHash('sha256').update(`asset-${slug}`).digest('base64url').slice(0, 22),
       },
     });
-    return { scope, ownerId, projectId: project.id, contactId: contact.id, domainId: domain.id, hostname };
+    return {
+      scope,
+      ownerId,
+      projectId: project.id,
+      contactId: contact.id,
+      domainId: domain.id,
+      hostname,
+      review: { linkId: link.id, versionId: staging.id },
+    };
   });
+  // P3 S8a: a client comment and approval through the link (only the visitor functions write those), and a reply.
+  const visitor = pool(urls.public, 1);
+  try {
+    await visitor.query(
+      "SELECT app.add_review_comment($1::uuid, $2::uuid, NULL, NULL, 'Seed client', NULL, 'Seed comment', NULL)",
+      [seeded.review.linkId, seeded.review.versionId],
+    );
+    await visitor.query("SELECT app.approve_review_version($1::uuid, $2::uuid, 'Seed client', NULL, NULL)", [
+      seeded.review.linkId,
+      seeded.review.versionId,
+    ]);
+  } finally {
+    await visitor.end();
+  }
+  await db.withTenant(seeded.scope, async (tx) => {
+    const comment = await tx.reviewComment.findFirstOrThrow({ select: { id: true } });
+    await tx.reviewComment.create({
+      data: {
+        workspaceId: seeded.scope.workspaceId,
+        projectId: seeded.projectId,
+        siteVersionId: seeded.review.versionId,
+        stagingLinkId: seeded.review.linkId,
+        authorKind: 'member',
+        body: 'Seed reply',
+        parentId: comment.id,
+      },
+      select: { id: true },
+    });
+  });
+  const { review: _review, ...rest } = seeded;
+  return rest;
 }
 
 /** Tables in schema `app` that carry a workspace_id column (auto-discovered, SRS 5.3 item 5). */

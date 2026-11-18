@@ -375,6 +375,27 @@ describe('base path and banner (preview links live under /p/<token>)', () => {
     expect(r.html.indexOf('pb-banner')).toBeLessThan(r.html.indexOf('<header'));
   });
 
+  it('review links (P3 S8a): one escaped link after each shown section, a panel link in the banner, their CSS', () => {
+    const review = {
+      section: (pageId: string, sectionId: string, type: string) => ({
+        href: `${BASE}/_review?page=${pageId}&section=${sectionId}`,
+        label: `Comment "${type}" <x>`,
+      }),
+      panel: { href: `${BASE}/_review`, label: 'Comments & approval' },
+    };
+    const r = ok(render(twoPages(), '/', { mode: 'preview', basePath: BASE, banner: 'Staging', review }));
+    const shown = twoPages().pages[0]!.sections.filter((s) => s.visible !== false).length;
+    expect(r.html.match(/<p class="pb-review-pin">/g)).toHaveLength(shown);
+    expect(r.html).toContain('&amp;section=');
+    expect(r.html).toContain('Comment "');
+    expect(r.html).toContain('&lt;x&gt;');
+    expect(r.html).toContain(`Staging<a href="${BASE}/_review">Comments &amp; approval</a>`);
+    expect(r.inlineStyles.join('')).toContain('.pb-review-pin');
+    const plain = ok(render(twoPages(), '/', { mode: 'preview', basePath: BASE, banner: 'Staging' }));
+    expect(plain.html).not.toContain('pb-review-pin');
+    expect(plain.inlineStyles.join('')).not.toContain('.pb-review-pin');
+  });
+
   it('without a base path or a banner nothing changes; a malformed base path is refused', () => {
     const plain = ok(render(twoPages(), '/'));
     expect(plain.html).not.toContain('class="pb-banner"');

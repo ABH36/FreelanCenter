@@ -155,6 +155,10 @@ const tenantTables = await withClient('bootstrap', async (op) => {
     'operator_publish_builtin_template',
     'get_published_version',
     'get_staging_site',
+    'add_review_comment',
+    'approve_review_version',
+    'get_review_thread',
+    'get_review_approval',
   ].sort();
   check(
     `SECURITY DEFINER functions: exactly the ${expectedDefiners.length} expected, owned by svc_definer, search_path pinned`,
@@ -180,11 +184,15 @@ const tenantTables = await withClient('bootstrap', async (op) => {
       ORDER BY 1`,
   );
   check(
-    'app_public can execute exactly resolve_host, the two catalogue read functions, is_preview_link_revoked (P2 S8b), preview_link_sender (P2 S10), get_published_version and get_staging_site (P3 S7a)',
+    'app_public can execute exactly resolve_host, the two catalogue read functions, is_preview_link_revoked (P2 S8b), preview_link_sender (P2 S10), get_published_version and get_staging_site (P3 S7a), the four client review functions (P3 S8a)',
     JSON.stringify(publicFns.map((r) => r.proname)) ===
       JSON.stringify([
+        'add_review_comment',
+        'approve_review_version',
         'get_catalog_template',
         'get_published_version',
+        'get_review_approval',
+        'get_review_thread',
         'get_staging_site',
         'is_preview_link_revoked',
         'list_catalog_templates',
@@ -334,6 +342,8 @@ await withClient('public', async (c) => {
     'project_edit_locks',
     'assets',
     'staging_links',
+    'review_comments',
+    'review_approvals',
   ]) {
     check(`app_public cannot read ${table}`, await denied(c, `SELECT id FROM app.${table} LIMIT 1`));
   }
@@ -349,6 +359,22 @@ await withClient('public', async (c) => {
     'an unknown staging link is unknown (get_staging_site)',
     noLink.rows.length === 1 && noLink.rows[0].status === 'unknown',
   );
+  // P3 S8a: an unknown link cannot comment, approve or read a thread.
+  const noComment = await c.query(
+    "SELECT app.add_review_comment('00000000-0000-7000-8000-000000000000', '00000000-0000-7000-8000-000000000000', NULL, NULL, 'x', NULL, 'x', NULL) AS r",
+  );
+  check('an unknown staging link cannot comment (add_review_comment)', noComment.rows[0]?.r === 'unknown');
+  const noApproval = await c.query(
+    "SELECT app.approve_review_version('00000000-0000-7000-8000-000000000000', '00000000-0000-7000-8000-000000000000', 'x', NULL, NULL) AS r",
+  );
+  check(
+    'an unknown staging link cannot approve (approve_review_version)',
+    noApproval.rows[0]?.r === 'unknown',
+  );
+  const noThread = await c.query(
+    "SELECT id FROM app.get_review_thread('00000000-0000-7000-8000-000000000000', '00000000-0000-7000-8000-000000000000')",
+  );
+  check('an unknown staging link has no thread (get_review_thread)', noThread.rows.length === 0);
   check(
     'app_public cannot publish a platform template',
     await denied(

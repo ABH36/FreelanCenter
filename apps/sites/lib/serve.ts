@@ -11,7 +11,7 @@ import { parseSiteConfig } from '@platform/schema';
 import { normalizeHost } from '@platform/hosting';
 import { type PageKind, pageResponse } from './pages';
 import { type PreviewDeps, servePreview } from './preview';
-import { type StagingDeps, serveStaging } from './staging';
+import { type StagingDeps, serveStaging, serveStagingPost } from './staging';
 import { LIVE_CACHE_CONTROL, documentResponse, textResponse } from './site-response';
 import type { SiteContent, SiteSource } from './site-source';
 
@@ -84,6 +84,38 @@ function serveSite(
       : { kind: doc.kind },
   );
   return pageResponse('unavailable', common);
+}
+
+const METHOD_NOT_ALLOWED = () =>
+  new Response(null, { status: 405, headers: { allow: 'GET, HEAD', 'cache-control': 'no-store' } });
+
+/**
+ * POST (P3 S8a): only the client review forms of a staging link (`/s/<token>/_review/comment|approve` on the
+ * preview host). Every other host and path answers 405, as before S8a.
+ */
+export async function servePost(
+  request: Request,
+  deps: {
+    logger: Logger;
+    preview?: () => Promise<PreviewDeps | null>;
+    staging?: () => Promise<StagingDeps | null>;
+  },
+): Promise<Response> {
+  const correlationId = getCorrelationIdFromHeaders(request.headers);
+  return runWithContext({ correlationId, app: 'sites' }, async () => {
+    try {
+      const previewDeps = deps.preview ? await deps.preview() : null;
+      const requested = normalizeHost(request.headers.get('host'));
+      if (!previewDeps || requested !== previewDeps.host) return METHOD_NOT_ALLOWED();
+      if (!new URL(request.url).pathname.startsWith('/s/')) return METHOD_NOT_ALLOWED();
+      const stagingDeps = deps.staging ? await deps.staging() : null;
+      if (!stagingDeps) return METHOD_NOT_ALLOWED();
+      return await serveStagingPost(request, requested, stagingDeps, { head: false, correlationId });
+    } catch (error) {
+      deps.logger.error('sites.review.post_failed', error);
+      return pageResponse('unavailable', { head: false, correlationId });
+    }
+  });
 }
 
 export async function serveHost(

@@ -18,6 +18,13 @@ export interface FactoryContext {
   unique(prefix: string): string;
   /** Creates an identity user through app_auth (outside the tenant transaction). */
   createUser(): Promise<string>;
+  /**
+   * P3 S8a: runs fn in its own committed tenant transaction as the owner of ctx.workspaceId. For `late` tables,
+   * whose parents must be committed before a visitor function can see them.
+   */
+  commit<T>(fn: (tx: Tx) => Promise<T>): Promise<T>;
+  /** P3 S8a: one statement as app_public (the visitor role of apps/sites). */
+  visitor(sql: string, params: unknown[]): Promise<Array<Record<string, unknown>>>;
 }
 
 /** Parent rows a factory needs, created in the context's workspace. */
@@ -49,6 +56,13 @@ export interface TenantTableSpec {
   delete: 'allowed' | 'denied';
   /** Prisma model and update payload for the IDOR harness. */
   prisma: { model(tx: Tx): IdDelegate; data: Record<string, unknown> };
+  /**
+   * P3 S8a: rows that only a visitor function writes (client review). Seeded after the workspace is committed;
+   * `prepare` commits its own parents (ctx.commit) and may call ctx.visitor, so it ignores its `tx`.
+   */
+  late?: true;
+  /** How the suite seeds a row app_user may never insert (only with `late`); `insert` is then expected to fail. */
+  seed?(ctx: FactoryContext, deps: Deps): Promise<string>;
 }
 
 const delegate = (d: unknown) => d as IdDelegate;
@@ -517,7 +531,106 @@ export const TENANT_TABLES = {
     delete: 'denied',
     prisma: { model: (tx) => delegate(tx.jobDeadLetter), data: { error: 'tampered' } },
   },
+  // P3 S8a: client review. A client comment exists only through app.add_review_comment (app_public); app_user
+  // inserts member replies to one, which take their pin from the parent. The seeded row is such a reply.
+  review_comments: {
+    tenantKey: 'workspace_id',
+    late: true,
+    prepare: async (_tx, ctx) => {
+      const deps = await reviewParents(ctx);
+      await ctx.visitor(
+        "SELECT app.add_review_comment($1::uuid, $2::uuid, NULL, NULL, 'Isolation client', NULL, 'Isolation comment', NULL) AS r",
+        [deps.linkId, deps.versionId],
+      );
+      const parent = await ctx.commit((tx) =>
+        tx.reviewComment.findFirstOrThrow({
+          where: { stagingLinkId: deps.linkId!, authorKind: 'client' },
+          select: { id: true },
+        }),
+      );
+      return { ...deps, parentId: parent.id };
+    },
+    insert: async (tx, ctx, deps) =>
+      (
+        await tx.reviewComment.create({
+          data: {
+            workspaceId: ctx.workspaceId,
+            projectId: deps.projectId!,
+            siteVersionId: deps.versionId!,
+            stagingLinkId: deps.linkId!,
+            authorKind: 'member',
+            body: 'Isolation reply',
+            parentId: deps.parentId!,
+          },
+          select: { id: true },
+        })
+      ).id,
+    // Reopening is inside the UPDATE grant and valid on a reply (resolution is null there).
+    update: `resolved_at = NULL`,
+    delete: 'denied',
+    prisma: { model: (tx) => delegate(tx.reviewComment), data: { resolvedAt: null } },
+  },
+  // P3 S8a: approvals. Only app.approve_review_version (app_public) writes one; app_user holds no INSERT, UPDATE or
+  // DELETE, so every write the matrix tries is refused (42501).
+  review_approvals: {
+    tenantKey: 'workspace_id',
+    late: true,
+    prepare: async (_tx, ctx) => reviewParents(ctx),
+    insert: async (tx, ctx, deps) =>
+      (
+        await tx.reviewApproval.create({
+          data: {
+            workspaceId: ctx.workspaceId,
+            projectId: deps.projectId!,
+            siteVersionId: deps.versionId!,
+            stagingLinkId: deps.linkId!,
+            approverName: 'Forged approval',
+          },
+          select: { id: true },
+        })
+      ).id,
+    seed: async (ctx, deps) => {
+      await ctx.visitor(
+        "SELECT app.approve_review_version($1::uuid, $2::uuid, 'Isolation client', NULL, NULL) AS r",
+        [deps.linkId, deps.versionId],
+      );
+      const row = await ctx.commit((tx) =>
+        tx.reviewApproval.findFirstOrThrow({ where: { stagingLinkId: deps.linkId! }, select: { id: true } }),
+      );
+      return row.id;
+    },
+    update: 'denied',
+    delete: 'denied',
+    prisma: { model: (tx) => delegate(tx.reviewApproval), data: { approverName: 'tampered' } },
+  },
 } satisfies Record<string, TenantTableSpec>;
+
+/** A project with a staging version on its pointer and an active review link, committed (P3 S8a). */
+async function reviewParents(ctx: FactoryContext): Promise<Deps> {
+  return ctx.commit(async (tx) => {
+    const { projectId } = await project(tx, ctx);
+    const version = await tx.siteVersion.create({
+      data: {
+        workspaceId: ctx.workspaceId,
+        projectId,
+        kind: 'staging',
+        config: { schemaVersion: '1.0' },
+        schemaVersion: '1.0',
+        checksum: token(),
+        sourceDraftRevision: 1,
+      },
+      select: { id: true },
+    });
+    await tx.sitePointer.create({
+      data: { workspaceId: ctx.workspaceId, projectId, kind: 'staging', siteVersionId: version.id },
+    });
+    const link = await tx.stagingLink.create({
+      data: { workspaceId: ctx.workspaceId, projectId, expiresAt: new Date(Date.now() + 86_400_000) },
+      select: { id: true },
+    });
+    return { projectId, versionId: version.id, linkId: link.id };
+  });
+}
 
 export type TableName = keyof typeof TENANT_TABLES;
 export const TABLE_NAMES = Object.keys(TENANT_TABLES) as TableName[];

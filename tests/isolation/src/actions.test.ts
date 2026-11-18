@@ -24,11 +24,13 @@ import {
   createOutbox,
   createProjectService,
   createPublishingService,
+  createReviewService,
   createTemplateService,
   createWorkspaceService,
   deriveInvitationKey,
 } from '@platform/workspaces';
 import { PAGE_LOADERS, SERVER_ACTIONS, type Selector } from './actions';
+import { createPublicDatabase } from '@platform/db/public';
 import { createUser, pool, tenantDb, unique, urls } from './fixtures';
 import { probeIdor } from './idor';
 
@@ -76,6 +78,9 @@ let catalogTemplateId = '';
 const audit = createAuditService({ db });
 // P3 S3: the draft service behind the editor actions, and a catalogue template with a complete SiteConfig.
 const builder = createBuilderService({ db });
+// P3 S8a: client review; a client comment exists only through the visitor function (app_public).
+const review = createReviewService({ db });
+const visitor = createPublicDatabase({ connectionString: urls.public });
 let draftTemplateId = '';
 // P3 S6: the asset service on in-memory storage (the bucket is not under test; the database rules are).
 const memory = createMemoryStorage();
@@ -199,6 +204,19 @@ async function seed(): Promise<Tenant> {
     publishKey: crypto.randomUUID(),
   });
   const stagingLink = await publishing.createStagingLink(ownerId, { workspaceId: id, projectId: project.id });
+  // P3 S8a: a client comment through that link.
+  const said = await visitor.addReviewComment({
+    linkId: stagingLink.id,
+    versionId: staged.versionId,
+    pageId: null,
+    sectionId: null,
+    name: 'IDOR client',
+    email: null,
+    body: 'IDOR comment',
+    ipHash: null,
+  });
+  if (said !== 'ok') throw new Error(`setup: the IDOR comment was not recorded (${said})`);
+  const comment = (await review.feedback(ownerId, { workspaceId: id, projectId: project.id })).comments[0]!;
   const link = await templates.createPreviewLink(ownerId, {
     workspaceId: id,
     templateId: catalogTemplateId,
@@ -217,6 +235,7 @@ async function seed(): Promise<Tenant> {
       assetId: image.id,
       stagingLinkId: stagingLink.id,
       siteVersionId: staged.versionId,
+      reviewCommentId: comment.id,
     },
   };
 }
@@ -244,6 +263,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await db.disconnect();
   await auth.end();
+  await visitor.close();
 });
 
 /** How each service method is called with the selectors; typed failures become comparable values. */
@@ -457,6 +477,21 @@ const CALLS: Record<string, (actor: string, s: Selectors) => Promise<unknown>> =
       expectedRevision: 1,
       changeId: crypto.randomUUID(),
     }),
+  // P3 S8a. The feedback probe returns comment ids only.
+  reviewFeedback: async (a, s) =>
+    (await review.feedback(a, { workspaceId: s.workspaceId, projectId: s.projectId })).comments.map(
+      (c) => c.id,
+    ),
+  replyToComment: async (a, s) => {
+    const r = await review.reply(a, {
+      workspaceId: s.workspaceId,
+      commentId: s.reviewCommentId,
+      body: 'IDOR reply',
+    });
+    return { replied: Boolean(r.replyId) };
+  },
+  resolveComment: (a, s) =>
+    review.setResolved(a, { workspaceId: s.workspaceId, commentId: s.reviewCommentId, resolved: true }),
   // Asks for both tenants' image ids: only the images of the selected project may come back.
   renderAssets: async (a, s) => [
     ...(await assets.renderAssets(a, s.workspaceId, s.projectId, [A.own.assetId, B.own.assetId])).keys(),

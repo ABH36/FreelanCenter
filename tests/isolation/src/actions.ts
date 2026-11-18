@@ -19,7 +19,8 @@ export type Selector =
   | 'previewLinkId'
   | 'assetId'
   | 'stagingLinkId'
-  | 'siteVersionId';
+  | 'siteVersionId'
+  | 'reviewCommentId';
 
 export type ActionRegistration =
   { service: string; selectors: Selector[] } | { service: string | null; noSelector: string };
@@ -105,6 +106,10 @@ export const SERVER_ACTIONS: Record<string, ActionRegistration> = {
     service: 'restoreVersion',
     selectors: ['workspaceId', 'projectId', 'siteVersionId'],
   },
+  // P3 S8a: client review (FR-PUB-05). Comment ids are resolved inside the actor's workspace.
+  reviewFeedbackAction: { service: 'reviewFeedback', selectors: ['workspaceId', 'projectId'] },
+  replyToCommentAction: { service: 'replyToComment', selectors: ['workspaceId', 'reviewCommentId'] },
+  resolveCommentAction: { service: 'resolveComment', selectors: ['workspaceId', 'reviewCommentId'] },
   setWorkspaceStatusAction: {
     service: 'setWorkspaceStatus',
     noSelector:

@@ -25,7 +25,9 @@ import {
   undoDraftAction,
 } from '@/app/actions/builder';
 import { AssetLibraryProvider, LibraryPanel } from './assets';
+import { FeedbackPanel } from './feedback';
 import { PublishPanel } from './publish';
+import { reviewFeedbackAction } from '@/app/actions/review';
 import { type FieldErrors, type JsonSchema, SchemaField, humanize } from './schema-form';
 import { AddPage, AddSection, type Commit, PageTools, SectionTools } from './structure';
 import { type FontOption, ThemeForm, themePatchValue } from './theme-form';
@@ -37,6 +39,7 @@ type Selection =
   | { kind: 'theme' }
   | { kind: 'images' }
   | { kind: 'publish' }
+  | { kind: 'feedback' }
   | { kind: 'section'; sectionId: string }
   | { kind: 'page'; pageId: string };
 type Device = 'phone' | 'tablet' | 'desktop';
@@ -281,6 +284,14 @@ export function Editor({
     timer.current = setTimeout(() => void flush(), SAVE_DELAY_MS);
   };
 
+  // P3 S8a: open client comments, for the menu entry (the panel refreshes it after a reply or resolve).
+  const [openFeedback, setOpenFeedback] = useState<number | null>(null);
+  useEffect(() => {
+    void reviewFeedbackAction(target).then((r) => {
+      if (r.ok) setOpenFeedback(r.value.open);
+    });
+  }, [target]);
+
   const choose = async (next: Selection) => {
     await flush();
     setErrors({});
@@ -513,6 +524,23 @@ export function Editor({
             >
               Publish
             </button>
+            <button
+              type="button"
+              aria-current={selection.kind === 'feedback' ? 'true' : undefined}
+              className={itemClass(selection.kind === 'feedback')}
+              onClick={() => void choose({ kind: 'feedback' })}
+            >
+              Client feedback
+              {openFeedback ? (
+                <span
+                  className="ml-2 rounded-full bg-amber-200 px-2 py-0.5 text-xs text-amber-950"
+                  data-testid="feedback-count"
+                >
+                  {openFeedback}
+                  <span className="sr-only"> open</span>
+                </span>
+              ) : null}
+            </button>
             {config.pages.map((page) => (
               <div key={page.id}>
                 <h2>
@@ -572,9 +600,11 @@ export function Editor({
                     ? 'Images'
                     : selection.kind === 'publish'
                       ? 'Publish'
-                      : selection.kind === 'page'
-                        ? `Page: ${selectedPage?.title ?? ''}`
-                        : humanize(selected?.section.type ?? 'Section')}
+                      : selection.kind === 'feedback'
+                        ? 'Client feedback'
+                        : selection.kind === 'page'
+                          ? `Page: ${selectedPage?.title ?? ''}`
+                          : humanize(selected?.section.type ?? 'Section')}
             </h2>
             {selection.kind === 'section' && selected ? (
               <SectionTools
@@ -629,6 +659,14 @@ export function Editor({
                 canPublishStaging={canPublishStaging}
                 canPublishLive={canPublishLive}
                 historyHref={`/w/${slug}/projects/${target.projectId}/history`}
+              />
+            ) : selection.kind === 'feedback' ? (
+              <FeedbackPanel
+                target={target}
+                config={config}
+                canReply={canEdit}
+                onShowSection={(sectionId) => void choose({ kind: 'section', sectionId })}
+                onOpenCount={setOpenFeedback}
               />
             ) : selection.kind === 'page' ? null : (
               <p className="text-sm text-slate-600">This part cannot be edited here yet.</p>

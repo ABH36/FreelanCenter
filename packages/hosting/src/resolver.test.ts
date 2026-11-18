@@ -136,7 +136,7 @@ describe('createHostResolver', () => {
       hostname: null,
     });
     expect(lookups).toEqual([]);
-    expect(cache.calls).toEqual({ get: 0, set: 0, del: 0 });
+    expect(cache.calls).toEqual({ get: 0, set: 0, del: 0, incr: 0 });
   });
 
   it('expiry: after the TTL the next request looks the host up again', async () => {
@@ -186,6 +186,9 @@ describe('createHostResolver', () => {
         throw new Error('cache down');
       },
       del: async () => {
+        throw new Error('cache down');
+      },
+      incr: async () => {
         throw new Error('cache down');
       },
     };
