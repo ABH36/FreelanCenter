@@ -245,6 +245,17 @@ describe('review POST', () => {
     ...over,
   });
 
+  it("accepts Chrome's own form POST from the panel, which carries Origin: null under no-referrer", async () => {
+    const t = token();
+    const s = setup();
+    const res = await s.post(`/s/${t}/_review/comment`, form(), {
+      origin: 'null',
+      'sec-fetch-site': 'same-origin',
+    });
+    expect(res.status).toBe(303);
+    expect(s.comments).toHaveLength(1);
+  });
+
   it('records a pinned comment with a hashed IP and redirects back to the panel (303)', async () => {
     const t = token();
     const s = setup();
@@ -333,6 +344,21 @@ describe('review POST', () => {
       headers: { 'sec-fetch-site': 'same-origin' },
     });
     expect(sameOrigin(sameSite, ORIGIN)).toBe(true);
+    // Chrome under the panel's `no-referrer` sends `Origin: null` with its own form POST (production, 2026-11-18).
+    const nullSame = (site: string) =>
+      new Request(`${ORIGIN}/x`, { method: 'POST', headers: { origin: 'null', 'sec-fetch-site': site } });
+    expect(sameOrigin(nullSame('same-origin'), ORIGIN)).toBe(true);
+    expect(sameOrigin(nullSame('cross-site'), ORIGIN)).toBe(false);
+    expect(sameOrigin(nullSame('same-site'), ORIGIN)).toBe(false);
+    expect(
+      sameOrigin(new Request(`${ORIGIN}/x`, { method: 'POST', headers: { origin: 'null' } }), ORIGIN),
+    ).toBe(false);
+    const nullEvil = await s.post(
+      `/s/${t}/_review/approve`,
+      { v: V, name: 'x', confirm: 'yes' },
+      { origin: 'null', 'sec-fetch-site': 'cross-site' },
+    );
+    expect(nullEvil.status).toBe(403);
     expect(s.approvals).toHaveLength(0);
   });
 

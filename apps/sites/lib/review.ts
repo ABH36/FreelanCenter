@@ -329,10 +329,16 @@ export async function servePanel(
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PIN_VALUE = /^(?:p:([a-z0-9][a-z0-9-]{0,39})|s:([a-z0-9][a-z0-9-]{0,39}):([a-z0-9][a-z0-9-]{0,39}))$/;
 
-/** The request comes from the review page itself (not a cross-site form). */
+/**
+ * The request comes from the review page itself (not a cross-site form). The panel sends
+ * `Referrer-Policy: no-referrer`, and under that policy Chrome sends `Origin: null` with its own same-origin
+ * form POST (found in the production check, 2026-11-18). So an Origin of `null`, or no Origin at all, is
+ * accepted only when the browser says `Sec-Fetch-Site: same-origin`. A page cannot set that header itself,
+ * and a sandboxed or cross-site frame that sends `null` gets `cross-site`.
+ */
 export function sameOrigin(request: Request, origin: string): boolean {
   const sent = request.headers.get('origin');
-  if (sent !== null) return sent === origin;
+  if (sent !== null && sent !== 'null') return sent === origin;
   return request.headers.get('sec-fetch-site') === 'same-origin';
 }
 
