@@ -1,6 +1,6 @@
 # 06 — Versioning, Client Review and Publishing
 
-**Status:** P3 S7a built and approved (publish to staging/live, preflight, review links, live site source; `docs/reports/PHASE_3_S7A_PUBLISHING.md`). P3 S7b built (history, diff, side-by-side preview, rollback, restore into the draft; approved by the Owner 2026-11-16, `docs/reports/PHASE_3_S7B_HISTORY_ROLLBACK.md`). P3 S8a built and approved by the Owner 2026-11-18, merged in PR #98 (client review: comments pinned to sections, approval, replies; `docs/reports/PHASE_3_S8A_CLIENT_REVIEW.md`). P3 S8b built on `feat/p3-s8b-approval-gate`, awaiting Owner approval (approval gate before Live, automatic review statuses, review notifications; `docs/reports/PHASE_3_S8B_APPROVAL_GATE.md`). **SRS:** FR-PUB-01..07, FR-PRJ-02.
+**Status:** P3 S7a built and approved (publish to staging/live, preflight, review links, live site source; `docs/reports/PHASE_3_S7A_PUBLISHING.md`). P3 S7b built (history, diff, side-by-side preview, rollback, restore into the draft; approved by the Owner 2026-11-16, `docs/reports/PHASE_3_S7B_HISTORY_ROLLBACK.md`). P3 S8a built and approved by the Owner 2026-11-18, merged in PR #98 (client review: comments pinned to sections, approval, replies; `docs/reports/PHASE_3_S8A_CLIENT_REVIEW.md`). P3 S8b approved by the Owner 2026-11-18, live migration applied before the merge (approval gate before Live, automatic review statuses, review notifications; `docs/reports/PHASE_3_S8B_APPROVAL_GATE.md`). **SRS:** FR-PUB-01..07, FR-PRJ-02.
 
 ## Outcome
 

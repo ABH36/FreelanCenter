@@ -1,6 +1,6 @@
 # Phase 3, slice S8b: client approval before Live, automatic review statuses, review notifications
 
-**Status:** built on `feat/p3-s8b-approval-gate`; tests in section 5; **awaiting Owner approval**. **Date:** 2026-11-18 · **Requirements:** FR-PUB-06 (workspace policy "require client approval before Live"), FR-PRJ-02 (lifecycle transitions validated and audited), FR-NOT-01 (in-app and e-mail notifications with preferences) · **ADRs:** 002, 004, 005, 007 · **Modules:** 06, 02, 09 · **Plan approved by the Owner 2026-11-18** ("plan approve hai", recipients as recommended: the project's creator plus owners and admins). **Migration:** `20261118120000_p3_s8b_approval_gate`; the live database needs a separate Owner OK, and it is applied **before** the merge (lesson from S8a, report section 10 there).
+**Status:** built on `feat/p3-s8b-approval-gate`; tests in section 5; **approved by the Owner 2026-11-18**; live migration applied before the merge (section 8). **Date:** 2026-11-18 · **Requirements:** FR-PUB-06 (workspace policy "require client approval before Live"), FR-PRJ-02 (lifecycle transitions validated and audited), FR-NOT-01 (in-app and e-mail notifications with preferences) · **ADRs:** 002, 004, 005, 007 · **Modules:** 06, 02, 09 · **Plan approved by the Owner 2026-11-18** ("plan approve hai", recipients as recommended: the project's creator plus owners and admins). **Migration:** `20261118120000_p3_s8b_approval_gate`; the live database needs a separate Owner OK, and it is applied **before** the merge (lesson from S8a, report section 10 there).
 
 ## 1. Why
 
@@ -93,13 +93,22 @@ The full workflow (coverage, mutation, auth suite twice, quality suite) runs in 
 
 No new service or subscription. Notices are rows in the existing database; e-mails use the existing outbox, Inngest job and capture transport (no e-mail is actually sent until DG-10). Inngest runs one extra job per e-mail notice, well inside the free tier at today's volume.
 
-## 8. Live application (not yet run)
+## 8. Live application (2026-11-18, Owner-approved, before the merge)
 
-Order, learnt in S8a: Owner approval → separate Owner OK for the live migration → read-only pre-check → `prisma migrate deploy` (`DB_TARGET=env`) → drift check → `db:verify --target env` → `test:live` → **then** merge. The migration only adds a column with a default, triggers, functions, grants, policies and an index; the replaced functions keep their signatures, so the code on production keeps working before the merge. The new Live gate only acts once someone switches the policy on.
+The Owner approved S8b and the live migration in writing on 2026-11-18 ("s8b approve hai … migration chala do"). Following the S8a lesson, it ran **before** the merge, while production still served `main`. The migration only adds objects and replaces functions with the same signatures, so the code on production kept working. The run was from the developer machine against the Supabase `ap-south-1` project as `migrator`. No secret was printed or stored.
+
+| Step                                                     | Result                                                                                                                                                          |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Read-only pre-check (read-only transaction, rolled back) | role `migrator`, not superuser, no BYPASSRLS, remote host; 15 migrations, none unfinished or rolled back, latest S8a; S8b not recorded; the new column absent   |
+| `prisma migrate deploy` (`DB_TARGET=env`)                | applied `20261118120000_p3_s8b_approval_gate`                                                                                                                   |
+| `prisma migrate status`                                  | database schema is up to date (16 migrations)                                                                                                                   |
+| Live database vs `schema.prisma`                         | no difference detected                                                                                                                                          |
+| `db:verify --target env`                                 | **51 passed, 0 failed** (new: the helpers are not executable by app_public or app_user, both triggers exist, the trigger function in the SECURITY DEFINER list) |
+| `test:live`                                              | two runs: 6 passed, 1 skipped (unchanged)                                                                                                                       |
 
 ## 9. Open items
 
 - Owner approval of S8b.
-- Live migration (separate OK, before the merge) and the production check with the Chrome extension.
+- ~~Live migration~~: applied 2026-11-18 before the merge (section 8). Merge, then the production check with the Chrome extension.
 - DG-37 (i): e-mails of review notices wait for the sweep (up to about 6 minutes); e-mail is captured until DG-10.
 - DG-37 (h) (tokens in Vercel's request log) stays with S9.
