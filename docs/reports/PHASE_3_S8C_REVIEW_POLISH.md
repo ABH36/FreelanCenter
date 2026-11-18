@@ -55,7 +55,31 @@ No new service or subscription.
 
 ## 8. Open items
 
-- ~~Owner approval~~: approved 2026-11-18. Push, PR and merge (no live migration).
-- Production check with the Chrome extension after the merge.
-- ~~Gap register DG-37 (j)~~: marked built after PR #103 merged (`6a0bdc7`) and this branch was rebased on it.
+- ~~Owner approval~~: approved 2026-11-18. ~~Merge~~: PR #104, `23c2b0d` (no live migration).
+- ~~Production check~~: passed 2026-11-18 (section 9).
+- ~~Gap register DG-37 (j)~~: marked built after PR #103 merged (`6a0bdc7`) and `main` was merged into this branch.
+- DG-39: deployment follow-ups found by the production check (section 9).
 - DG-37 (h) (tokens in Vercel's request log) stays with S9.
+
+## 9. Production check (2026-11-18, Chrome extension, Owner-run)
+
+**Deployment incident first.** The first run found the old behaviour on every read-only step, and the extension stopped before publishing anything. Vercel had built no deployment for the merge commit `23c2b0d`: no GitHub deployment and no commit status, for both projects. The last production deployment was the previous merge (`6a0bdc7`). The GitHub-to-Vercel push event was evidently lost; CI on `main` had run and passed. With the Owner's OK ("haa option se deploy kr do"), production deployments of `main` at `23c2b0d` were created through the Vercel API from the Git source (the same build as a normal push; no local files uploaded, no token printed): dashboard `dpl_4XxSPd1rC1JMN9n99J9eD5YJJ68h`, sites `dpl_23sfigWEoSyhXfFumaCF18KkJEpm`. Both were Ready, the production domains pointed to them, and health answered 200. From now on, each merge is confirmed on the production deployment list before a production check is sent (DG-39 (a)).
+
+**Second run: all steps passed** (step 6 not applicable: no open invitations). "S8b Check" went from Approved to Live; "S8c Check" was created and left in place.
+
+| Step | Checked                                                                                                 | Result                                                                                                              |
+| ---- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| 1    | Audit: "Draft → In review", "In review → Approved" by System; policy "Switched on/off"; IST             | pass                                                                                                                |
+| 2    | Notifications in IST, no GMT                                                                            | pass (older notices too)                                                                                            |
+| 3    | Stale approval marked "(for earlier content: the draft changed since)"; no "Before Live" row            | pass                                                                                                                |
+| 4    | Live publish of the Approved project: version 3 Live, status Live, audit "Approved → Live" by the Owner | pass                                                                                                                |
+| 5    | New project, staging, review link: status In review by itself; no notice to the link's maker            | pass (the second owner of the workspace should get it; not visible to the checker, covered by the integration test) |
+| 6    | Invitation expiry in IST                                                                                | n/a                                                                                                                 |
+
+Console: the two known extension "[EXCEPTION] Object" entries on every page load. One application error, explained below. Nothing slower than about 5 seconds; no broken layout.
+
+**Observations (recorded in DG-39):**
+
+1. An editor tab left open across the deployment logged 12 × `UnrecognizedActionError: Server Action … was not found on the server`. The old page's save calls reached the new build, whose server action ids changed. No data was lost here, but someone editing during a deployment may not be told that a save failed. Detecting it and asking for a reload is DG-39 (b).
+2. After the Live publish, the approval row still says "(for earlier content …)". This is accurate (version 3 was never approved), but people may expect it to clear. Wording only.
+3. Mixed clock formats: Publish and review pages use "5:25 pm", the audit log and notifications "17:25:45".
