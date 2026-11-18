@@ -108,7 +108,36 @@ The Owner approved S8b and the live migration in writing on 2026-11-18 ("s8b app
 
 ## 9. Open items
 
-- Owner approval of S8b.
-- ~~Live migration~~: applied 2026-11-18 before the merge (section 8). Merge, then the production check with the Chrome extension.
+- ~~Owner approval of S8b~~: approved 2026-11-18.
+- ~~Live migration~~: applied 2026-11-18 before the merge (section 8). ~~Merge~~: PR #102, `69ef0a9`. ~~Production check~~: passed 2026-11-18 (section 10).
+- DG-37 (j): polish follow-ups from the production check (section 10).
 - DG-37 (i): e-mails of review notices wait for the sweep (up to about 6 minutes); e-mail is captured until DG-10.
 - DG-37 (h) (tokens in Vercel's request log) stays with S9.
+
+## 10. Production check (2026-11-18, Chrome extension, Owner-run)
+
+The Owner ran a scripted check with the Claude in Chrome extension against production (dashboard `dashboard-liard-tau-14.vercel.app`, review host `sites-two-nu.vercel.app`) after PR #102 (`69ef0a9`) deployed, signed in as the workspace Owner. The client steps ran in a separate tab on the review host, which shares no session with the dashboard. **All 17 steps passed.** The policy was switched back to Off at the end. The project "S8b Check" and its review link (`s1.eyJsaW…`) were left in place.
+
+| Step | Checked                                                                                                                      | Result                                                                                            |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| 1    | Settings → Client review: Off text, switch On, saved message                                                                 | pass                                                                                              |
+| 2    | New project, Gym Bold, business details saved, status Draft                                                                  | pass                                                                                              |
+| 3    | Live held back with the reason; Staging v1; review link; status In review by itself                                          | pass; the audit time shows the status moved when the link was created, not at the Staging publish |
+| 4    | Client: 2 comments, approval recorded                                                                                        | pass                                                                                              |
+| 5    | Status Approved by itself; 2 notifications ("approved … (version 1)", "left 2 comments …"); Live unlocked and published (v2) | pass; the two comments made a single grouped notice                                               |
+| 6    | Edit after the approval locks Live again                                                                                     | pass (not published)                                                                              |
+| 7    | Audit: policy change by the Owner; 2 status changes by `system`; approval by "Client (review link)"                          | pass                                                                                              |
+| 8    | Switch Off; Live enabled again, "Before Live" row gone                                                                       | pass (not published)                                                                              |
+
+Console: two "[EXCEPTION] Object" entries on every full page load of both apps, one of which pointed to a `chrome-extension://…/content.js` file on an earlier run, so they are extension noise. No application errors, CSP violations or failed requests. Nothing took longer than about 5 seconds; no broken layout.
+
+**Observations, none blocking (recorded as DG-37 (j)):**
+
+1. The project status stays Approved after the Live publish; FR-PRJ-02 lists Live next. S8b automated only Draft→InReview and InReview→Approved, as planned.
+2. After an edit, Publish still shows "Client approval: Approved by …" above "Needs the client's approval". The row should say the approval was for earlier content. This also applies when the policy is Off.
+3. Audit rows "Project status changed" do not show which change happened; the metadata holds `from` and `to`.
+4. The system actor reads `system` (lower case).
+5. The audit label "Client approval before Live switched on or off" does not say which way; the metadata holds `required`.
+6. Notification times show in GMT (`toUTCString`); the audit log and history use IST. The same pattern is in the members (invite expiry) and deletion banner texts.
+7. Automatic status changes send no notification, although the preference "The status of a project I created changed" exists.
+8. "Comments and approval" preselects "The whole website" (expected; per-section comments use the section buttons).
