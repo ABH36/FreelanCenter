@@ -108,8 +108,8 @@ Unchanged (DG-33): review links stay on the preview host path `/s/<token>`; the 
 ## 9. Open items
 
 - ~~Owner approval of S8a~~: approved 2026-11-18, merged in PR #98.
-- ~~Live migration~~: applied 2026-11-18 with the Owner's OK (section 10). Next: a production check with the Chrome extension (comment from a section link, approve, reply, mark done, client sees the reply; console errors in a clean profile).
-- S8b (DG-37 (b)).
+- ~~Live migration~~: applied 2026-11-18 with the Owner's OK (section 10). ~~Production check~~: passed 2026-11-18 after the PR #100 fix (section 11). It covered with the Chrome extension (comment from a section link, approve, reply, mark done, client sees the reply; console errors in a clean profile).
+- S8b (DG-37 (b)), with the friendly refusal page (DG-37 (g)). Token in the platform logs: DG-37 (h).
 
 ## 10. Live application (2026-11-18, Owner-approved)
 
@@ -125,3 +125,45 @@ The Owner approved the live migration in writing on 2026-11-18, after the PR #98
 | `test:live`                                              | two runs: 6 passed, 1 skipped (unchanged)                                                                                                                         |
 
 Lesson for the next migration: apply an additive migration **before** the merge, as S7a did, so that production never runs code whose database objects do not exist yet.
+
+## 11. Production check (2026-11-18, Owner's Chrome extension)
+
+Test project "S8a Check" (Gym Bold, staging version 1, one review link until 2 Dec).
+
+**First run, after PR #98 (`fb73c5f`):**
+
+- Steps 1–3c passed: project, staging publish, review link, banner, the "Comment on this section" link on all 10 sections, and the panel with the section preselected.
+- Step 3d **failed**. "Send comment" returned **403 Forbidden** twice.
+- Cause: the panel sends `Referrer-Policy: no-referrer`, and under that policy Chrome sends `Origin: null` with its own same-origin form POST. The S8a same-origin check refused `null`.
+- Local e2e did not catch this, probably because the development server also adds the site-wide `strict-origin-when-cross-origin` header. This cause has not been verified.
+- **Fixed in PR #100 (`915670c`):** an Origin of `null`, or no Origin at all, is accepted only together with `Sec-Fetch-Site: same-origin`. A cross-site or sandboxed `null` origin is still refused. Unit tests cover both cases.
+
+**Re-run of steps 3d–7 after the fix: all passed.**
+
+| Step | Result                                                                                                                                               |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 3d–e | Comment pinned to Hero, and a "whole website" comment: "Thank you, your comment was sent", list shows 2                                              |
+| 3f   | Approve: "your approval was recorded", form replaced by "Approved by Ramesh Test on …"; a resubmitted form says "already approved through this link" |
+| 3g   | No CSP violations                                                                                                                                    |
+| 4a–b | "Client feedback" badge 2; approval and both comments with version 1 and their pins                                                                  |
+| 4c   | "Show in editor" opened the Hero section                                                                                                             |
+| 4d–e | Reply sent; "Mark done" → badge 1, "1 open of 2"; Open/All filter; "Done · Abhishek Jain" with "Open again"                                          |
+| 4f–g | Publish: "Client approval: Approved by Ramesh Test · …"; history badge "Approved by Ramesh Test"                                                     |
+| 4h   | Audit: `review.comment_replied`, `review.comment_resolved` (member), `review.version_approved` by "Client (review link)" on "Site version 1"         |
+| 5    | The client sees the reply, from the workspace name, and the Done mark                                                                                |
+| 6    | A cross-site `fetch` POST from the dashboard was blocked and stored nothing (see below)                                                              |
+
+Notes, checked afterwards:
+
+- **Step 6 showed 503 in the extension's network view.** The server answered **403**:
+  - The Vercel runtime log has `sites.review.cross_origin` for both attempts.
+  - Repeating the same cross-site POST with curl (browser-like headers, no data stored) gives `403 Forbidden`.
+  - The status a browser shows for a request blocked by CORS is not reliable.
+- **Cookies:** curl shows no `Set-Cookie` on the staging page, the panel or the result page. The extension cannot open DevTools > Application.
+- **Console:** two `[EXCEPTION] Object` entries on every page load, on the dashboard as well. One points to `chrome-extension://…/content.js`, so they come from a browser extension. These are the same as in the S7b check.
+- **Explained, not changed:**
+  - The client sees a reply from the workspace name, not the member's name. This is intended: the review page never shows member identities.
+  - The dashboard lists comments newest first (a to-do list), while the review page lists them oldest first (a conversation).
+  - A client comment has no audit row. It is itself an immutable record with time, link and version. Approvals, replies and resolutions are audited.
+
+Follow-ups recorded in DG-37 (g) and (h).
