@@ -1,6 +1,6 @@
 # Phase 3, slice S9a: deploy safety, one clock and clearer approval wording
 
-**Status:** built on `feat/p3-s9a-deploy-safety`; tests in section 5; **approved by the Owner 2026-11-18** ("S9a approve hai okay"). **Date:** 2026-11-18 · **Requirements:** FR-OBS-01 (alerting on a failed release step), NFR-OPS-01 (environments reproducible and verifiable), FR-PUB-06 (approval shown in the Publish panel), FR-BLD-01/06 (editor saves; no silent loss) · **Modules:** 05, 06, 16 · **Gap:** DG-39 (a), (b), (c) · **Plan approved by the Owner 2026-11-18** ("okay plan approve hai or tumhare recommendation bhi sahi hai"): split S9a → S9b → S9c, free reload notice instead of Vercel Skew Protection, 12-hour IST clock. **Migration:** none, so no live database step.
+**Status:** approved by the Owner 2026-11-18 ("S9a approve hai okay"); merged as PR #106 (`f4da26e`); **production check passed 2026-11-18** (section 9). **Date:** 2026-11-18 · **Requirements:** FR-OBS-01 (alerting on a failed release step), NFR-OPS-01 (environments reproducible and verifiable), FR-PUB-06 (approval shown in the Publish panel), FR-BLD-01/06 (editor saves; no silent loss) · **Modules:** 05, 06, 16 · **Gap:** DG-39 (a), (b), (c) · **Plan approved by the Owner 2026-11-18** ("okay plan approve hai or tumhare recommendation bhi sahi hai"): split S9a → S9b → S9c, free reload notice instead of Vercel Skew Protection, 12-hour IST clock. **Migration:** none, so no live database step.
 
 ## 1. Why
 
@@ -68,5 +68,30 @@ None. GitHub Actions: one short job per merge (about 3–10 minutes while Vercel
 ## 8. Open items
 
 - The check runs after the merge, so it cannot block one; it can only warn before a production check. That is its purpose.
-- `deploymentId` behaviour (reload on navigation) can only be seen on Vercel; it is part of the production check (section 9, step to be run by the Owner).
+- `deploymentId` reached the production build (section 9). The reload notice in a tab left open across a deployment is covered by the E2E test; it is seen in production only at a later deployment (DG-39 (b)).
 - S9b (DG-37 (h), review and preview tokens out of the URL path) and S9c (DG-37 (e), abuse baseline) follow as planned.
+
+## 9. Production check (2026-11-18, Chrome extension, Owner-run)
+
+**Merge and deployment.** PR #106 was merged as `f4da26e` with the Owner's OK. The new workflow's first run (`production-deploy-check`, run 44367053991) passed: its unit tests passed 4/4; sites reached `success` first and the dashboard about a minute later; "Both projects run this commit in Production." Health answered 200 on both. The dashboard HTML carries `data-dpl-id="dpl_BtHAqUP3NBfYEJNcgRt8uYzHiCCK"`, which `vercel inspect` shows is the Ready production deployment of `f4da26e`, so `deploymentId` reached the build.
+
+**All testable steps passed.** Step 9 was not applicable. The only edit (one letter in the "S8c Check" name) was undone.
+
+| Step | Checked                                                    | Result                                                                                                                                                                                                                                                    |
+| ---- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | Publish panel of "S8b Check"                               | pass: "Approved by Ramesh Test · 18 Nov 2026, 5:25 pm IST · version 1. The draft has changed since, so this approval does not cover it." and "Live content: Version 3 went live without the client's approval"; the old "(for earlier content …)" is gone |
+| 2    | Client feedback panel                                      | pass: 12-hour IST; no 24-hour times, no GMT                                                                                                                                                                                                               |
+| 3    | Notifications                                              | pass: "18 Nov 2026, 5:25 pm IST", older notices too                                                                                                                                                                                                       |
+| 4    | Audit log and version history                              | pass: "18 Nov 2026, 8:20:24 pm IST"; history "8:19:02 pm IST"                                                                                                                                                                                             |
+| 5    | Workspace settings                                         | pass: "Created 23 Oct 2026, 11:10 pm IST" (IST once)                                                                                                                                                                                                      |
+| 6    | Templates, preview links                                   | pass: "Made 13 Nov 2026 · turned off 13 Nov 2026"                                                                                                                                                                                                         |
+| 7    | Client review page                                         | pass: "Version published on 18 Nov 2026, 8:20 pm IST."; "Approved by Ramesh Test on 18 Nov 2026, 5:25 pm IST." (read-only)                                                                                                                                |
+| 8    | Saving and undo in the editor                              | pass: "All changes saved", then "Undone · all changes saved"; no "Not saved", no reload notice                                                                                                                                                            |
+| 9    | Reload notice in an editor tab left open across the deploy | n/a: no tab was open before the deployment. Covered by the E2E test; to be seen in production at the next deployment                                                                                                                                      |
+| 10   | Console, speed, layout                                     | pass: only the known extension "[EXCEPTION] Object" entries; nothing slower than about 5 seconds; no broken layout                                                                                                                                        |
+
+**Observations (recorded in DG-39 (d)):**
+
+1. Day format differs: the review-link expiry reads "Until 02 Dec 2026, 5:24 pm IST" (zero-padded day, from `formatIst`) while dates elsewhere read "18 Nov 2026" / "2 Dec 2026" (`formatIstDate`).
+2. "IST" twice on the audit log: the column header still says "When (IST)" while every cell now ends in "IST".
+3. On "S8b Check", the first click on "Publish" right after the editor loaded did nothing; the second opened the panel. It did not happen on "S8c Check". It is probably a click before the page was ready; to be reproduced before any fix.
