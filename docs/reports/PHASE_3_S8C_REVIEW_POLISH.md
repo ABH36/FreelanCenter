@@ -1,6 +1,6 @@
 # Phase 3, slice S8c: review polish from the S8b production check
 
-**Status:** built on `feat/p3-s8c-review-polish`; tests in section 5; awaiting Owner approval. **Date:** 2026-11-18 · **Requirements:** FR-PRJ-02 (lifecycle `Draft → InReview → Approved → Live`, transitions validated and audited), FR-NOT-01 (notifications), FR-AUD-01 (audit viewer), FR-PUB-06 (approval shown in the Publish panel) · **Modules:** 06, 02, 09 · **Gap:** DG-37 (j) · **Plan approved by the Owner 2026-11-18** ("yes i approve the plan"). **Migration:** none, so no live database step.
+**Status:** built on `feat/p3-s8c-review-polish`; tests in section 5; **approved by the Owner 2026-11-18** ("yes i approve"). **Date:** 2026-11-18 · **Requirements:** FR-PRJ-02 (lifecycle `Draft → InReview → Approved → Live`, transitions validated and audited), FR-NOT-01 (notifications), FR-AUD-01 (audit viewer), FR-PUB-06 (approval shown in the Publish panel) · **Modules:** 06, 02, 09 · **Gap:** DG-37 (j) · **Plan approved by the Owner 2026-11-18** ("yes i approve the plan"). **Migration:** none, so no live database step.
 
 ## 1. Why
 
@@ -55,7 +55,7 @@ No new service or subscription.
 
 ## 8. Open items
 
-- Owner approval, push, PR and merge (no live migration).
+- ~~Owner approval~~: approved 2026-11-18. Push, PR and merge (no live migration).
 - Production check with the Chrome extension after the merge.
 - Gap register DG-37 (j): marked built once the S8b production-check docs PR (which adds (j)) is merged and this branch is rebased on it.
 - DG-37 (h) (tokens in Vercel's request log) stays with S9.
