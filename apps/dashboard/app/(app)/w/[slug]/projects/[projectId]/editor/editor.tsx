@@ -12,6 +12,8 @@
  *     owners/admins may take it over (audited).
  *   - Undo/redo buttons and Ctrl+Z / Ctrl+Y (Ctrl+Shift+Z) outside text fields, where the browser's own text undo
  *     applies.
+ *   - P3 S9a (DG-39 (b)): a save that cannot reach the server never leaves "Saving…" behind: it shows "Not saved"
+ *     and keeps the change waiting. When a deployment changed the build, editing stops and the reload notice shows.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DraftView } from '@platform/workspaces';
@@ -24,6 +26,7 @@ import {
   takeOverEditLockAction,
   undoDraftAction,
 } from '@/app/actions/builder';
+import { guardAction, isStaleBuildError } from '@/lib/stale-build';
 import { AssetLibraryProvider, LibraryPanel } from './assets';
 import { FeedbackPanel } from './feedback';
 import { PublishPanel } from './publish';
@@ -167,6 +170,9 @@ export function Editor({
   const [problem, setProblem] = useState('');
   const [device, setDevice] = useState<Device>('desktop');
   const [busy, setBusy] = useState(false);
+  /** P3 S9a: the server runs a newer build than this page; nothing more is sent until a reload. */
+  const [stale, setStale] = useState(false);
+  const markStale = useCallback(() => setStale(true), []);
 
   const revisionRef = useRef(revision);
   revisionRef.current = revision;
@@ -177,7 +183,7 @@ export function Editor({
   const saving = useRef<Promise<void> | null>(null);
 
   const holdsLock = lock?.mine === true;
-  const editable = canEdit && holdsLock;
+  const editable = canEdit && holdsLock && !stale;
 
   const applyView = useCallback((view: ClientDraft) => {
     setConfig(view.config);
@@ -187,10 +193,16 @@ export function Editor({
   }, []);
 
   const reload = useCallback(async () => {
-    const result = await reloadDraftAction(target);
+    let result: Awaited<ReturnType<typeof reloadDraftAction>>;
+    try {
+      result = await guardAction(() => reloadDraftAction(target), markStale);
+    } catch (error) {
+      if (isStaleBuildError(error)) return null;
+      throw error;
+    }
     if (result.ok) applyView(result.value);
     return result.ok ? result.value : null;
-  }, [target, applyView]);
+  }, [target, applyView, markStale]);
 
   // Load the open form's value from the current config whenever the selection or the config changes.
   useEffect(() => {
@@ -223,12 +235,26 @@ export function Editor({
               },
             ];
     setStatus('Saving…');
-    const result = await saveDraftChangeAction({
-      ...target,
-      changeId: crypto.randomUUID(),
-      expectedRevision: revisionRef.current,
-      operations,
-    });
+    let result: Awaited<ReturnType<typeof saveDraftChangeAction>>;
+    try {
+      result = await guardAction(
+        () =>
+          saveDraftChangeAction({
+            ...target,
+            changeId: crypto.randomUUID(),
+            expectedRevision: revisionRef.current,
+            operations,
+          }),
+        markStale,
+      );
+    } catch (error) {
+      // Nothing reached the draft: keep the change waiting (unless a newer one replaced it) and say so.
+      pending.current ??= change;
+      setStatus('Not saved');
+      if (!isStaleBuildError(error))
+        setProblem('This change could not be saved. Check your connection; it is saved with your next edit.');
+      return;
+    }
     if (result.ok) {
       setErrors({});
       setProblem('');
@@ -262,7 +288,7 @@ export function Editor({
       setProblem(result.error);
       if (result.code === 'DRAFT_CONFLICT' || result.code === 'LOCK_REQUIRED') await reload();
     }
-  }, [target, reload]);
+  }, [target, reload, markStale]);
 
   const flush = useCallback(async () => {
     if (timer.current) clearTimeout(timer.current);
@@ -304,7 +330,18 @@ export function Editor({
       await flush();
       setBusy(true);
       const action = direction === 'undo' ? undoDraftAction : redoDraftAction;
-      const result = await action({ ...target, expectedRevision: revisionRef.current });
+      let result: Awaited<ReturnType<typeof action>>;
+      try {
+        result = await guardAction(
+          () => action({ ...target, expectedRevision: revisionRef.current }),
+          markStale,
+        );
+      } catch (error) {
+        setBusy(false);
+        if (!isStaleBuildError(error))
+          setProblem('This could not be done. Check your connection and try again.');
+        return;
+      }
       setBusy(false);
       if (!result.ok) {
         setProblem(result.error);
@@ -315,7 +352,7 @@ export function Editor({
       await reload();
       setStatus(direction === 'undo' ? 'Undone · all changes saved' : 'Redone · all changes saved');
     },
-    [editable, busy, flush, target, reload],
+    [editable, busy, flush, target, reload, markStale],
   );
 
   // The edit lock: take it on open, renew it every 30 s, give it back on leave (it also expires by itself).
@@ -323,17 +360,21 @@ export function Editor({
     if (!canEdit) return;
     let active = true;
     const beat = async () => {
-      const result = await editLockAction(target);
-      if (active && result.ok) setLock(result.value.lock);
+      try {
+        const result = await guardAction(() => editLockAction(target), markStale);
+        if (active && result.ok) setLock(result.value.lock);
+      } catch {
+        // A missed renewal is retried on the next beat; a stale build has already been announced.
+      }
     };
     void beat();
     const interval = setInterval(() => void beat(), HEARTBEAT_MS);
     return () => {
       active = false;
       clearInterval(interval);
-      void releaseEditLockAction(target);
+      void releaseEditLockAction(target).catch(() => undefined);
     };
-  }, [canEdit, target]);
+  }, [canEdit, target, markStale]);
 
   // Keyboard undo/redo outside text fields (inside them the browser's own text undo applies).
   useEffect(() => {
@@ -361,12 +402,25 @@ export function Editor({
       await flush();
       setBusy(true);
       setStatus('Saving…');
-      const result = await saveDraftChangeAction({
-        ...target,
-        changeId: crypto.randomUUID(),
-        expectedRevision: revisionRef.current,
-        operations,
-      });
+      let result: Awaited<ReturnType<typeof saveDraftChangeAction>>;
+      try {
+        result = await guardAction(
+          () =>
+            saveDraftChangeAction({
+              ...target,
+              changeId: crypto.randomUUID(),
+              expectedRevision: revisionRef.current,
+              operations,
+            }),
+          markStale,
+        );
+      } catch (error) {
+        setBusy(false);
+        setStatus('Not saved');
+        if (!isStaleBuildError(error))
+          setProblem('This change could not be saved. Check your connection and try again.');
+        return false;
+      }
       setBusy(false);
       if (!result.ok) {
         setStatus('');
@@ -385,7 +439,7 @@ export function Editor({
       setStatus('All changes saved');
       return true;
     },
-    [editable, busy, flush, target, reload],
+    [editable, busy, flush, target, reload, markStale],
   );
 
   /** P3 S7a: publishing publishes the saved revision, so anything still waiting is saved first. */
@@ -395,7 +449,13 @@ export function Editor({
   }, [flush]);
 
   const takeOver = async () => {
-    const result = await takeOverEditLockAction(target);
+    const result = await guardAction(() => takeOverEditLockAction(target), markStale).catch(
+      (error: unknown) => {
+        if (isStaleBuildError(error)) return null;
+        throw error;
+      },
+    );
+    if (!result) return;
     if (!result.ok) return setProblem(result.error);
     await reload();
   };

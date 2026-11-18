@@ -24,6 +24,7 @@ import {
   revokeStagingLinkAction,
 } from '@/app/actions/publishing';
 import { type ClientFeedback, reviewFeedbackAction } from '@/app/actions/review';
+import { formatIst } from '@platform/ui/time';
 
 type Kind = 'staging' | 'live';
 
@@ -37,8 +38,8 @@ export interface PublishPanelProps {
   historyHref: string;
 }
 
-const when = (iso: string) =>
-  new Date(iso).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+// P3 S9a (DG-39 (c)): the product clock (12-hour IST), whatever the browser's time zone.
+const when = (iso: string) => formatIst(iso);
 
 function VersionLine({ label, v }: { label: string; v: ClientPublishingStatus['live'] }) {
   return (
@@ -211,8 +212,19 @@ export function PublishPanel({
             <dt className="font-medium">Client approval</dt>
             <dd className="text-slate-700" data-testid="publish-approval">
               {stagingApproval
-                ? `Approved by ${stagingApproval.approverName} · ${when(stagingApproval.approvedAt)}${status.approval.stagingCoversDraft === false ? ' (for earlier content: the draft changed since)' : ''}`
+                ? `Approved by ${stagingApproval.approverName} · ${when(stagingApproval.approvedAt)} · version ${status.staging.number ?? '?'}${status.approval.stagingCoversDraft === false ? '. The draft has changed since, so this approval does not cover it.' : ''}`
                 : 'Not approved yet'}
+            </dd>
+          </div>
+        ) : null}
+        {/* P3 S9a (DG-39 (c)): say plainly whether Live has approved content, once any approval exists. */}
+        {status?.live && status.approval.latest && status.approval.liveApproved !== null ? (
+          <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
+            <dt className="font-medium">Live content</dt>
+            <dd className="text-slate-700" data-testid="publish-live-approval">
+              {status.approval.liveApproved
+                ? `Approved by the client (version ${status.live.number ?? '?'})`
+                : `Version ${status.live.number ?? '?'} went live without the client’s approval`}
             </dd>
           </div>
         ) : null}

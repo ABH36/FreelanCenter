@@ -19,13 +19,13 @@ import {
   requireUserId,
   reviewService,
 } from '@/lib/workspaces';
+import { ist } from '@/lib/time';
 import { RestoreButton, RollbackButton } from './history-actions';
 
 export const metadata: Metadata = { title: 'Version history' };
 
-const when = (d: Date) =>
-  // Seconds included: versions published within one minute must still read apart (extension check 2026-11-16).
-  d.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'medium' });
+// Seconds included: versions published within one minute must still read apart (extension check 2026-11-16).
+const when = (d: Date) => ist(d);
 
 const kindLabel = (kind: 'live' | 'staging') => (kind === 'live' ? 'Live' : 'Staging');
 const versionName = (v: VersionSummary) => `Version ${v.number ?? '?'}`;

@@ -4,6 +4,7 @@ import { createPreviewLinkAction, revokePreviewLinkAction } from '@/app/actions/
 import { ActionForm, CopyLink, SmallButton } from '@/components/action-form';
 import { selectClass } from '@/components/project-ui';
 import { Field, EmptyState, Panel } from '@/components/ui';
+import { formatIstDate } from '@/lib/time';
 import { currentWorkspace, projectService, requireUserId, templateService } from '@/lib/workspaces';
 
 export const metadata: Metadata = { title: 'Templates' };
@@ -23,13 +24,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 
 const DAYS_LABEL = (d: number) => (d === 1 ? '1 day' : `${d} days`);
 
-const formatDay = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'Asia/Kolkata',
-  });
+const formatDay = (iso: string) => formatIstDate(iso);
 
 /**
  * FR-TPL-09: the template catalogue and, for owners, admins and editors, a "share a preview" form that makes an

@@ -4,6 +4,7 @@
  * (data minimisation: `identity` is not read by the job).
  */
 import type { WorkspaceRole } from '@platform/auth/rbac';
+import { formatIst } from '@platform/ui/time';
 
 export interface InvitationMail {
   workspaceName: string;
@@ -28,7 +29,7 @@ const escapeHtml = (value: string) =>
 export function renderInvitationMail(mail: InvitationMail, appName: string) {
   const name = mail.workspaceName.replace(/\s+/g, ' ').trim().slice(0, 100);
   const lead = `You have been invited to join the workspace "${name}" on ${appName} as ${ROLE_LABEL[mail.role]}.`;
-  const expiry = `This invitation expires on ${mail.expiresAt.toUTCString()} and works once. Sign in with this e-mail address to accept it.`;
+  const expiry = `This invitation expires on ${formatIst(mail.expiresAt)} and works once. Sign in with this e-mail address to accept it.`;
   const ignore = 'If you were not expecting it, you can ignore this message.';
   const text = `${lead}\n\nAccept the invitation: ${mail.url}\n\n${expiry}\n\n${ignore}\n\n- ${appName}`;
   const html = `<p>${escapeHtml(lead)}</p><p><a href="${escapeHtml(mail.url)}">Accept the invitation</a></p><p>${escapeHtml(

@@ -72,6 +72,11 @@ Preflight blocks invalid schema, unsafe/missing form destination and other block
 - A review link that moves Draft → In review notifies owners and admins (not the link's maker) with `project.review_requested`.
 - Audit viewer shows the from → to of status rows, on/off of the policy row and "System" for system actors; dashboard times are IST (`apps/dashboard/lib/time.ts`).
 
+**Deploy safety and wording (P3 S9a, plan approved 2026-11-18, no migration; DG-39).**
+
+- `publishing.status` also returns `approval.liveApproved`: a client approved exactly the content on Live (same checksum rule as the gate; `null` with nothing live). Once any approval exists, the Publish panel shows "Live content: Approved by the client (version N)" or "Version N went live without the client's approval". The staging approval reads "Approved by … · <time> · version N" and, when the draft changed, "The draft has changed since, so this approval does not cover it." (replaces "(for earlier content …)").
+- One clock everywhere: `@platform/ui/time` (`formatIst`, `formatIstDate`), 12-hour IST, e.g. "18 Nov 2026, 5:25 pm IST" (Owner choice 2026-11-18); seconds only in the audit log and version history. Used by the dashboard (Publish and feedback panels, notifications, history, settings, templates, invitations, deletion notice), the review page and the invitation e-mail (was GMT).
+
 ## Evidence
 
 Integration tests for atomic publish, retry, stale revision, preview access, comments, approval and rollback; visual/JSON diff snapshots; public-host cache tests. Upstream: Modules 02/04/05. Downstream: domains, leads, SEO, export.

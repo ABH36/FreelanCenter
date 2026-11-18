@@ -257,6 +257,7 @@ describe('the Live gate', () => {
       required: false,
       latest: null,
       draftApproved: null,
+      liveApproved: false,
       stagingCoversDraft: null,
     });
   });
@@ -283,6 +284,7 @@ describe('the Live gate', () => {
     });
     const live = await p.publish(p.owner, 'live');
     expect(live.kind).toBe('live');
+    expect((await publishing.status(p.owner, p.ws.id, p.projectId)).approval.liveApproved).toBe(true);
 
     // A change after the approval: the same draft no longer matches anything the client saw.
     await p.setPhone('+919833334444');
@@ -594,5 +596,21 @@ describe('P3 S8c: Live status, review-requested notice, approval coverage (DG-37
     expect((await publishing.status(p.owner, p.ws.id, p.projectId)).approval.stagingCoversDraft).toBe(true);
     await p.setPhone('+919866667777');
     expect((await publishing.status(p.owner, p.ws.id, p.projectId)).approval.stagingCoversDraft).toBe(false);
+  });
+
+  it('P3 S9a: the panel says whether the content on Live is the content a client approved', async () => {
+    // The S8c production check: staging approved, then edited and published Live without a new approval.
+    const p = await project();
+    expect((await publishing.status(p.owner, p.ws.id, p.projectId)).approval.liveApproved).toBeNull();
+    const staging = await p.publish(p.editor, 'staging');
+    const link = await publishing.createStagingLink(p.editor, p.at());
+    expect(await p.approve(link.id, staging.versionId)).toBe('ok');
+    await p.publish(p.owner, 'live');
+    expect((await publishing.status(p.owner, p.ws.id, p.projectId)).approval.liveApproved).toBe(true);
+    await p.setPhone('+919855556666');
+    await p.publish(p.owner, 'live');
+    const after = (await publishing.status(p.owner, p.ws.id, p.projectId)).approval;
+    expect(after).toMatchObject({ liveApproved: false, stagingCoversDraft: false });
+    expect(after.latest?.number).toBe(staging.number);
   });
 });
