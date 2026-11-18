@@ -14,6 +14,7 @@ import {
 } from '@/app/actions/notifications';
 import { ActionForm, SmallButton } from '@/components/action-form';
 import { EmptyState, Panel } from '@/components/ui';
+import { ist } from '@/lib/time';
 import { currentWorkspace, notificationService, projectService, requireUserId } from '@/lib/workspaces';
 
 export const metadata: Metadata = { title: 'Notifications' };
@@ -96,7 +97,7 @@ export default async function NotificationsPage({
                       describe(n, undefined)
                     )}
                   </p>
-                  <p className="text-xs text-slate-500">{n.createdAt.toUTCString()}</p>
+                  <p className="text-xs text-slate-500">{ist(n.createdAt)}</p>
                 </div>
                 {!n.readAt ? (
                   <ActionForm

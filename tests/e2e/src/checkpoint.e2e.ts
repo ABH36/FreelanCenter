@@ -928,7 +928,9 @@ test('with client approval required, Live waits for the client to approve the ch
   await page.goto(`/w/${a.slug}/notifications`);
   await expect(page.getByText(/^The client approved the staging site of "/).first()).toBeVisible();
   await page.goto(`/w/${a.slug}/audit`);
-  await expect(page.getByText('Client approval before Live switched on or off').first()).toBeVisible();
+  await expect(page.getByText('Client approval before Live changed').first()).toBeVisible();
+  // P3 S8c: the row says which way the policy was switched.
+  await expect(page.getByText('Switched on', { exact: true }).first()).toBeVisible();
 
   // Back to the default for the journeys after this one.
   await page.goto(`/w/${a.slug}/settings`);

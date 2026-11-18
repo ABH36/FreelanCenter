@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { STATUS_LABEL, isProjectStatus } from '@platform/workspaces';
 import { Panel } from '@/components/ui';
+import { ist } from '@/lib/time';
 import {
   auditService,
   currentWorkspace,
@@ -9,19 +11,6 @@ import {
   requireUserId,
   templateService,
 } from '@/lib/workspaces';
-
-/** Times in India Standard Time, the product's home time zone (acceptance C-15). */
-const ist = (d: Date) =>
-  d.toLocaleString('en-IN', {
-    timeZone: 'Asia/Kolkata',
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  });
 
 /** Readable names for the events people look for most; the raw name is shown under it. */
 const ACTION_LABELS: Record<string, string> = {
@@ -45,7 +34,29 @@ const ACTION_LABELS: Record<string, string> = {
   'review.comment_resolved': 'Client comment marked done',
   'review.comment_reopened': 'Client comment opened again',
   // P3 S8b.
-  'workspace.client_approval_policy_changed': 'Client approval before Live switched on or off',
+  'workspace.client_approval_policy_changed': 'Client approval before Live changed',
+};
+
+/** P3 S8c (DG-37 (j)): what changed, from the row's metadata, for the events whose label alone does not say. */
+const detailOf = (action: string, metadata: unknown): string | null => {
+  const m = (metadata ?? {}) as { from?: unknown; to?: unknown; required?: unknown };
+  if (action === 'project.status_changed' || action === 'project.transitioned') {
+    return isProjectStatus(m.from) && isProjectStatus(m.to)
+      ? `${STATUS_LABEL[m.from]} → ${STATUS_LABEL[m.to]}`
+      : null;
+  }
+  if (action === 'workspace.client_approval_policy_changed' && typeof m.required === 'boolean') {
+    return m.required ? 'Switched on' : 'Switched off';
+  }
+  return null;
+};
+
+/** Who acted, when no member name applies. */
+const ACTOR_LABELS: Record<string, string> = {
+  client: 'Client (review link)',
+  system: 'System',
+  platform_admin: 'Platform admin',
+  job: 'Background job',
 };
 const actionLabel = (action: string) =>
   ACTION_LABELS[action] ?? action.replace(/[._]/g, ' ').replace(/^./, (c) => c.toUpperCase());
@@ -185,6 +196,9 @@ export default async function AuditPage({
                   <td className="px-3 py-2 whitespace-nowrap text-xs">{ist(r.createdAt)}</td>
                   <td className="px-3 py-2 text-xs">
                     <span className="font-medium">{actionLabel(r.action)}</span>
+                    {detailOf(r.action, r.metadata) ? (
+                      <span className="block text-slate-700">{detailOf(r.action, r.metadata)}</span>
+                    ) : null}
                     <span className="block font-mono text-[11px] text-slate-500">{r.action}</span>
                   </td>
                   <td
@@ -194,11 +208,7 @@ export default async function AuditPage({
                   </td>
                   <td className="px-3 py-2 text-xs">
                     {r.actorName ??
-                      (r.actorId
-                        ? r.actorId.slice(0, 8)
-                        : r.actorType === 'client'
-                          ? 'Client (review link)'
-                          : r.actorType)}
+                      (r.actorId ? r.actorId.slice(0, 8) : (ACTOR_LABELS[r.actorType] ?? r.actorType))}
                   </td>
                   <td className="px-3 py-2 text-xs">
                     {r.projectId ? (

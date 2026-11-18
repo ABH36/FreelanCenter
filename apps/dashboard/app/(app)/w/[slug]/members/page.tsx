@@ -11,6 +11,7 @@ import {
 } from '@/app/actions/workspaces';
 import { ActionForm, SmallButton } from '@/components/action-form';
 import { Field, Panel } from '@/components/ui';
+import { istMinute } from '@/lib/time';
 import { currentWorkspace, requireUserId, workspaces } from '@/lib/workspaces';
 
 export const metadata: Metadata = { title: 'Members' };
@@ -171,7 +172,7 @@ export default async function MembersPage({ params }: { params: Promise<{ slug: 
                     {inv.expired ? (
                       <span className="text-amber-700">expired</span>
                     ) : (
-                      <>expires {inv.expiresAt.toUTCString()}</>
+                      <>expires {istMinute(inv.expiresAt)}</>
                     )}
                   </div>
                 </div>

@@ -65,6 +65,13 @@ Preflight blocks invalid schema, unsafe/missing form destination and other block
 - Notices: `review_notify` writes `review.client_approved` at once and `review.client_commented` at most once per link per 15 minutes, to the project's creator, owners and admins by their choices for `project.client_review` (default in-app and e-mail on), plus an e-mail outbox row that the sweep dispatches. Payloads are ids and the version number only.
 - A refused review POST (cross-site) now gets the styled review page with a link back, still 403 (DG-37 (g)).
 
+**Review polish (P3 S8c, plan approved 2026-11-18, no migration; DG-37 (j)).**
+
+- A Live publish by an owner or admin of an Approved project (with an active platform subdomain) moves it to Live in the same transaction: audit `project.status_changed` as that member with `reason: published_live`, creator notified. Other statuses are not moved by a publish.
+- `publishing.status` returns `approval.stagingCoversDraft`; the Publish panel marks an approval "(for earlier content …)" when the draft changed since the staging version.
+- A review link that moves Draft → In review notifies owners and admins (not the link's maker) with `project.review_requested`.
+- Audit viewer shows the from → to of status rows, on/off of the policy row and "System" for system actors; dashboard times are IST (`apps/dashboard/lib/time.ts`).
+
 ## Evidence
 
 Integration tests for atomic publish, retry, stale revision, preview access, comments, approval and rollback; visual/JSON diff snapshots; public-host cache tests. Upstream: Modules 02/04/05. Downstream: domains, leads, SEO, export.
