@@ -20,6 +20,7 @@ import {
   createUser,
   db,
   hostCacheHandler,
+  jobs,
   mail,
   notifications,
   projects,
@@ -678,6 +679,20 @@ describe('notifications, preferences, outbox and dead letters (FR-NOT-01; S5 D4/
   });
 
   it('a lost emit is re-emitted by the sweep; the sweep reads nothing in a request or job context', async () => {
+    // P3 S8b: review notices written by the database (other suites, the db seed) wait for the sweep. On a shared
+    // CI database they can be more than the 500 oldest rows outbox_pending returns, so sweep that backlog first;
+    // rows of unknown test events stop counting after 20 failed attempts.
+    const drain = createOutbox({ db, jobs: jobs.emitter, sweepMinAgeSeconds: 0 });
+    const backlog = async () =>
+      (
+        await db.withSystem(
+          (tx) => tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM app.outbox_pending(500, 0)`,
+        )
+      ).length;
+    for (let run = 0; run < 100 && (await backlog()) > 400; run++) {
+      await drain.sweep();
+      await runJobs();
+    }
     const ws = await workspaceWith(['editor']);
     let fail = true;
     const tasks: Array<() => Promise<void>> = [];
@@ -768,7 +783,10 @@ describe('notifications, preferences, outbox and dead letters (FR-NOT-01; S5 D4/
     }
     expect(dispatched).toBeGreaterThanOrEqual(1);
     while (tasks.length) await tasks.shift()!();
-    expect(mail.sent.map((m) => m.to)).toEqual([ws.owner.email]);
+    // P3 S8b: review notices are written by the database (app.review_notify) and wait for the sweep, so this
+    // sweep also mails other suites' members; this workspace's mail is what is asserted.
+    const ours = new Set([ws.owner.email, ws.members.editor!.email]);
+    expect(mail.sent.map((m) => m.to).filter((to) => ours.has(to))).toEqual([ws.owner.email]);
     expect(await db.withTenant(owner, (tx) => tx.outboxEvent.count({ where: { dispatchedAt: null } }))).toBe(
       0,
     );

@@ -39,6 +39,14 @@ export const NOTIFICATION_CATEGORIES = {
     defaults: { inApp: true, email: true },
     emailAvailable: true,
   },
+  // P3 S8b: written by the database (app.review_notify) when a client approves or starts commenting; comments
+  // notify at most once per review link per 15 minutes. Recipients: the project's creator, owners and admins.
+  'project.client_review': {
+    label: 'A client approved or commented on a site I can review',
+    types: ['review.client_approved', 'review.client_commented'],
+    defaults: { inApp: true, email: true },
+    emailAvailable: true,
+  },
   'workspace.members': {
     label: 'Someone accepted my invitation',
     // Written by app.accept_invitation (S5), in-app only.
@@ -141,7 +149,12 @@ export interface NotificationRow {
   payload: Record<string, unknown>;
   readAt: Date | null;
   createdAt: Date;
+  /** `review.client_commented` only: client comments on that link in the 15 minutes the notice covers. */
+  commentCount?: number;
 }
+
+/** The window one `review.client_commented` notice covers (the database writes at most one per link in it). */
+export const REVIEW_NOTICE_WINDOW_MS = 15 * 60_000;
 
 export const NOTIFICATION_PAGE_SIZE = 30;
 
@@ -189,11 +202,30 @@ export function createNotificationService(deps: { db: TenantDatabase; logger?: L
           take: NOTIFICATION_PAGE_SIZE + 1,
           select: { id: true, type: true, payload: true, readAt: true, createdAt: true },
         });
-        const items = rows.slice(0, NOTIFICATION_PAGE_SIZE).map((r) => ({
+        const items: NotificationRow[] = rows.slice(0, NOTIFICATION_PAGE_SIZE).map((r) => ({
           ...r,
           category: categoryOf(r.type),
           payload: (r.payload ?? {}) as Record<string, unknown>,
         }));
+        // "The client left 3 comments": counted when shown, one RLS-scoped query for the page. The notice and the
+        // first comment share one transaction, so they carry the same now().
+        const windows = items.filter(
+          (n) => n.type === 'review.client_commented' && typeof n.payload.stagingLinkId === 'string',
+        );
+        if (windows.length) {
+          const links = windows.map((n) => requireId(n.payload.stagingLinkId));
+          const starts = windows.map((n) => n.createdAt);
+          const counts = await tx.$queryRaw<{ i: number; n: bigint }[]>`
+            SELECT w.i::int AS i, (SELECT count(*) FROM app.review_comments c
+                     WHERE c.staging_link_id = w.link AND c.author_kind = 'client'
+                       AND c.created_at >= w.start
+                       AND c.created_at < w.start + interval '15 minutes') AS n
+              FROM unnest(${links}::uuid[], ${starts}::timestamptz[]) WITH ORDINALITY AS w(link, start, i)`;
+          for (const row of counts) {
+            const item = windows[row.i - 1];
+            if (item) item.commentCount = Number(row.n);
+          }
+        }
         return {
           items,
           nextCursor: rows.length > NOTIFICATION_PAGE_SIZE ? (items.at(-1)?.id ?? null) : null,

@@ -36,6 +36,7 @@ export const SERVER_ACTIONS: Record<string, ActionRegistration> = {
       'stores a slug preference cookie only; the target page resolves membership (probed as page:/w/[slug])',
   },
   renameWorkspaceAction: { service: 'renameWorkspace', selectors: ['workspaceId'] },
+  setClientApprovalPolicyAction: { service: 'setClientApprovalPolicy', selectors: ['workspaceId'] },
   requestDeletionAction: { service: 'requestDeletion', selectors: ['workspaceId'] },
   cancelDeletionAction: { service: 'cancelDeletion', selectors: ['workspaceId'] },
   changeRoleAction: { service: 'changeMemberRole', selectors: ['workspaceId', 'membershipId'] },

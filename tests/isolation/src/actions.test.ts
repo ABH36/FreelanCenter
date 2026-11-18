@@ -269,6 +269,8 @@ afterAll(async () => {
 /** How each service method is called with the selectors; typed failures become comparable values. */
 const CALLS: Record<string, (actor: string, s: Selectors) => Promise<unknown>> = {
   renameWorkspace: (a, s) => service.renameWorkspace(a, { workspaceId: s.workspaceId, name: 'IDOR probe' }),
+  setClientApprovalPolicy: (a, s) =>
+    service.setClientApprovalPolicy(a, { workspaceId: s.workspaceId, required: true }),
   requestDeletion: (a, s) =>
     service.requestDeletion(a, { workspaceId: s.workspaceId, confirmSlug: 'idor-probe' }),
   cancelDeletion: (a, s) => service.cancelDeletion(a, { workspaceId: s.workspaceId }),

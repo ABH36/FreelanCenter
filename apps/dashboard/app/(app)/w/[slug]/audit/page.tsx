@@ -35,6 +35,7 @@ const ACTION_LABELS: Record<string, string> = {
   'project.created': 'Project created',
   'project.updated': 'Project updated',
   'project.transitioned': 'Project status changed',
+  'project.status_changed': 'Project status changed',
   'template.preview_link.created': 'Preview link created',
   'template.preview_link.revoked': 'Preview link turned off',
   'audit.exported': 'Audit log exported',
@@ -43,6 +44,8 @@ const ACTION_LABELS: Record<string, string> = {
   'review.comment_replied': 'Replied to a client comment',
   'review.comment_resolved': 'Client comment marked done',
   'review.comment_reopened': 'Client comment opened again',
+  // P3 S8b.
+  'workspace.client_approval_policy_changed': 'Client approval before Live switched on or off',
 };
 const actionLabel = (action: string) =>
   ACTION_LABELS[action] ?? action.replace(/[._]/g, ' ').replace(/^./, (c) => c.toUpperCase());

@@ -10,6 +10,8 @@
  *     key (a retried request publishes once).
  *   - Review links: 14-day links to the current staging version, copied or turned off here.
  *   - The live address is shown with a note: it opens only once the sites domain exists (DG-11, DG-33).
+ *   - P3 S8b (FR-PUB-06): with the workspace policy on, Live is offered only for content a client approved
+ *     exactly; the button says why otherwise (the server and the database refuse it too, APPROVAL_REQUIRED).
  */
 import { useCallback, useEffect, useState } from 'react';
 import type { PreflightCheck } from '@platform/workspaces';
@@ -117,15 +119,19 @@ export function PublishPanel({
 
   const [confirming, setConfirming] = useState<string | null>(null);
   const allowed = kind === 'live' ? canPublishLive : canPublishStaging;
+  const needsApproval =
+    kind === 'live' && status?.approval.required === true && !status.approval.draftApproved;
   const blockedReason = !allowed
     ? kind === 'live'
       ? 'Only owners and admins can publish to Live.'
       : 'Only owners, admins and editors can publish.'
-    : !checks
-      ? 'Checking the site…'
-      : !checks.ok
-        ? `Fix the ${checks.checks.filter((c) => c.level === 'blocking').length === 1 ? 'item' : 'items'} marked "Must fix" above to publish to ${kind === 'live' ? 'Live' : 'Staging'}.`
-        : null;
+    : needsApproval
+      ? 'This workspace needs the client to approve this exact content before it goes live. Publish it to Staging, send a review link and wait for the approval. Any change after the approval needs a new one.'
+      : !checks
+        ? 'Checking the site…'
+        : !checks.ok
+          ? `Fix the ${checks.checks.filter((c) => c.level === 'blocking').length === 1 ? 'item' : 'items'} marked "Must fix" above to publish to ${kind === 'live' ? 'Live' : 'Staging'}.`
+          : null;
 
   const publish = async () => {
     setBusy(true);
@@ -146,7 +152,9 @@ export function PublishPanel({
           ? 'Fix the problems marked "Must fix" first.'
           : result.code === 'DRAFT_CONFLICT'
             ? 'The site changed while you were publishing. Check it and publish again.'
-            : result.error,
+            : result.code === 'APPROVAL_REQUIRED'
+              ? 'The client has not approved this exact content yet, so it cannot go live.'
+              : result.error,
       );
       await refresh(kind);
       return;
@@ -205,6 +213,16 @@ export function PublishPanel({
               {stagingApproval
                 ? `Approved by ${stagingApproval.approverName} · ${when(stagingApproval.approvedAt)}`
                 : 'Not approved yet'}
+            </dd>
+          </div>
+        ) : null}
+        {status?.approval.required ? (
+          <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
+            <dt className="font-medium">Before Live</dt>
+            <dd className="text-slate-700" data-testid="publish-approval-gate">
+              {status.approval.draftApproved
+                ? 'The client approved this content. It can go live.'
+                : 'Needs the client’s approval of this content'}
             </dd>
           </div>
         ) : null}
@@ -276,7 +294,7 @@ export function PublishPanel({
         <button
           type="button"
           onClick={() => void publish()}
-          disabled={!allowed || busy || !checks || !checks.ok}
+          disabled={!allowed || busy || !checks || !checks.ok || needsApproval}
           className="rounded-md bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
         >
           {busy ? 'Publishing…' : kind === 'live' ? 'Publish to Live' : 'Publish to Staging'}

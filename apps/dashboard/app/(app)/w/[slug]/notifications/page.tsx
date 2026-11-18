@@ -26,6 +26,16 @@ function describe(n: NotificationRow, projectName: string | undefined) {
     return `${project} is now ${to}.`;
   }
   if (n.type === 'workspace.invitation_accepted') return 'Someone accepted your invitation and joined.';
+  // P3 S8b: the client's name is shown on the project's Client feedback tab, not in the inbox.
+  const version = typeof n.payload.number === 'string' ? ` (version ${n.payload.number})` : '';
+  if (n.type === 'review.client_approved')
+    return `The client approved the staging site of ${project}${version}.`;
+  if (n.type === 'review.client_commented') {
+    const count = n.commentCount ?? 0;
+    return count > 1
+      ? `The client left ${count} comments on the staging site of ${project}${version}.`
+      : `The client left a comment on the staging site of ${project}${version}.`;
+  }
   return 'Update';
 }
 

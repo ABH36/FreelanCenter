@@ -159,6 +159,8 @@ const tenantTables = await withClient('bootstrap', async (op) => {
     'approve_review_version',
     'get_review_thread',
     'get_review_approval',
+    // P3 S8b: AFTER INSERT trigger on staging_links (Draft -> In review as the system); no role executes it.
+    'staging_links_review_status',
   ].sort();
   check(
     `SECURITY DEFINER functions: exactly the ${expectedDefiners.length} expected, owned by svc_definer, search_path pinned`,
@@ -375,6 +377,21 @@ await withClient('public', async (c) => {
     "SELECT id FROM app.get_review_thread('00000000-0000-7000-8000-000000000000', '00000000-0000-7000-8000-000000000000')",
   );
   check('an unknown staging link has no thread (get_review_thread)', noThread.rows.length === 0);
+  // P3 S8b: the status and notification helpers run only inside the review functions (owner svc_definer).
+  check(
+    'app_public cannot move a project status itself (review_set_status)',
+    await denied(
+      c,
+      "SELECT app.review_set_status('00000000-0000-7000-8000-000000000000', '00000000-0000-7000-8000-000000000000', 'draft', 'in_review', 'x')",
+    ),
+  );
+  check(
+    'app_public cannot write notifications itself (review_notify)',
+    await denied(
+      c,
+      "SELECT app.review_notify('00000000-0000-7000-8000-000000000000', '00000000-0000-7000-8000-000000000000', 'review.client_approved', '{}'::jsonb)",
+    ),
+  );
   check(
     'app_public cannot publish a platform template',
     await denied(
@@ -399,6 +416,25 @@ await withClient('admin', async (c) => {
     'app_admin cannot grant platform admins',
     await denied(c, "SELECT app.operator_grant_platform_admin('00000000-0000-7000-8000-000000000000', 'x')"),
   );
+});
+
+// P3 S8b: members cannot run the system status move or write review notices directly, and the Live gate trigger is
+// in place (the integration suite exercises it; here only its presence, which a live check can see).
+await withClient('app', async (c) => {
+  check(
+    'app_user cannot move a project status as the system (review_set_status)',
+    await denied(
+      c,
+      "SELECT app.review_set_status('00000000-0000-7000-8000-000000000000', '00000000-0000-7000-8000-000000000000', 'in_review', 'approved', 'x')",
+    ),
+  );
+});
+await withClient('bootstrap', async (op) => {
+  const { rows } = await op.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM pg_trigger
+      WHERE NOT tgisinternal AND tgname IN ('site_versions_approval_gate', 'staging_links_review_status')`,
+  );
+  check('the client-approval gate and review-status triggers exist', rows[0]?.n === 2);
 });
 
 process.stdout.write(`\n${passed} passed, ${failures.length} failed (${target})\n`);

@@ -25,6 +25,10 @@
  * an earlier live version; owners/admins; expected current live version; no preflight; host-cache invalidation).
  * "Restore into the draft" is builder.restoreVersion.
  *
+ * P3 S8b (FR-PUB-06, plan approved by the Owner 2026-11-18): with the workspace policy on, a live publish needs a
+ * client approval of a version with exactly the same checksum (APPROVAL_REQUIRED otherwise; the trigger
+ * site_versions_approval_gate repeats the rule). Rollback is exempt: it moves the pointer to an existing version.
+ *
  * Audit rows carry ids, kind, number, revision and counts only, never content.
  */
 import { createHash } from 'node:crypto';
@@ -94,6 +98,16 @@ export interface StagingLinkView {
   createdByName: string | null;
 }
 
+/** P3 S8b (FR-PUB-06): what the publishing panel shows about client approval. */
+export interface ApprovalState {
+  /** The workspace policy "require client approval before Live" is on. */
+  required: boolean;
+  /** The project's most recent client approval, if any. */
+  latest: { number: number | null; approverName: string; approvedAt: Date } | null;
+  /** With the policy on: a client approved exactly the content the draft would publish now. Null when off. */
+  draftApproved: boolean | null;
+}
+
 export interface PublishingStatus {
   draftRevision: number;
   staging: VersionSummary | null;
@@ -103,6 +117,7 @@ export interface PublishingStatus {
   stagingLinks: StagingLinkView[];
   stagingLinksConfigured: boolean;
   recent: VersionSummary[];
+  approval: ApprovalState;
 }
 
 export interface PublishResult {
@@ -238,6 +253,24 @@ export function createPublishingService(deps: PublishingServiceDeps) {
       out[r.id] = urls;
     }
     return out;
+  }
+
+  /** P3 S8b: the workspace policy (FR-PUB-06). The trigger site_versions_approval_gate enforces it as well. */
+  async function approvalRequired(tx: Tx, scope: TenantScope): Promise<boolean> {
+    const w = await tx.workspace.findUnique({
+      where: { id: scope.workspaceId },
+      select: { requireClientApproval: true },
+    });
+    return w?.requireClientApproval ?? false;
+  }
+
+  /** Whether a client approved a version of this project with exactly this content (any link, revoked or not). */
+  async function contentApproved(tx: Tx, projectId: string, checksum: string): Promise<boolean> {
+    const found = await tx.reviewApproval.findFirst({
+      where: { projectId, siteVersion: { checksum } },
+      select: { id: true },
+    });
+    return found !== null;
   }
 
   async function names(tx: Tx, ids: (string | null)[]): Promise<Map<string, string>> {
@@ -391,6 +424,14 @@ export function createPublishingService(deps: PublishingServiceDeps) {
           }
           const config = parsed.config;
           const assets = await snapshotAssets(tx, config);
+          const checksum = versionChecksum(config, assets);
+          // FR-PUB-06: with the policy on, Live takes only content a client approved (rollback is not a publish).
+          if (
+            kind === 'live' &&
+            (await approvalRequired(tx, scope)) &&
+            !(await contentApproved(tx, project.id, checksum))
+          )
+            throw new WorkspaceError('APPROVAL_REQUIRED');
           const version = await tx.siteVersion.create({
             data: {
               workspaceId: scope.workspaceId,
@@ -399,7 +440,7 @@ export function createPublishingService(deps: PublishingServiceDeps) {
               config,
               assets,
               schemaVersion: config.schemaVersion,
-              checksum: versionChecksum(config, assets),
+              checksum,
               sourceDraftRevision: expectedRevision,
               note,
               publishKey,
@@ -454,11 +495,11 @@ export function createPublishingService(deps: PublishingServiceDeps) {
 
     /** The publishing panel: current staging and live versions, addresses, staging links, the latest versions. */
     async status(actorUserId: string, workspaceId: unknown, projectId: unknown): Promise<PublishingStatus> {
-      return query(actorUserId, workspaceId, 'projects.view', async (tx) => {
+      return query(actorUserId, workspaceId, 'projects.view', async (tx, scope) => {
         const project = await findProject(tx, projectId);
         const draft = await tx.siteDraft.findFirst({
           where: { projectId: project.id },
-          select: { revision: true },
+          select: { revision: true, config: true },
         });
         if (!draft) throw new WorkspaceError('NO_DRAFT');
         const pointers = await tx.sitePointer.findMany({
@@ -495,6 +536,24 @@ export function createPublishingService(deps: PublishingServiceDeps) {
           return v ? summary(v, who) : null;
         };
         const staging = deps.staging;
+        const required = await approvalRequired(tx, scope);
+        const latest = await tx.reviewApproval.findFirst({
+          where: { projectId: project.id },
+          orderBy: { createdAt: 'desc' },
+          select: { approverName: true, createdAt: true, siteVersion: { select: { number: true } } },
+        });
+        let draftApproved: boolean | null = null;
+        if (required) {
+          // The checksum the next publish would get: the same canonical config and image snapshot as publish.
+          const parsed = parseSiteConfig(draft.config);
+          draftApproved = parsed.ok
+            ? await contentApproved(
+                tx,
+                project.id,
+                versionChecksum(parsed.config, await snapshotAssets(tx, parsed.config)),
+              )
+            : false;
+        }
         return {
           draftRevision: draft.revision,
           staging: of('staging'),
@@ -511,6 +570,17 @@ export function createPublishingService(deps: PublishingServiceDeps) {
             : [],
           stagingLinksConfigured: staging !== null && staging !== undefined,
           recent: recent.map((v) => summary(v, who)),
+          approval: {
+            required,
+            latest: latest
+              ? {
+                  number: latest.siteVersion.number,
+                  approverName: latest.approverName,
+                  approvedAt: latest.createdAt,
+                }
+              : null,
+            draftApproved,
+          },
         };
       });
     },

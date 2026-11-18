@@ -334,6 +334,15 @@ describe('review POST', () => {
       },
     );
     expect(evil.status).toBe(403);
+    // P3 S8b (DG-37 g): a styled page with the way back instead of a bare "Forbidden"; still nothing stored.
+    expect(evil.headers.get('content-type')).toBe('text/html; charset=utf-8');
+    expect(evil.headers.get('content-security-policy')).toContain(REVIEW_CSP);
+    expect(evil.headers.get('cache-control')).toBe('no-store');
+    const refused = await evil.text();
+    expect(refused).toContain('This could not be sent');
+    expect(refused).toContain(`href="/s/${t}/_review"`);
+    expect(refused).not.toContain('<script');
+    expect(s.approvals).toHaveLength(0);
     const noOrigin = new Request(`${ORIGIN}/x`, {
       method: 'POST',
       headers: { 'sec-fetch-site': 'cross-site' },

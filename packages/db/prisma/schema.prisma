@@ -258,39 +258,42 @@ model AdminStepUp {
 /// The hard isolation boundary (SRS 4.2). status/suspension/plan columns are not writable by app_user;
 /// suspension goes through app.admin_set_workspace_status (FR-WS-04, FR-ADM-02).
 model Workspace {
-  id                   String                @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  name                 String
+  id                    String                @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  name                  String
   /// Unique, lower-case, 3-48 chars; reserved words (app.reserved_slugs()) blocked by CHECK and the service (FR-WS-01).
-  slug                 String                @unique
-  status               WorkspaceStatus       @default(active)
-  planId               String?               @map("plan_id")
-  suspendedAt          DateTime?             @map("suspended_at") @db.Timestamptz(6)
-  suspendedReason      String?               @map("suspended_reason")
+  slug                  String                @unique
+  status                WorkspaceStatus       @default(active)
+  planId                String?               @map("plan_id")
+  suspendedAt           DateTime?             @map("suspended_at") @db.Timestamptz(6)
+  suspendedReason       String?               @map("suspended_reason")
   /// Deletion request (FR-WS-05 design hook, IMPLEMENTATION_PLAN Q4); the purge job lands in P8.
-  deletedAt            DateTime?             @map("deleted_at") @db.Timestamptz(6)
-  scheduledPurgeAt     DateTime?             @map("scheduled_purge_at") @db.Timestamptz(6)
-  createdBy            String?               @map("created_by") @db.Uuid
-  createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt            DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  memberships          Membership[]
-  invitations          Invitation[]
-  projects             Project[]
-  clientContacts       ClientContact[]
-  domains              Domain[]
-  outboxEvents         OutboxEvent[]
-  jobDeadLetters       JobDeadLetter[]
-  templates            Template[]
-  templatePreviewLinks TemplatePreviewLink[]
-  templateVersions     TemplateVersion[]
-  siteDrafts           SiteDraft[]
-  changeSets           ChangeSet[]
-  siteVersions         SiteVersion[]
-  sitePointers         SitePointer[]
-  stagingLinks         StagingLink[]
-  reviewComments       ReviewComment[]
-  reviewApprovals      ReviewApproval[]
-  projectEditLocks     ProjectEditLock[]
-  assets               Asset[]
+  deletedAt             DateTime?             @map("deleted_at") @db.Timestamptz(6)
+  scheduledPurgeAt      DateTime?             @map("scheduled_purge_at") @db.Timestamptz(6)
+  /// P3 S8b (FR-PUB-06): a new Live version needs a client approval of exactly its content (trigger
+  /// site_versions_approval_gate, migration 20261118120000_p3_s8b_approval_gate). Owners and admins change it.
+  requireClientApproval Boolean               @default(false) @map("require_client_approval")
+  createdBy             String?               @map("created_by") @db.Uuid
+  createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  memberships           Membership[]
+  invitations           Invitation[]
+  projects              Project[]
+  clientContacts        ClientContact[]
+  domains               Domain[]
+  outboxEvents          OutboxEvent[]
+  jobDeadLetters        JobDeadLetter[]
+  templates             Template[]
+  templatePreviewLinks  TemplatePreviewLink[]
+  templateVersions      TemplateVersion[]
+  siteDrafts            SiteDraft[]
+  changeSets            ChangeSet[]
+  siteVersions          SiteVersion[]
+  sitePointers          SitePointer[]
+  stagingLinks          StagingLink[]
+  reviewComments        ReviewComment[]
+  reviewApprovals       ReviewApproval[]
+  projectEditLocks      ProjectEditLock[]
+  assets                Asset[]
 
   @@map("workspaces")
   @@schema("app")
