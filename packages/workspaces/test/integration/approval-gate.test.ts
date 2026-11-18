@@ -10,6 +10,10 @@
  *     and audited; nothing moves from other statuses; a member cannot fake the system move;
  *   - notifications: approval at once, comments once per link per 15 minutes, to the creator, owners and admins,
  *     by their choices, with e-mail outbox rows.
+ *
+ * P3 S8c (DG-37 (j), plan approved by the Owner 2026-11-18): a Live publish by an owner or admin moves Approved to
+ * Live (audited, creator notified); a review link that moves Draft to In review notifies the approvers other than
+ * the person who made it; the panel says whether the staging approval still covers the draft.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
@@ -249,7 +253,12 @@ describe('the Live gate', () => {
     const p = await project();
     expect((await p.publish(p.owner, 'live')).kind).toBe('live');
     const s = await publishing.status(p.owner, p.ws.id, p.projectId);
-    expect(s.approval).toEqual({ required: false, latest: null, draftApproved: null });
+    expect(s.approval).toEqual({
+      required: false,
+      latest: null,
+      draftApproved: null,
+      stagingCoversDraft: null,
+    });
   });
 
   it('policy on: refused until the client approves exactly that content; a later change needs a new approval', async () => {
@@ -499,11 +508,91 @@ describe('review notifications (FR-NOT-01)', () => {
     );
     expect(rows.rows.map((r) => r.user_id).sort()).toEqual([admin, p.editor].sort());
     const mails = await asOwner<{ notification: string }>(
-      `SELECT payload ->> 'notificationId' AS notification FROM app.outbox_events
-        WHERE workspace_id = $1 AND event = 'notification.email.requested.v1'`,
+      `SELECT o.payload ->> 'notificationId' AS notification FROM app.outbox_events o
+         JOIN app.notifications n ON n.id = (o.payload ->> 'notificationId')::uuid
+        WHERE o.workspace_id = $1 AND o.event = 'notification.email.requested.v1'
+          AND n.type = 'review.client_approved'`,
       [p.ws.id],
     );
     const editorNotice = rows.rows.find((r) => r.user_id === p.editor)!.id;
     expect(mails.rows.map((m) => m.notification)).toEqual([editorNotice]);
+  });
+});
+
+describe('P3 S8c: Live status, review-requested notice, approval coverage (DG-37 (j))', () => {
+  const notices = async (workspaceId: string, type: string) =>
+    (
+      await asOwner<{ user_id: string; payload: Record<string, string> }>(
+        `SELECT user_id, payload FROM app.notifications WHERE workspace_id = $1 AND type = $2`,
+        [workspaceId, type],
+      )
+    ).rows;
+
+  it('a Live publish by an owner moves Approved to Live, audited as the owner; the creator is notified', async () => {
+    const p = await project();
+    const staging = await p.publish(p.editor, 'staging');
+    const link = await publishing.createStagingLink(p.editor, p.at());
+    expect(await p.approve(link.id, staging.versionId)).toBe('ok');
+    expect((await p.status()).status).toBe('approved');
+    await p.publish(p.owner, 'live');
+    expect((await p.status()).status).toBe('live');
+    const moves = await db.withTenant(await p.scope(), (tx) =>
+      tx.auditLog.findMany({
+        where: { projectId: p.projectId, action: 'project.status_changed', actorType: 'user' },
+        select: { actorId: true, metadata: true, result: true },
+      }),
+    );
+    expect(moves).toEqual([
+      {
+        actorId: p.owner,
+        result: 'success',
+        metadata: { from: 'approved', to: 'live', reason: 'published_live' },
+      },
+    ]);
+    const changed = await notices(p.ws.id, 'project.status_changed');
+    expect(changed).toEqual([
+      { user_id: p.editor, payload: { projectId: p.projectId, from: 'approved', to: 'live' } },
+    ]);
+    // Another Live publish (already Live) moves nothing and notifies nobody again.
+    await p.setPhone('+919844445555');
+    await p.publish(p.owner, 'live');
+    expect(await notices(p.ws.id, 'project.status_changed')).toHaveLength(1);
+  });
+
+  it('a Live publish leaves any other status alone (Draft here)', async () => {
+    const p = await project();
+    await p.publish(p.owner, 'live');
+    expect((await p.status()).status).toBe('draft');
+    expect(await notices(p.ws.id, 'project.status_changed')).toEqual([]);
+  });
+
+  it('the automatic move to In review notifies owners and admins, not the person who made the link', async () => {
+    const p = await project();
+    await p.publish(p.editor, 'staging');
+    await publishing.createStagingLink(p.editor, p.at());
+    let rows = await notices(p.ws.id, 'project.review_requested');
+    expect(rows.map((r) => r.user_id).sort()).toEqual([p.owner, p.ws.members.admin!.id].sort());
+    expect(rows[0]!.payload).toEqual({ projectId: p.projectId, from: 'draft', to: 'in_review' });
+    // A second link (already In review) notifies nobody.
+    await publishing.createStagingLink(p.owner, p.at());
+    rows = await notices(p.ws.id, 'project.review_requested');
+    expect(rows).toHaveLength(2);
+
+    // The owner makes the link of another project: only the admin hears of it.
+    const q = await project();
+    await q.publish(q.editor, 'staging');
+    await publishing.createStagingLink(q.owner, q.at());
+    expect((await notices(q.ws.id, 'project.review_requested')).map((r) => r.user_id)).toEqual([
+      q.ws.members.admin!.id,
+    ]);
+  });
+
+  it('the panel says whether the staging version (and so its approval) still has the draft’s content', async () => {
+    const p = await project();
+    expect((await publishing.status(p.owner, p.ws.id, p.projectId)).approval.stagingCoversDraft).toBeNull();
+    await p.publish(p.editor, 'staging');
+    expect((await publishing.status(p.owner, p.ws.id, p.projectId)).approval.stagingCoversDraft).toBe(true);
+    await p.setPhone('+919866667777');
+    expect((await publishing.status(p.owner, p.ws.id, p.projectId)).approval.stagingCoversDraft).toBe(false);
   });
 });

@@ -9,6 +9,7 @@ import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { type ActionState, field, runAction } from '@/lib/actions';
+import { istMinute } from '@/lib/time';
 import { PENDING_INVITE_COOKIE, rememberWorkspace, requireUserId, workspaces } from '@/lib/workspaces';
 
 export type { ActionState };
@@ -80,7 +81,7 @@ export async function requestDeletionAction(_prev: ActionState, form: FormData):
       confirmSlug: field(form, 'confirmSlug'),
     });
     revalidatePath('/', 'layout');
-    return { ok: `Deletion scheduled for ${scheduledPurgeAt.toUTCString()}.` };
+    return { ok: `Deletion scheduled for ${istMinute(scheduledPurgeAt)}.` };
   });
 }
 

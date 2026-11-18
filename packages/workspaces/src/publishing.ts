@@ -29,6 +29,12 @@
  * client approval of a version with exactly the same checksum (APPROVAL_REQUIRED otherwise; the trigger
  * site_versions_approval_gate repeats the rule). Rollback is exempt: it moves the pointer to an existing version.
  *
+ * P3 S8c (DG-37 (j), plan approved by the Owner 2026-11-18): a live publish by an owner or admin moves an Approved
+ * project to Live in the same transaction (audited as project.status_changed, reason published_live; the creator
+ * is notified as for a manual change). Creating a review link moves a Draft project to In review (S8b trigger);
+ * the owners and admins other than the person who made the link get the "review requested" notice. `status`
+ * says whether the latest approval covers the current draft.
+ *
  * Audit rows carry ids, kind, number, revision and counts only, never content.
  */
 import { createHash } from 'node:crypto';
@@ -44,7 +50,8 @@ import { WorkspaceError } from './errors';
 import type { ImageWidth } from './image';
 import { OUTBOX_EVENTS, type Outbox } from './outbox';
 import { type PreflightCheck, type PublishKind, runPreflight } from './preflight';
-import { createScopedRunner, parse, requireId } from './scoped';
+import { notify } from './notifications';
+import { createScopedRunner, parse, requireId, writeAudit } from './scoped';
 import { type VersionDiff, diffConfigs } from './version-diff';
 
 export const PUBLISH_LIMITS = {
@@ -104,6 +111,11 @@ export interface ApprovalState {
   required: boolean;
   /** The project's most recent client approval, if any. */
   latest: { number: number | null; approverName: string; approvedAt: Date } | null;
+  /**
+   * P3 S8c: the current staging version has exactly the content the draft would publish now, so an approval of
+   * it covers the draft. Null when nothing is on staging.
+   */
+  stagingCoversDraft: boolean | null;
   /** With the policy on: a client approved exactly the content the draft would publish now. Null when off. */
   draftApproved: boolean | null;
 }
@@ -222,7 +234,7 @@ export function createPublishingService(deps: PublishingServiceDeps) {
     const id = requireId(projectId);
     const project = await tx.project.findFirst({
       where: { id, deletedAt: null },
-      select: { id: true, status: true, templateId: true },
+      select: { id: true, status: true, templateId: true, createdBy: true },
     });
     if (!project) throw new WorkspaceError('NOT_FOUND');
     return project;
@@ -311,6 +323,40 @@ export function createPublishingService(deps: PublishingServiceDeps) {
     publishedBy: row.createdBy,
     publishedByName: row.createdBy ? (who.get(row.createdBy) ?? null) : null,
   });
+
+  /**
+   * P3 S8c: a live publish completes FR-PRJ-02's Approved -> Live. Only owners and admins may make that move
+   * (projects_guard), and only with an active platform subdomain; otherwise the status is left as it is. Returns
+   * the outbox ids of the creator's notice.
+   */
+  async function goLive(
+    tx: Tx,
+    scope: TenantScope,
+    project: { id: string; status: string; createdBy: string | null },
+  ): Promise<string[]> {
+    if (project.status !== 'approved' || (scope.role !== 'owner' && scope.role !== 'admin')) return [];
+    const subdomain = await tx.domain.count({
+      where: { projectId: project.id, type: 'subdomain', status: 'active', deletedAt: null },
+    });
+    if (subdomain === 0) return [];
+    const { count } = await tx.project.updateMany({
+      where: { id: project.id, status: 'approved' },
+      data: { status: 'live' },
+    });
+    if (count === 0) return [];
+    await writeAudit(tx, scope, 'project.status_changed', {
+      targetType: 'project',
+      targetId: project.id,
+      projectId: project.id,
+      metadata: { from: 'approved', to: 'live', reason: 'published_live' },
+    });
+    return notify(tx, scope, {
+      category: 'project.status',
+      type: 'project.status_changed',
+      recipients: project.createdBy ? [project.createdBy] : [],
+      payload: { projectId: project.id, from: 'approved', to: 'live' },
+    });
+  }
 
   async function hostsChanged(tx: Tx, scope: TenantScope, projectId: string): Promise<string> {
     const id = uuidv7();
@@ -461,6 +507,7 @@ export function createPublishingService(deps: PublishingServiceDeps) {
             select: { id: true },
           });
           const outboxIds = kind === 'live' ? [await hostsChanged(tx, scope, project.id)] : [];
+          if (kind === 'live') outboxIds.push(...(await goLive(tx, scope, project)));
           const warnings = pre.checks.filter((c) => c.level === 'warning').length;
           return {
             result: {
@@ -542,18 +589,21 @@ export function createPublishingService(deps: PublishingServiceDeps) {
           orderBy: { createdAt: 'desc' },
           select: { approverName: true, createdAt: true, siteVersion: { select: { number: true } } },
         });
-        let draftApproved: boolean | null = null;
-        if (required) {
-          // The checksum the next publish would get: the same canonical config and image snapshot as publish.
+        const stagingId = pointers.find((p) => p.kind === 'staging')?.siteVersion.id ?? null;
+        const stagingVersion = stagingId
+          ? await tx.siteVersion.findFirst({ where: { id: stagingId }, select: { checksum: true } })
+          : null;
+        // The checksum the next publish would get: the same canonical config and image snapshot as publish.
+        let draftChecksum: string | null = null;
+        if (required || stagingVersion) {
           const parsed = parseSiteConfig(draft.config);
-          draftApproved = parsed.ok
-            ? await contentApproved(
-                tx,
-                project.id,
-                versionChecksum(parsed.config, await snapshotAssets(tx, parsed.config)),
-              )
-            : false;
+          draftChecksum = parsed.ok
+            ? versionChecksum(parsed.config, await snapshotAssets(tx, parsed.config))
+            : null;
         }
+        const draftApproved = required
+          ? draftChecksum !== null && (await contentApproved(tx, project.id, draftChecksum))
+          : null;
         return {
           draftRevision: draft.revision,
           staging: of('staging'),
@@ -580,6 +630,9 @@ export function createPublishingService(deps: PublishingServiceDeps) {
                 }
               : null,
             draftApproved,
+            stagingCoversDraft: stagingVersion
+              ? draftChecksum !== null && stagingVersion.checksum === draftChecksum
+              : null,
           },
         };
       });
@@ -766,7 +819,7 @@ export function createPublishingService(deps: PublishingServiceDeps) {
     ): Promise<StagingLinkView> {
       const settings = deps.staging;
       if (!settings) throw new WorkspaceError('STAGING_LINKS_NOT_CONFIGURED');
-      return command<StagingLinkView>(
+      const outcome = await command<StagingLinkView & { outboxIds: string[] }>(
         actorUserId,
         input.workspaceId,
         { action: 'staging_link.created', capability: 'site.publish_staging' },
@@ -790,8 +843,25 @@ export function createPublishingService(deps: PublishingServiceDeps) {
             data: { workspaceId: scope.workspaceId, projectId: project.id, createdAt, expiresAt },
             select: { id: true, createdAt: true, expiresAt: true },
           });
+          // The S8b trigger moved a Draft project to In review: the approvers hear of it as for a manual request.
+          let outboxIds: string[] = [];
+          if (project.status === 'draft') {
+            const after = await tx.project.findFirst({ where: { id: project.id }, select: { status: true } });
+            if (after?.status === 'in_review') {
+              const approvers = await tx.membership.findMany({
+                where: { workspaceId: scope.workspaceId, role: { in: ['owner', 'admin'] } },
+                select: { userId: true },
+              });
+              outboxIds = await notify(tx, scope, {
+                category: 'project.review',
+                type: 'project.review_requested',
+                recipients: approvers.map((m) => m.userId),
+                payload: { projectId: project.id, from: 'draft', to: 'in_review' },
+              });
+            }
+          }
           return {
-            result: { ...row, url: stagingLinkUrl(settings, row), createdByName: null },
+            result: { ...row, url: stagingLinkUrl(settings, row), createdByName: null, outboxIds },
             audit: {
               targetType: 'staging_link',
               targetId: row.id,
@@ -801,6 +871,10 @@ export function createPublishingService(deps: PublishingServiceDeps) {
           };
         },
       );
+      if (outcome.outboxIds.length)
+        await deps.outbox.dispatch(requireId(input.workspaceId), outcome.outboxIds);
+      const { outboxIds: _ignored, ...view } = outcome;
+      return view;
     },
 
     /** Turns a staging link off for good. Allowed in a suspended workspace (protective). */

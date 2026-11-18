@@ -211,7 +211,7 @@ export function PublishPanel({
             <dt className="font-medium">Client approval</dt>
             <dd className="text-slate-700" data-testid="publish-approval">
               {stagingApproval
-                ? `Approved by ${stagingApproval.approverName} · ${when(stagingApproval.approvedAt)}`
+                ? `Approved by ${stagingApproval.approverName} · ${when(stagingApproval.approvedAt)}${status.approval.stagingCoversDraft === false ? ' (for earlier content: the draft changed since)' : ''}`
                 : 'Not approved yet'}
             </dd>
           </div>

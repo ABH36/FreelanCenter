@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { istMinute } from '@/lib/time';
 import { currentWorkspace, notificationService, requireUserId } from '@/lib/workspaces';
 
 /**
@@ -45,7 +46,7 @@ export default async function WorkspaceLayout({
           role="status"
           className="rounded-[var(--radius-base)] border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
         >
-          This workspace is scheduled for deletion on {ws.deletionScheduledFor.toUTCString()}. Changes are
+          This workspace is scheduled for deletion on {istMinute(ws.deletionScheduledFor)}. Changes are
           blocked until then.{ws.can['workspace.delete'] ? ' You can cancel the deletion in Settings.' : ''}
         </div>
       ) : null}
