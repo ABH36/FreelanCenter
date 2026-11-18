@@ -57,5 +57,5 @@ No new service or subscription.
 
 - ~~Owner approval~~: approved 2026-11-18. Push, PR and merge (no live migration).
 - Production check with the Chrome extension after the merge.
-- Gap register DG-37 (j): marked built once the S8b production-check docs PR (which adds (j)) is merged and this branch is rebased on it.
+- ~~Gap register DG-37 (j)~~: marked built after PR #103 merged (`6a0bdc7`) and this branch was rebased on it.
 - DG-37 (h) (tokens in Vercel's request log) stays with S9.
