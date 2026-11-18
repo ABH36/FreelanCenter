@@ -32,6 +32,7 @@ export const LIMITS = { workspacesPerDay: 5, invitationsPerDay: 50, openInvitati
 export type AuditAction =
   | 'workspace.created'
   | 'workspace.renamed'
+  | 'workspace.client_approval_policy_changed'
   | 'workspace.deletion.requested'
   | 'workspace.deletion.cancelled'
   | 'workspace.member.role_changed'
@@ -63,6 +64,8 @@ export interface WorkspaceSummary {
 export interface WorkspaceContext extends WorkspaceSummary {
   scope: TenantScope;
   createdAt: Date;
+  /** P3 S8b (FR-PUB-06): Live needs a client approval of exactly the content. */
+  requireClientApproval: boolean;
   /** What the UI may offer; the commands re-check on the server. */
   can: Record<Capability, boolean>;
 }
@@ -197,7 +200,15 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
       const w = await db.withTenant(scope, (tx) =>
         tx.workspace.findUniqueOrThrow({
           where: { id: scope.workspaceId },
-          select: { id: true, name: true, slug: true, status: true, scheduledPurgeAt: true, createdAt: true },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            status: true,
+            scheduledPurgeAt: true,
+            createdAt: true,
+            requireClientApproval: true,
+          },
         }),
       );
       const actor = memberActor(scope);
@@ -213,6 +224,7 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
         status: w.status,
         deletionScheduledFor: w.scheduledPurgeAt,
         createdAt: w.createdAt,
+        requireClientApproval: w.requireClientApproval,
         can: capabilities,
       };
     },
@@ -292,6 +304,35 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
             select: { id: true },
           });
           return { result: undefined, audit: { targetType: 'workspace', targetId: scope.workspaceId } };
+        },
+      );
+    },
+
+    /**
+     * P3 S8b (FR-PUB-06): the workspace policy "require client approval before Live". Owners and admins
+     * (workspace.update; RLS manager_update underneath). Setting the value it already has writes nothing.
+     */
+    async setClientApprovalPolicy(actorUserId: string, input: { workspaceId: unknown; required: unknown }) {
+      const required = parse(z.boolean(), input.required, 'required');
+      return command(
+        actorUserId,
+        input.workspaceId,
+        { action: 'workspace.client_approval_policy_changed', capability: 'workspace.update' },
+        async (tx, scope) => {
+          const w = await tx.workspace.findUniqueOrThrow({
+            where: { id: scope.workspaceId },
+            select: { requireClientApproval: true },
+          });
+          if (w.requireClientApproval === required) return { result: { changed: false }, audit: null };
+          await tx.workspace.update({
+            where: { id: scope.workspaceId },
+            data: { requireClientApproval: required },
+            select: { id: true },
+          });
+          return {
+            result: { changed: true },
+            audit: { targetType: 'workspace', targetId: scope.workspaceId, metadata: { required } },
+          };
         },
       );
     },

@@ -325,6 +325,23 @@ export async function servePanel(
   return new Response(common.head ? null : html, { status: 200, headers: headers(common, common.secure) });
 }
 
+/**
+ * P3 S8b (DG-37 g): the page a refused POST gets (403). Before, it was a bare "Forbidden" with no way back; a real
+ * client only met it when their browser sent an unexpected Origin (production check, 2026-11-18).
+ */
+export function renderRefused(target: ReviewTarget): string {
+  const locale = localeOf(target.config);
+  const e = escapeHtml;
+  const title = rt(locale, 'refusedTitle');
+  return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>${e(
+    title,
+  )}</title><style>${STYLE}</style></head><body><main>
+<h1>${e(title)}</h1>
+<p class="notice err" role="alert">${e(rt(locale, 'refusedText'))}</p>
+<p><a href="${e(`/s/${target.token}${REVIEW_PANEL}`)}">${e(rt(locale, 'backToReview'))}</a></p>
+</main></body></html>`;
+}
+
 // ------------------------------------------------------------------------------------------- POST
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PIN_VALUE = /^(?:p:([a-z0-9][a-z0-9-]{0,39})|s:([a-z0-9][a-z0-9-]{0,39}):([a-z0-9][a-z0-9-]{0,39}))$/;
@@ -397,9 +414,9 @@ export async function handlePost(
     deps.logger.warn('sites.review.cross_origin', { action });
     return {
       kind: 'response',
-      response: new Response('Forbidden', {
+      response: new Response(renderRefused(target), {
         status: 403,
-        headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' },
+        headers: headers(common, target.origin.startsWith('https:')),
       }),
     };
   }

@@ -1,12 +1,20 @@
 import type { Metadata } from 'next';
-import { cancelDeletionAction, renameWorkspaceAction, requestDeletionAction } from '@/app/actions/workspaces';
+import {
+  cancelDeletionAction,
+  renameWorkspaceAction,
+  requestDeletionAction,
+  setClientApprovalPolicyAction,
+} from '@/app/actions/workspaces';
 import { ActionForm, SmallButton } from '@/components/action-form';
 import { Field, Panel } from '@/components/ui';
 import { currentWorkspace } from '@/lib/workspaces';
 
 export const metadata: Metadata = { title: 'Workspace settings' };
 
-/** FR-WS-02 settings; FR-WS-05 deletion request (the purge itself is the P8 retention job). */
+/**
+ * FR-WS-02 settings; FR-PUB-06 client approval before Live (P3 S8b); FR-WS-05 deletion request (the purge itself is
+ * the P8 retention job).
+ */
 export default async function SettingsPage({ params }: { params: Promise<{ slug: string }> }) {
   const ws = await currentWorkspace((await params).slug);
   const writable = ws.scope.writable;
@@ -42,6 +50,41 @@ export default async function SettingsPage({ params }: { params: Promise<{ slug:
           </ActionForm>
         ) : (
           <p className="text-sm text-slate-600">Only owners and admins can change these settings.</p>
+        )}
+      </Panel>
+
+      <Panel
+        title="Client review"
+        description="Review links let your client comment on a staging site and approve it. This setting decides whether Live waits for that approval."
+      >
+        <p className="mb-3 text-sm" data-testid="client-approval-state">
+          {ws.requireClientApproval
+            ? 'On: a site goes live only with content the client approved exactly. Any change after the approval needs a new one. Putting an earlier Live version back (rollback) is always allowed.'
+            : 'Off: owners and admins can publish to Live without a client approval. Approvals are still recorded.'}
+        </p>
+        {ws.can['workspace.update'] && writable ? (
+          <ActionForm
+            action={setClientApprovalPolicyAction}
+            hidden={{ workspaceId: ws.id }}
+            className="flex max-w-xl flex-col gap-3"
+          >
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="required"
+                defaultChecked={ws.requireClientApproval}
+                className="mt-0.5 h-4 w-4"
+              />
+              <span>Require client approval before a site goes Live</span>
+            </label>
+            <div>
+              <SmallButton type="submit" variant="primary">
+                Save
+              </SmallButton>
+            </div>
+          </ActionForm>
+        ) : (
+          <p className="text-sm text-slate-600">Only owners and admins can change this setting.</p>
         )}
       </Panel>
 

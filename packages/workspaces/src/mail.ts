@@ -63,16 +63,30 @@ export function renderNotificationMail(mail: NotificationMail, appName: string) 
   const workspace = mail.workspaceName.replace(/\s+/g, ' ').trim().slice(0, 100);
   const project = (mail.projectName ?? 'A project').replace(/\s+/g, ' ').trim().slice(0, 120);
   const to = STATUS_WORDS[String(mail.payload.to)] ?? 'a new status';
+  // P3 S8b: the version number is a code from the database; the client's name is never put in an e-mail.
+  const number = /^[0-9]{1,9}$/.test(String(mail.payload.number))
+    ? ` (version ${String(mail.payload.number)})`
+    : '';
   const lead =
     mail.type === 'project.review_requested'
       ? `"${project}" in "${workspace}" is waiting for your review.`
-      : `"${project}" in "${workspace}" is now ${to}.`;
+      : mail.type === 'review.client_approved'
+        ? `The client approved the staging site of "${project}" in "${workspace}"${number}.`
+        : mail.type === 'review.client_commented'
+          ? `The client is leaving comments on the staging site of "${project}" in "${workspace}"${number}.`
+          : `"${project}" in "${workspace}" is now ${to}.`;
   const prefs = 'You can change which e-mails you get under Notifications in the dashboard.';
   const text = `${lead}\n\nOpen your notifications: ${mail.url}\n\n${prefs}\n\n- ${appName}`;
   const html = `<p>${escapeHtml(lead)}</p><p><a href="${escapeHtml(mail.url)}">Open your notifications</a></p><p>${escapeHtml(
     prefs,
   )}</p><p>- ${escapeHtml(appName)}</p>`;
   const subject =
-    mail.type === 'project.review_requested' ? `Review requested: ${project}` : `${project} is now ${to}`;
+    mail.type === 'project.review_requested'
+      ? `Review requested: ${project}`
+      : mail.type === 'review.client_approved'
+        ? `Client approved: ${project}`
+        : mail.type === 'review.client_commented'
+          ? `New client comments: ${project}`
+          : `${project} is now ${to}`;
   return { subject: `${subject} - ${appName}`.slice(0, 200), text, html };
 }

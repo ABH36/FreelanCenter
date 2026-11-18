@@ -768,7 +768,10 @@ describe('notifications, preferences, outbox and dead letters (FR-NOT-01; S5 D4/
     }
     expect(dispatched).toBeGreaterThanOrEqual(1);
     while (tasks.length) await tasks.shift()!();
-    expect(mail.sent.map((m) => m.to)).toEqual([ws.owner.email]);
+    // P3 S8b: review notices are written by the database (app.review_notify) and wait for the sweep, so this
+    // sweep also mails other suites' members; this workspace's mail is what is asserted.
+    const ours = new Set([ws.owner.email, ws.members.editor!.email]);
+    expect(mail.sent.map((m) => m.to).filter((to) => ours.has(to))).toEqual([ws.owner.email]);
     expect(await db.withTenant(owner, (tx) => tx.outboxEvent.count({ where: { dispatchedAt: null } }))).toBe(
       0,
     );

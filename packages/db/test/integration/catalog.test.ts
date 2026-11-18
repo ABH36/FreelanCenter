@@ -308,6 +308,8 @@ describe('functions', () => {
       'preview_link_sender',
       'record_platform_audit',
       'resolve_host',
+      // P3 S8b: AFTER INSERT trigger on staging_links (Draft -> In review as the system).
+      'staging_links_review_status',
       'workspace_has_members',
       'workspace_members',
       'workspace_writable',

@@ -1,6 +1,6 @@
 # 09 — Leads, Notifications and Analytics
 
-**Status:** Planned (P5). Basic notifications implemented in P1 S6 (Owner-approved 2026-10-24; evidence `docs/reports/PHASE_1_S6_PROJECTS_LIFECYCLE.md`): in-app inbox per member (RLS: recipient only), unread count, mark read / all read, per-category preferences for in-app and e-mail (`project.review`, `project.status`, `workspace.members`), e-mail through the transactional outbox and the `notification.email.v1` job (capture transport until DG-10), dead letters in `app.job_dead_letters`. Templates are escaped plain HTML/text like the S4/S5 mails; React Email is not adopted yet (S6 decision D7). **SRS:** FR-LEAD-01..08, FR-NOT-01..03.
+**Status:** Planned (P5). Basic notifications implemented in P1 S6 (Owner-approved 2026-10-24; evidence `docs/reports/PHASE_1_S6_PROJECTS_LIFECYCLE.md`): in-app inbox per member (RLS: recipient only), unread count, mark read / all read, per-category preferences for in-app and e-mail (`project.review`, `project.status`, `workspace.members`, and since P3 S8b `project.client_review`: a client approved, or started commenting, at most once per review link per 15 minutes, written by the database function `app.review_notify`), e-mail through the transactional outbox and the `notification.email.v1` job (capture transport until DG-10), dead letters in `app.job_dead_letters`. Templates are escaped plain HTML/text like the S4/S5 mails; React Email is not adopted yet (S6 decision D7). **SRS:** FR-LEAD-01..08, FR-NOT-01..03.
 
 ## Outcome
 

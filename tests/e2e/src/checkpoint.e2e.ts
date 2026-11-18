@@ -842,6 +842,101 @@ test('A gets a comment and an approval through the review link, replies, and the
   await expect(page.getByText('Client (review link)').first()).toBeVisible();
 });
 
+// P3 S8b (FR-PUB-06, FR-NOT-01): with "require client approval before Live" on, a change after the approval holds
+// Live back until the client approves the new staging version; the approval reaches the inbox.
+test('with client approval required, Live waits for the client to approve the changed site', async ({
+  browser,
+}) => {
+  test.setTimeout(240_000);
+  const page = a.page;
+  await page.goto(`/w/${a.slug}/settings`);
+  const policy = page.getByRole('checkbox', { name: 'Require client approval before a site goes Live' });
+  await policy.check();
+  await page.locator('form', { has: policy }).getByRole('button', { name: 'Save' }).click();
+  await expect(
+    page.getByText('Saved. Live now needs the client to approve exactly the content first.'),
+  ).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByTestId('client-approval-state')).toHaveText(/^On: /);
+
+  await page.goto(`/w/${a.slug}/projects/${projectId}/editor`);
+  const nav = page.getByRole('navigation', { name: 'Site parts' });
+  // The draft is what the client approved in the previous journey.
+  await nav.getByRole('button', { name: 'Publish', exact: true }).click();
+  await page.getByText('Live (public website)').click();
+  await expect(page.getByTestId('publish-approval-gate')).toHaveText(
+    'The client approved this content. It can go live.',
+    { timeout: 30_000 },
+  );
+
+  // A change after the approval: Live is held back and says why.
+  await nav.getByRole('button', { name: 'Business details' }).click();
+  const name = page.getByRole('textbox', { name: 'Name', exact: true });
+  await expect(name).toBeEnabled({ timeout: 30_000 });
+  await name.fill(`Pulse Approved ${run}`);
+  await expect(page.getByTestId('save-status')).toHaveText('All changes saved', { timeout: 30_000 });
+  await nav.getByRole('button', { name: 'Publish', exact: true }).click();
+  await page.getByText('Live (public website)').click();
+  await expect(page.getByTestId('publish-approval-gate')).toHaveText(
+    'Needs the client’s approval of this content',
+    {
+      timeout: 30_000,
+    },
+  );
+  await expect(page.getByRole('button', { name: 'Publish to Live' })).toBeDisabled();
+  await expect(page.getByTestId('publish-blocked-reason')).toContainText(
+    'This workspace needs the client to approve this exact content before it goes live.',
+  );
+
+  // Staging is not held back; the client approves the new version through the review link.
+  await page.getByText('Staging (review copy)').click();
+  await page.getByRole('button', { name: 'Publish to Staging' }).click();
+  await expect(page.getByRole('status').filter({ hasText: /Published version \d+ to Staging/ })).toBeVisible({
+    timeout: 30_000,
+  });
+  const reviewUrl = (await page.getByRole('link', { name: 'Open' }).first().getAttribute('href'))!;
+  const client = await browser.newContext();
+  try {
+    const c = await client.newPage();
+    expect((await c.goto(`${reviewUrl}/_review`))?.status()).toBe(200);
+    const approve = c.getByRole('region', { name: 'Approve this version' });
+    await approve.getByLabel('Your name').fill('Ramesh Client');
+    await approve.getByLabel('I approve this version of the website').check();
+    await approve.getByRole('button', { name: 'Approve' }).click();
+    await expect(c.getByRole('status')).toHaveText('Thank you, your approval was recorded.');
+  } finally {
+    await client.close();
+  }
+
+  // Live is allowed again and publishes.
+  await page.reload();
+  await nav.getByRole('button', { name: 'Publish', exact: true }).click();
+  await page.getByText('Live (public website)').click();
+  await expect(page.getByTestId('publish-approval-gate')).toHaveText(
+    'The client approved this content. It can go live.',
+    { timeout: 30_000 },
+  );
+  const publishLive = page.getByRole('button', { name: 'Publish to Live' });
+  await expect(publishLive).toBeEnabled({ timeout: 30_000 });
+  await publishLive.click();
+  await expect(page.getByRole('status').filter({ hasText: /Published version \d+ to Live/ })).toBeVisible({
+    timeout: 30_000,
+  });
+
+  // The approval is in the inbox (ids only; the name stays on the feedback tab); the switch is audited.
+  await page.goto(`/w/${a.slug}/notifications`);
+  await expect(page.getByText(/^The client approved the staging site of "/).first()).toBeVisible();
+  await page.goto(`/w/${a.slug}/audit`);
+  await expect(page.getByText('Client approval before Live switched on or off').first()).toBeVisible();
+
+  // Back to the default for the journeys after this one.
+  await page.goto(`/w/${a.slug}/settings`);
+  await policy.uncheck();
+  await page.locator('form', { has: policy }).getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByTestId('client-approval-state')).toHaveText(/^Off: /, { timeout: 30_000 });
+});
+
 test("B cannot open A's version history or a stored version of A's site", async () => {
   const history = await b.page.goto(`/w/${a.slug}/projects/${projectId}/history`);
   expect(history?.status()).toBe(404);

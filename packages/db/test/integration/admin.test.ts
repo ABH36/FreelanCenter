@@ -327,7 +327,8 @@ describe('FR-ADM-01: workspaces and users with data minimisation', () => {
     const viewer = await steppedUpAdmin({ auth, migrator, admin: adminRole });
     const ws = (await console_.getWorkspace(viewer, A.scope.workspaceId, 'corr-view'))!;
     expect(ws.owners).toEqual([{ userId: A.ownerId, email: 'u***@example.test' }]);
-    expect(ws.projects).toEqual([{ id: A.projectId, status: 'draft', hosts: [A.hostname] }]);
+    // P3 S8b: the seed's review link and client approval moved the project to Approved.
+    expect(ws.projects).toEqual([{ id: A.projectId, status: 'approved', hosts: [A.hostname] }]);
     expect(ws).toMatchObject({
       memberCount: 1,
       status: 'active',
@@ -489,14 +490,25 @@ describe('FR-ADM-02: suspend / unsuspend with a reason, invalidation in the same
     });
   });
 
-  it('svc_definer may insert only fresh rows of that one event into the outbox', async () => {
+  it('svc_definer may insert only fresh rows of its two events into the outbox', async () => {
     const client = await migrator.connect();
     try {
       await client.query('BEGIN');
       await client.query('SET LOCAL ROLE svc_definer');
+      // Host-cache rows (S8) and, since P3 S8b, review notification e-mails; nothing else.
+      await client.query('SAVEPOINT probe');
       await expectPgError(
         client.query(
-          `INSERT INTO app.outbox_events (id, workspace_id, event, payload) VALUES ($1, $2, 'notification.email.requested.v1', '{}')`,
+          `INSERT INTO app.outbox_events (id, workspace_id, event, payload) VALUES ($1, $2, 'workspace.anything.v1', '{}')`,
+          [uuidv7(), A.scope.workspaceId],
+        ),
+        '42501',
+      );
+      await client.query('ROLLBACK TO SAVEPOINT probe');
+      // Only fresh rows: one marked dispatched is refused (column grant and policy; the sweep would skip it).
+      await expectPgError(
+        client.query(
+          `INSERT INTO app.outbox_events (id, workspace_id, event, payload, dispatched_at) VALUES ($1, $2, 'notification.email.requested.v1', '{}', now())`,
           [uuidv7(), A.scope.workspaceId],
         ),
         '42501',

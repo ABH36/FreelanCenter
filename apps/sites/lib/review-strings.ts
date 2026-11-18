@@ -9,6 +9,11 @@ const en = {
   intro: '{sender} shared this version of {name} with you for review.',
   publishedAt: 'Version published on {date}.',
   backToSite: 'Back to the website',
+  // P3 S8b (DG-37 g): a POST the page refused (it did not come from the review page itself).
+  refusedTitle: 'This could not be sent',
+  refusedText:
+    'Your browser sent this from somewhere other than the review page, so nothing was saved. Open the review page and try again.',
+  backToReview: 'Go back to the review page',
   approveHeading: 'Approve this version',
   approveText:
     'Approving tells {sender} that this version is ready to go live. You can still leave comments.',
@@ -50,6 +55,10 @@ const hi: Record<ReviewStringKey, string> = {
   intro: '{sender} ने {name} का यह वर्ज़न आपको समीक्षा के लिए भेजा है।',
   publishedAt: 'वर्ज़न {date} को प्रकाशित हुआ।',
   backToSite: 'वेबसाइट पर वापस जाएँ',
+  refusedTitle: 'यह भेजा नहीं जा सका',
+  refusedText:
+    'आपके ब्राउज़र ने इसे समीक्षा पेज के बाहर से भेजा, इसलिए कुछ भी सेव नहीं हुआ। समीक्षा पेज खोलें और फिर से कोशिश करें।',
+  backToReview: 'समीक्षा पेज पर वापस जाएँ',
   approveHeading: 'इस वर्ज़न को मंज़ूरी दें',
   approveText:
     'मंज़ूरी देने से {sender} को पता चलेगा कि यह वर्ज़न लाइव होने के लिए तैयार है। आप फिर भी टिप्पणी कर सकते हैं।',

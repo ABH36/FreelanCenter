@@ -169,4 +169,31 @@ describe('notifications (FR-NOT-01)', () => {
     expect(mail.subject.length).toBeLessThanOrEqual(200);
     expect(mail.text).toContain('is now Live');
   });
+
+  it('P3 S8b: client review notices have their own category, e-mail on by default, and plain mails', () => {
+    expect(categoryOf('review.client_approved')).toBe('project.client_review');
+    expect(categoryOf('review.client_commented')).toBe('project.client_review');
+    expect(emailWanted('project.client_review', undefined)).toBe(true);
+    const base = {
+      workspaceName: 'WS',
+      projectName: '<i>Gupta</i>',
+      url: 'http://localhost:3000/w/ws/notifications',
+    };
+    const approved = renderNotificationMail(
+      { ...base, type: 'review.client_approved', payload: { number: '3' } },
+      'Platform',
+    );
+    expect(approved.subject).toBe('Client approved: <i>Gupta</i> - Platform');
+    expect(approved.text).toContain(
+      'The client approved the staging site of "<i>Gupta</i>" in "WS" (version 3).',
+    );
+    expect(approved.html).not.toContain('<i>');
+    const commented = renderNotificationMail(
+      // A payload number that is not a plain number is left out rather than echoed.
+      { ...base, type: 'review.client_commented', payload: { number: '3<b>' } },
+      'Platform',
+    );
+    expect(commented.subject).toBe('New client comments: <i>Gupta</i> - Platform');
+    expect(commented.text).toContain('is leaving comments on the staging site of "<i>Gupta</i>" in "WS".');
+  });
 });

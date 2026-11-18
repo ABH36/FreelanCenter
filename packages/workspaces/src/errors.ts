@@ -47,7 +47,9 @@ export type WorkspaceErrorCode =
   // P3 S7b: history and rollback.
   | 'LIVE_CHANGED'
   | 'ROLLBACK_TARGET'
-  | 'VERSION_UNREADABLE';
+  | 'VERSION_UNREADABLE'
+  // P3 S8b: the client-approval gate.
+  | 'APPROVAL_REQUIRED';
 
 const MESSAGES: Record<WorkspaceErrorCode, string> = {
   NOT_FOUND: 'Not found.',
@@ -91,6 +93,8 @@ const MESSAGES: Record<WorkspaceErrorCode, string> = {
   LIVE_CHANGED: 'The live version changed a moment ago. Check the history and try again.',
   ROLLBACK_TARGET: 'Only an earlier Live version can be put back on Live. Publish a staging version instead.',
   VERSION_UNREADABLE: 'This version can no longer be shown or restored. Contact support.',
+  APPROVAL_REQUIRED:
+    'This workspace needs the client to approve exactly this content before it goes live. Publish it to staging and send a review link.',
 };
 
 export class WorkspaceError extends Error {
@@ -119,6 +123,8 @@ const PROJECT_SQLSTATES: Record<string, WorkspaceErrorCode> = {
   P5103: 'INVALID_INPUT',
   // P3 S6 asset library.
   P5104: 'ASSET_LIMIT',
+  // P3 S8b client-approval gate (trigger site_versions_approval_gate).
+  P5105: 'APPROVAL_REQUIRED',
 };
 
 /** Every SQLSTATE / Prisma code on an error, however deeply the driver adapter nests it. */

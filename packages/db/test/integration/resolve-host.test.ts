@@ -110,8 +110,8 @@ describe('app.resolve_host as app_public', () => {
 
   it('a paused project shows maintenance; archived is unknown; restored is the placeholder again', async () => {
     const ws = await seedWorkspace(db, auth);
-    for (const status of ['in_review', 'approved', 'live'])
-      await setProjectStatus(ws.scope, ws.projectId, status);
+    // P3 S8b: the seed's review link and client approval already moved it Draft -> In review -> Approved.
+    await setProjectStatus(ws.scope, ws.projectId, 'live');
     expect((await resolve(ws.hostname))[0]?.outcome).toBe('placeholder');
     await setProjectStatus(ws.scope, ws.projectId, 'paused');
     expect((await resolve(ws.hostname))[0]?.outcome).toBe('maintenance');

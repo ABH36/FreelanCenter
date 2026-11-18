@@ -50,6 +50,26 @@ export async function renameWorkspaceAction(_prev: ActionState, form: FormData):
   });
 }
 
+/** P3 S8b (FR-PUB-06): the "require client approval before Live" switch; the service authorizes and audits. */
+export async function setClientApprovalPolicyAction(
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  const userId = await requireUserId();
+  return run(async () => {
+    const required = field(form, 'required') === 'on';
+    await (
+      await workspaces()
+    ).setClientApprovalPolicy(userId, { workspaceId: field(form, 'workspaceId'), required });
+    revalidatePath('/', 'layout');
+    return {
+      ok: required
+        ? 'Saved. Live now needs the client to approve exactly the content first.'
+        : 'Saved. Live no longer waits for a client approval.',
+    };
+  });
+}
+
 export async function requestDeletionAction(_prev: ActionState, form: FormData): Promise<ActionState> {
   const userId = await requireUserId();
   return run(async () => {
