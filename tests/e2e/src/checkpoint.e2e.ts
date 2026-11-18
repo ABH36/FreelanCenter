@@ -6,7 +6,7 @@
 import { randomUUID } from 'node:crypto';
 import AxeBuilder from '@axe-core/playwright';
 import sharp from 'sharp';
-import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { expect, test, type Browser, type BrowserContext, type Page, type Route } from '@playwright/test';
 import { SITES_DOMAIN, SITES_PORT } from '../playwright.config';
 import { appPool, asTenant, authPool, userIdByEmail } from './local-stack';
 
@@ -343,6 +343,37 @@ test('A starts the site from a template, edits it with autosave and live preview
   await expect(page.getByTestId('save-status')).toHaveText(/^Undone/, { timeout: 30_000 });
   await expect(name).toHaveValue(before);
   await expect(preview.getByText(before).first()).toBeVisible();
+});
+
+// P3 S9a (DG-39 (b)): a deployment replaced the build while the editor was open. Every server action call then
+// answers "not found" (as the new build does for the old page's action ids): the save must not hang on "Saving…";
+// editing stops and the reload notice shows. After the reload the draft still has the saved content.
+test('after a deployment, an open editor asks for a reload instead of failing to save silently', async () => {
+  test.setTimeout(120_000);
+  const page = a.page;
+  await page.goto(`/w/${a.slug}/projects/${projectId}/editor`);
+  const name = page.getByRole('textbox', { name: 'Name', exact: true });
+  await expect(name).toBeEnabled({ timeout: 30_000 });
+  const before = await name.inputValue();
+
+  const stale = async (route: Route) => {
+    if (route.request().method() === 'POST' && route.request().headers()['next-action'])
+      return route.fulfill({ status: 404, headers: { 'x-nextjs-action-not-found': '1' }, body: '' });
+    return route.fallback();
+  };
+  await page.route('**/*', stale);
+  await name.fill(`Lost ${run}`);
+  const notice = page.getByTestId('stale-build');
+  await expect(notice).toBeVisible({ timeout: 30_000 });
+  await expect(notice).toContainText('A new version of the dashboard is available');
+  await expect(page.getByTestId('save-status')).toHaveText('Not saved');
+  await expect(name).toBeDisabled();
+
+  await page.unroute('**/*', stale);
+  await notice.getByRole('button', { name: 'Reload' }).click();
+  await expect(name).toBeEnabled({ timeout: 30_000 });
+  await expect(page.getByTestId('stale-build')).toHaveCount(0);
+  await expect(name).toHaveValue(before);
 });
 
 // P3 S4 (FR-BLD-03): sections and pages. Every change is one validated, undoable change set.

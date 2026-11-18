@@ -64,6 +64,7 @@ Owners, admins and editors write; viewers read. Writes need a writable workspace
   - "Add page" adds a page whose address is made from its name and kept unique.
   - These controls are buttons, not drag and drop, so they work from the keyboard.
   - Changing a section's block type is not offered; you add a new section instead.
+- **After a deployment (P3 S9a, DG-39 (b)):** a page loaded before a deployment can call server actions the new build no longer has (`UnrecognizedActionError`). A save, undo, structure change or lock renewal that fails this way, or for any other network reason, never leaves "Saving…" behind: the status reads "Not saved" and the change stays waiting. For a changed build, editing stops and the dashboard-wide reload notice covers the page (`components/stale-build-guard.tsx`, root layout; also from unhandled rejections and the root error boundary `app/error.tsx`). On Vercel the build sets `deploymentId` from `VERCEL_DEPLOYMENT_ID`, so a stale tab reloads on its next navigation. Vercel Skew Protection (paid) is not used (Owner, 2026-11-18).
 
 **Theme editor (P3 S5, FR-BLD-04).** The editor has a "Theme" part with these controls:
 

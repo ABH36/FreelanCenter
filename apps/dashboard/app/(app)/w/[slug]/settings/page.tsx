@@ -7,6 +7,7 @@ import {
 } from '@/app/actions/workspaces';
 import { ActionForm, SmallButton } from '@/components/action-form';
 import { Field, Panel } from '@/components/ui';
+import { istMinute } from '@/lib/time';
 import { currentWorkspace } from '@/lib/workspaces';
 
 export const metadata: Metadata = { title: 'Workspace settings' };
@@ -26,14 +27,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ slug:
           <dt className="text-slate-500">Address</dt>
           <dd className="font-mono">/w/{ws.slug}</dd>
           <dt className="text-slate-500">Created</dt>
-          <dd>
-            {ws.createdAt.toLocaleString('en-IN', {
-              timeZone: 'Asia/Kolkata',
-              dateStyle: 'medium',
-              timeStyle: 'short',
-            })}{' '}
-            IST
-          </dd>
+          <dd>{istMinute(ws.createdAt)}</dd>
         </dl>
         {ws.can['workspace.update'] && writable ? (
           <ActionForm

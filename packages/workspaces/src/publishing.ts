@@ -118,6 +118,12 @@ export interface ApprovalState {
   stagingCoversDraft: boolean | null;
   /** With the policy on: a client approved exactly the content the draft would publish now. Null when off. */
   draftApproved: boolean | null;
+  /**
+   * P3 S9a (DG-39 (c)): a client approved exactly the content now on Live (the same checksum rule as the gate), so
+   * the panel can say so instead of leaving an older approval to read as if it covered Live. Null when nothing is
+   * live.
+   */
+  liveApproved: boolean | null;
 }
 
 export interface PublishingStatus {
@@ -593,6 +599,11 @@ export function createPublishingService(deps: PublishingServiceDeps) {
         const stagingVersion = stagingId
           ? await tx.siteVersion.findFirst({ where: { id: stagingId }, select: { checksum: true } })
           : null;
+        const liveId = pointers.find((p) => p.kind === 'live')?.siteVersion.id ?? null;
+        const liveVersion = liveId
+          ? await tx.siteVersion.findFirst({ where: { id: liveId }, select: { checksum: true } })
+          : null;
+        const liveApproved = liveVersion ? await contentApproved(tx, project.id, liveVersion.checksum) : null;
         // The checksum the next publish would get: the same canonical config and image snapshot as publish.
         let draftChecksum: string | null = null;
         if (required || stagingVersion) {
@@ -630,6 +641,7 @@ export function createPublishingService(deps: PublishingServiceDeps) {
                 }
               : null,
             draftApproved,
+            liveApproved,
             stagingCoversDraft: stagingVersion
               ? draftChecksum !== null && stagingVersion.checksum === draftChecksum
               : null,

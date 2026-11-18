@@ -20,6 +20,7 @@ import { createHash, createHmac } from 'node:crypto';
 import type { PublicDatabase, ReviewThreadEntry, ReviewWriteResult } from '@platform/db/public';
 import type { Logger } from '@platform/logger';
 import { type SiteConfig, parseSiteConfig } from '@platform/schema';
+import { formatIst } from '@platform/ui/time';
 import { DONE_CODES, type DoneCode, type ReviewLocale, rt } from './review-strings';
 
 export const REVIEW_LIMITS = {
@@ -191,12 +192,9 @@ function pinLabel(
   return `${page.title} › ${section ? sectionName(section) : entry.sectionId}`;
 }
 
+// P3 S9a (DG-39 (c)): the product clock, 12-hour IST.
 function formatDate(date: Date, locale: ReviewLocale): string {
-  return new Intl.DateTimeFormat(locale === 'hi' ? 'hi-IN' : 'en-IN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    timeZone: 'Asia/Kolkata',
-  }).format(date);
+  return formatIst(date, { locale });
 }
 
 export function renderPanel(input: {

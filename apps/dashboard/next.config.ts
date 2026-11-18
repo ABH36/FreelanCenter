@@ -4,6 +4,10 @@ const config: NextConfig = {
   // A separate output folder for local acceptance builds (tests/e2e/scripts/acceptance.ts --prod), so a production
   // build never shares a cache with the development server (that mix made pages reload in a loop, P2 S10).
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
+  // P3 S9a (DG-39 (b)): each Vercel deployment has its own id, so a tab from an older deployment reloads on its next
+  // navigation instead of mixing builds (free; Vercel Skew Protection, which keeps old builds serving, is not used).
+  // Unset outside Vercel builds.
+  ...(process.env.VERCEL_DEPLOYMENT_ID ? { deploymentId: process.env.VERCEL_DEPLOYMENT_ID } : {}),
   reactStrictMode: true,
   poweredByHeader: false,
   transpilePackages: [

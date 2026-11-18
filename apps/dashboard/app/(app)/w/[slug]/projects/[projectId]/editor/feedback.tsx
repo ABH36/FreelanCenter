@@ -17,6 +17,7 @@ import {
   resolveCommentAction,
   reviewFeedbackAction,
 } from '@/app/actions/review';
+import { formatIst } from '@platform/ui/time';
 
 type Comment = ClientFeedback['comments'][number];
 
@@ -34,8 +35,8 @@ export interface FeedbackPanelProps {
   onOpenCount?: (open: number) => void;
 }
 
-const when = (iso: string) =>
-  new Date(iso).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+// P3 S9a (DG-39 (c)): the product clock (12-hour IST), whatever the browser's time zone.
+const when = (iso: string) => formatIst(iso);
 
 const humanize = (type: string) =>
   type === 'cta-banner' ? 'Call-to-action banner' : `${type.charAt(0).toUpperCase()}${type.slice(1)}`;

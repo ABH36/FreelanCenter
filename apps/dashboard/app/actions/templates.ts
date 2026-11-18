@@ -7,6 +7,7 @@
  */
 import { revalidatePath } from 'next/cache';
 import { type ActionState, field, runAction } from '@/lib/actions';
+import { formatIstDate } from '@/lib/time';
 import { requireUserId, templateService } from '@/lib/workspaces';
 
 export type { ActionState };
@@ -26,11 +27,8 @@ export async function createPreviewLinkAction(_prev: ActionState, form: FormData
     });
     revalidatePath('/', 'layout');
     const prospect = field(form, 'prospectName').trim();
-    const until = new Date(link.expiresAt).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
+    // P3 S9a: the day in India, not the server's (UTC) day.
+    const until = formatIstDate(link.expiresAt);
     return {
       ok: `Link ready${prospect ? ` for ${prospect}` : ''} (${link.templateName}). It works until ${until}. Copy it below; it also stays in Your preview links.`,
       link: link.url,

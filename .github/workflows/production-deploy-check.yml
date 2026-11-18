@@ -1,0 +1,38 @@
+# P3 S9a (DG-39 (a)): after each push to main, confirm that Vercel deployed that commit to Production for both
+# projects (dashboard, sites). Vercel once built nothing for a merge (23c2b0d, 2026-11-18) while CI passed. A failed
+# run e-mails the person who merged; it never redeploys (that needs the Owner's OK). Read-only, no Vercel token.
+name: Production deploy check
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Full commit SHA to check (default: the branch head)'
+        required: false
+
+permissions:
+  contents: read
+  deployments: read
+
+concurrency:
+  group: production-deploy-check-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  vercel-production:
+    name: Vercel production runs this commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - run: node --test scripts/ops/*.test.mjs
+      - name: Wait for both production deployments
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHECK_SHA: ${{ inputs.sha || github.sha }}
+        run: node scripts/ops/check-production-deploy.mjs --repo "$GITHUB_REPOSITORY" --sha "$CHECK_SHA" --timeout-minutes 20
