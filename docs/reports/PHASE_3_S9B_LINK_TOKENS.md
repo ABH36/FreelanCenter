@@ -1,6 +1,6 @@
 # Phase 3, slice S9b: link tokens out of the request path, and the S9a polish
 
-**Status:** built on `feat/p3-s9b-link-tokens`; tests in section 5; **awaiting the Owner's approval**. **Date:** 2026-11-19 · **Requirements:** FR-PUB-01 and FR-PUB-05 (review links and client review), FR-TPL-09 (preview links), SEC-11 (no secret tokens leaked through URLs), FR-OBS-01 (logs carry no secrets) · **Modules:** 06, 04, 15 · **Gaps:** DG-37 (h), DG-39 (d) · **Plan approved by the Owner 2026-11-19** ("yes i approve the plan and tumhare reocmmendation bhi sahi hai"): Option A, the paths `/review/<key>` and `/preview/<key>`, and the cookie holding the same signed token. **Migration:** none, so no live database step.
+**Status:** built on `feat/p3-s9b-link-tokens`; tests in section 5; **approved by the Owner 2026-11-19** ("okay i approve"). **Date:** 2026-11-19 · **Requirements:** FR-PUB-01 and FR-PUB-05 (review links and client review), FR-TPL-09 (preview links), SEC-11 (no secret tokens leaked through URLs), FR-OBS-01 (logs carry no secrets) · **Modules:** 06, 04, 15 · **Gaps:** DG-37 (h), DG-39 (d) · **Plan approved by the Owner 2026-11-19** ("yes i approve the plan and tumhare reocmmendation bhi sahi hai"): Option A, the paths `/review/<key>` and `/preview/<key>`, and the cookie holding the same signed token. **Migration:** none, so no live database step.
 
 ## 1. Why
 
