@@ -20,7 +20,10 @@ export type PageKind =
   | 'staging_invalid'
   | 'staging_expired'
   | 'staging_revoked'
-  | 'staging_unavailable';
+  | 'staging_unavailable'
+  // P3 S9b: a clean link path (`/review/<key>`, `/preview/<key>`) without the cookie the original link sets.
+  | 'staging_reopen'
+  | 'preview_reopen';
 
 const STYLE =
   'html{color-scheme:light dark}body{margin:0;min-height:100vh;display:grid;place-items:center;' +
@@ -111,6 +114,18 @@ const PAGES: Record<PageKind, PageSpec> = {
     heading: 'There is nothing to review at this link right now',
     message: 'The site may be paused or not prepared yet. Ask the sender.',
   },
+  staging_reopen: {
+    status: 401,
+    title: 'Open the link you were sent',
+    heading: 'Open the review link you were sent',
+    message: 'This address only works in the browser that opened the original link. Open that link again.',
+  },
+  preview_reopen: {
+    status: 401,
+    title: 'Open the link you were sent',
+    heading: 'Open the preview link you were sent',
+    message: 'This address only works in the browser that opened the original link. Open that link again.',
+  },
   unavailable: {
     status: 503,
     title: 'Temporarily unavailable',
@@ -143,7 +158,9 @@ export function pageResponse(
   const spec = PAGES[kind];
   // A preview page can name who sent the link, so the prospect knows whom to ask (acceptance C-25).
   const body =
-    options.sender && (kind.startsWith('preview_') || kind.startsWith('staging_'))
+    options.sender &&
+    (kind.startsWith('preview_') || kind.startsWith('staging_')) &&
+    !kind.endsWith('_reopen')
       ? documentFor({
           ...spec,
           message:
@@ -159,7 +176,7 @@ export function pageResponse(
     'x-robots-tag': 'noindex, nofollow',
   });
   if (spec.retryAfter) headers.set('retry-after', String(spec.retryAfter));
-  // A preview link carries its token in the URL: nothing it links to may receive it in a Referer.
+  // A link page may sit on a token path: nothing it links to may receive the address in a Referer.
   if (kind.startsWith('preview_') || kind.startsWith('staging_'))
     headers.set('referrer-policy', 'no-referrer');
   if (options.correlationId) headers.set('x-correlation-id', options.correlationId);

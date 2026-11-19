@@ -10,6 +10,7 @@ import { type HostResolution, createHostResolver, mintStagingToken } from '@plat
 import { createMemoryStore } from '@platform/providers';
 import { serveHost } from './serve';
 import { createVersionSiteSource, versionAssets } from './site-source';
+import { followLink } from './link-session.testing';
 
 const SECRET = 's'.repeat(40);
 const HOST = 'preview.sites.example.test';
@@ -57,9 +58,13 @@ function setup(site: StagingSite | Error, resolution: HostResolution = { outcome
       },
     }),
   };
+  // P3 S9b: a browser follows the token exchange (303 + link cookie) to the clean path.
   const get = (path: string, host = HOST) =>
-    serveHost(new Request(`https://${host}${path}`, { headers: { host } }), deps);
-  return { get, lookups };
+    followLink((request) => serveHost(request, deps), `https://${host}${path}`, { headers: { host } });
+  /** One request, no redirect followed, with extra headers (cookies). */
+  const raw = (path: string, headers: Record<string, string> = {}) =>
+    serveHost(new Request(`https://${HOST}${path}`, { headers: { host: HOST, ...headers } }), deps);
+  return { get, raw, lookups };
 }
 
 const token = (lifetimeDays = 14, linkId = LID) =>
@@ -78,7 +83,7 @@ const ok: StagingSite = {
 };
 
 describe('staging links', () => {
-  it('renders the staging version: banner, noindex, no-store, no-referrer, internal links keep the token', async () => {
+  it('renders the staging version: banner, noindex, no-store, no-referrer; internal links use the clean path (S9b)', async () => {
     const t = token();
     const res = await setup(ok).get(`/s/${t}`);
     expect(res.status).toBe(200);
@@ -90,7 +95,8 @@ describe('staging links', () => {
       `Staging version of ${gym.business.name} for review. This is not the live website.`,
     );
     expect(html).toContain('noindex');
-    expect(html).toContain(`href="/s/${t}"`);
+    expect(html).toContain(`href="/review/${LID}"`);
+    expect(html).not.toContain(t);
     expect(html).not.toContain('<script');
   });
 
@@ -131,6 +137,90 @@ describe('staging links', () => {
     const res = await setup(ok).get(`/s/${token()}`, 'gym.sites.example.test');
     expect(res.status).toBe(404);
     expect(await res.text()).toContain('There is no website at this address');
+  });
+});
+
+// P3 S9b (DG-37 (h)): the token leaves the path on the first request and travels in a path-scoped cookie.
+describe('token exchange (S9b)', () => {
+  const cookieOf = (res: Response) => (res.headers.get('set-cookie') ?? '').split(';')[0] as string;
+
+  it('a valid token path answers 303 to the clean path with the token in a strict, path-scoped cookie', async () => {
+    const t = token();
+    const s = setup(ok);
+    const res = await s.raw(`/s/${t}/about?page=home`);
+    expect(res.status).toBe(303);
+    expect(res.headers.get('location')).toBe(`/review/${LID}/about?page=home`);
+    expect(res.headers.get('location')).not.toContain(t);
+    const cookie = res.headers.get('set-cookie')!;
+    expect(cookie).toContain(`__Secure-link=${t}`);
+    expect(cookie).toContain(`Path=/review/${LID}`);
+    expect(cookie).toContain('HttpOnly');
+    expect(cookie).toContain('Secure');
+    expect(cookie).toContain('SameSite=Lax');
+    // Until the token expires: 13 days and 23 hours from NOW (token(): 14 days minus 1 hour).
+    expect(cookie).toContain(`Max-Age=${14 * 86_400 - 3_600}`);
+    expect(res.headers.get('cache-control')).toBe('no-store');
+    expect(res.headers.get('referrer-policy')).toBe('no-referrer');
+    expect(await res.text()).toBe('');
+    // The exchange happens before any database work.
+    expect(s.lookups).toEqual([]);
+  });
+
+  it('the clean path serves the version with the cookie, and asks to reopen the link without it', async () => {
+    const t = token();
+    const s = setup(ok);
+    const cookie = cookieOf(await s.raw(`/s/${t}`));
+    const page = await s.raw(`/review/${LID}`, { cookie });
+    expect(page.status).toBe(200);
+    expect(await page.text()).toContain(`Staging version of ${gym.business.name}`);
+
+    const bare = await s.raw(`/review/${LID}`);
+    expect(bare.status).toBe(401);
+    expect(await bare.text()).toContain('Open the review link you were sent');
+    expect(bare.headers.get('cache-control')).toBe('no-store');
+  });
+
+  it('a cookie opens only its own link, and a forged or expired cookie is refused like a forged or expired link', async () => {
+    const s = setup(ok);
+    const cookie = cookieOf(await s.raw(`/s/${token()}`));
+    const other = '01920000-0000-7000-8000-0000000000c2';
+    expect((await s.raw(`/review/${other}`, { cookie })).status).toBe(401);
+
+    const forged = mintStagingToken('x'.repeat(40), {
+      linkId: LID,
+      expiresAt: new Date(NOW.getTime() + 86_400_000),
+      now: NOW,
+    });
+    const bad = await s.raw(`/review/${LID}`, { cookie: `__Secure-link=${forged}` });
+    expect(bad.status).toBe(404);
+    expect(await bad.text()).toContain('This review link is not valid');
+    expect(s.lookups).toEqual([]);
+
+    const old = await setup(ok).raw(`/review/${LID}`, { cookie: `__Secure-link=${token(0.01)}` });
+    expect(old.status).toBe(410);
+    // A cookie under another name (the local one, on a secure host) is not read.
+    expect((await s.raw(`/review/${LID}`, { cookie: `link=${token()}` })).status).toBe(401);
+  });
+
+  it('a link turned off after the exchange is refused on the clean path at once', async () => {
+    const t = token();
+    const cookie = cookieOf(await setup(ok).raw(`/s/${t}`));
+    const res = await setup({ status: 'revoked', sender: 'Pixelstack' }).raw(`/review/${LID}`, { cookie });
+    expect(res.status).toBe(410);
+    expect(await res.text()).toContain('Ask Pixelstack for a new link.');
+  });
+
+  it('a forged or expired token on the entry path is never exchanged', async () => {
+    const forged = mintStagingToken('x'.repeat(40), {
+      linkId: LID,
+      expiresAt: new Date(NOW.getTime() + 86_400_000),
+      now: NOW,
+    });
+    for (const path of [`/s/${forged}`, `/s/${token(0.01)}`]) {
+      const res = await setup(ok).raw(path);
+      expect(res.status, path).not.toBe(303);
+      expect(res.headers.get('set-cookie'), path).toBeNull();
+    }
   });
 });
 

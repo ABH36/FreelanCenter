@@ -86,12 +86,15 @@ function serveSite(
   return pageResponse('unavailable', common);
 }
 
+/** A staging (review) link path: the token entry `/s/<token>` or, since P3 S9b, the clean `/review/<key>`. */
+const isStagingPath = (path: string) => path.startsWith('/s/') || path.startsWith('/review/');
+
 const METHOD_NOT_ALLOWED = () =>
   new Response(null, { status: 405, headers: { allow: 'GET, HEAD', 'cache-control': 'no-store' } });
 
 /**
- * POST (P3 S8a): only the client review forms of a staging link (`/s/<token>/_review/comment|approve` on the
- * preview host). Every other host and path answers 405, as before S8a.
+ * POST (P3 S8a): only the client review forms of a staging link (`/review/<key>/_review/comment|approve` since
+ * P3 S9b, and the pre-S9b `/s/<token>/...` form) on the preview host. Every other host and path answers 405.
  */
 export async function servePost(
   request: Request,
@@ -107,7 +110,7 @@ export async function servePost(
       const previewDeps = deps.preview ? await deps.preview() : null;
       const requested = normalizeHost(request.headers.get('host'));
       if (!previewDeps || requested !== previewDeps.host) return METHOD_NOT_ALLOWED();
-      if (!new URL(request.url).pathname.startsWith('/s/')) return METHOD_NOT_ALLOWED();
+      if (!isStagingPath(new URL(request.url).pathname)) return METHOD_NOT_ALLOWED();
       const stagingDeps = deps.staging ? await deps.staging() : null;
       if (!stagingDeps) return METHOD_NOT_ALLOWED();
       return await serveStagingPost(request, requested, stagingDeps, { head: false, correlationId });
@@ -138,7 +141,7 @@ export async function serveHost(
       if (previewDeps) {
         const requested = normalizeHost(request.headers.get('host'));
         if (requested === previewDeps.host) {
-          if (new URL(request.url).pathname.startsWith('/s/')) {
+          if (isStagingPath(new URL(request.url).pathname)) {
             const stagingDeps = deps.staging ? await deps.staging() : null;
             if (stagingDeps)
               return await serveStaging(request, requested, stagingDeps, { head, correlationId });

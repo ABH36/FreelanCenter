@@ -1,17 +1,20 @@
 /**
  * Client review on a staging link (P3 S8a, FR-PUB-05; plan approved by the Owner 2026-11-16).
  *
- *   GET  /s/<token>/_review            the review panel: approve form, comment form, the link's comments + replies
- *   POST /s/<token>/_review/comment    a client comment, pinned to a page/section of the version the link shows
- *   POST /s/<token>/_review/approve    the client's approval of that version
+ *   GET  /review/<key>/_review            the review panel: approve form, comment form, the link's comments + replies
+ *   POST /review/<key>/_review/comment    a client comment, pinned to a page/section of the version the link shows
+ *   POST /review/<key>/_review/approve    the client's approval of that version
+ *
+ * P3 S9b: the link's token travels in a path-scoped cookie (link-session.ts), not in these paths. Pages opened
+ * before S9b may still post to `/s/<token>/_review/...`; those posts are still accepted.
  *
  * No script anywhere (same CSP stance as every tenant page): plain HTML forms, POST then 303 redirect back to the
  * panel with `?done=<code>` (post/redirect/get). The CSP allows `form-action 'self'` on the panel only.
  *
  * Trust: the link was verified by staging.ts (signature, expiry, app.get_staging_site) before anything here runs,
  * and the database functions check the link again. A POST must come from this origin (Origin, or
- * Sec-Fetch-Site: same-origin when a browser sends no Origin); the page sets no cookie, so there is no session to
- * ride, but a cross-site form must still not be able to approve in a visitor's name. Bodies are capped at 16 KB.
+ * Sec-Fetch-Site: same-origin when a browser sends no Origin). The link cookie (S9b) is SameSite=Lax, so a cross-site
+ * POST does not carry it; the origin check stays, so a cross-site form can never approve in a visitor's name. Bodies are capped at 16 KB.
  * Abuse: 30 posts per link per hour and 10 per IP per minute (Upstash; per instance when no store is configured),
  * a honeypot field, and the database cap of 300 comments per version. The visitor's IP is kept only as a keyed
  * hash (HMAC, domain-separated from the link tokens).
@@ -47,7 +50,8 @@ export interface ReviewDeps {
 
 /** What staging.ts hands over once the link may show its version. */
 export interface ReviewTarget {
-  token: string;
+  /** Path of the link without a trailing slash: `/review/<key>` (P3 S9b), or `/s/<token>` for a pre-S9b post. */
+  base: string;
   linkId: string;
   siteVersionId: string;
   config: unknown;
@@ -104,8 +108,8 @@ export function sectionName(section: { type: string; props?: unknown }): string 
 }
 
 /** The links the staging page shows after each section and in its banner. */
-export function reviewLinks(token: string, locale: ReviewLocale) {
-  const panel = `/s/${token}${REVIEW_PANEL}`;
+export function reviewLinks(base: string, locale: ReviewLocale) {
+  const panel = `${base}${REVIEW_PANEL}`;
   return {
     section: (pageId: string, sectionId: string, type: string) => ({
       href: `${panel}?page=${encodeURIComponent(pageId)}&section=${encodeURIComponent(sectionId)}#comment`,
@@ -210,7 +214,7 @@ export function renderPanel(input: {
   const e = escapeHtml;
   const name = siteName(config);
   const sender = target.sender ?? (locale === 'hi' ? 'आपके वेब डिज़ाइनर' : 'your web designer');
-  const base = `/s/${target.token}`;
+  const base = target.base;
   const action = (a: ReviewAction) => `${base}/_review/${a}`;
   const okDone = done === 'comment' || done === 'approve';
 
@@ -298,7 +302,7 @@ ${tops.length ? `<ol>${items}</ol>` : `<p class="muted">${e(rt(locale, 'noCommen
 </main></body></html>`;
 }
 
-/** GET /s/<token>/_review */
+/** GET /review/<key>/_review */
 export async function servePanel(
   request: Request,
   target: ReviewTarget,
@@ -336,7 +340,7 @@ export function renderRefused(target: ReviewTarget): string {
   )}</title><style>${STYLE}</style></head><body><main>
 <h1>${e(title)}</h1>
 <p class="notice err" role="alert">${e(rt(locale, 'refusedText'))}</p>
-<p><a href="${e(`/s/${target.token}${REVIEW_PANEL}`)}">${e(rt(locale, 'backToReview'))}</a></p>
+<p><a href="${e(`${target.base}${REVIEW_PANEL}`)}">${e(rt(locale, 'backToReview'))}</a></p>
 </main></body></html>`;
 }
 
@@ -369,7 +373,7 @@ export function ipHash(key: string, ip: string | null): string | null {
 
 function redirect(target: ReviewTarget, done: DoneCode, anchor: string, common: Common): Response {
   const h = new Headers({
-    location: `/s/${target.token}${REVIEW_PANEL}?done=${done}#${anchor}`,
+    location: `${target.base}${REVIEW_PANEL}?done=${done}#${anchor}`,
     'cache-control': 'no-store',
     'referrer-policy': 'no-referrer',
     'x-robots-tag': 'noindex, nofollow',
@@ -396,7 +400,7 @@ export type PostOutcome =
   /** The link stopped being valid between the check and the write: show its page again. */
   | { kind: 'link_changed' };
 
-/** POST /s/<token>/_review/comment and /_review/approve. */
+/** POST /review/<key>/_review/comment and /_review/approve (also the pre-S9b /s/<token>/... paths). */
 export async function handlePost(
   request: Request,
   action: ReviewAction,

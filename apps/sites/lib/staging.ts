@@ -11,12 +11,17 @@
  * (503) rather than serving a link that may have been withdrawn.
  *
  * P3 S8a (FR-PUB-05): with review configured, every shown section ends with a "Comment on this section" link and
- * the banner links to the review panel (`/s/<token>/_review`, review.ts), where the client comments and approves.
+ * the banner links to the review panel (`/review/<key>/_review`, review.ts), where the client comments and approves.
+ *
+ * P3 S9b (DG-37 (h)): `/s/<token>[/<page>]` is only the entry. A verified token is moved into a path-scoped cookie and
+ * the visitor is sent to `/review/<link id>[/<page>]` (link-session.ts); every later request reads the token from
+ * the cookie and is verified exactly as before.
  */
 import { renderDocument, t } from '@platform/blocks';
 import type { StagingSite } from '@platform/db/public';
 import { verifyStagingToken } from '@platform/hosting';
 import type { Logger } from '@platform/logger';
+import { CLEAN_PATH, TOKEN_PATH, cleanBase, cookieToken, exchangeResponse, linkKey } from './link-session';
 import { pageResponse } from './pages';
 import {
   REVIEW_PANEL,
@@ -40,7 +45,7 @@ export interface StagingDeps {
   review?: ReviewDeps;
 }
 
-export const STAGING_PATH = /^\/s\/([A-Za-z0-9._-]{1,300})(\/.*)?$/;
+export const STAGING_PATH = TOKEN_PATH.review;
 const HOST_HEADER = /^[a-z0-9.-]+(:\d{1,5})?$/;
 
 type Common = { head: boolean; correlationId: string | undefined };
@@ -49,7 +54,8 @@ type Opened =
   | { kind: 'response'; response: Response }
   | {
       kind: 'ok';
-      token: string;
+      /** `/review/<link id>`, or `/s/<token>` for a pre-S9b review post. */
+      base: string;
       linkId: string;
       rest: string;
       site: Extract<StagingSite, { status: 'ok' }>;
@@ -57,25 +63,68 @@ type Opened =
       local: boolean;
     };
 
-/** Verify the token and ask the database what the link may show now. */
+/**
+ * Verify the token and ask the database what the link may show now. The token comes from the path (`/s/<token>`:
+ * a GET is exchanged for the clean path at once, a pre-S9b POST is served in place) or from the link cookie
+ * (`/review/<key>`, which must be that token's link).
+ */
 async function openLink(
   request: Request,
   hostname: string,
   deps: StagingDeps,
   common: Common,
+  mode: { exchange: boolean },
 ): Promise<Opened> {
   const page = (response: Response): Opened => ({ kind: 'response', response });
-  const match = STAGING_PATH.exec(new URL(request.url).pathname);
-  if (!match) return page(pageResponse('staging_invalid', common));
-  const token = match[1] as string;
-  const rest = match[2] ?? '/';
+  const local = hostname.endsWith('localhost');
+  const url = new URL(request.url);
+  let token: string;
+  let rest: string;
+  let base: string;
+  let fromCookie = false;
+  const tokenMatch = TOKEN_PATH.review.exec(url.pathname);
+  const cleanMatch = tokenMatch ? null : CLEAN_PATH.review.exec(url.pathname);
+  if (tokenMatch) {
+    token = tokenMatch[1] as string;
+    rest = tokenMatch[2] ?? '/';
+    base = `/s/${token}`;
+  } else if (cleanMatch) {
+    const fromJar = cookieToken(request, !local);
+    if (!fromJar) return page(pageResponse('staging_reopen', common));
+    token = fromJar;
+    rest = cleanMatch[2] ?? '/';
+    base = cleanBase('review', cleanMatch[1] as string);
+    fromCookie = true;
+  } else {
+    return page(pageResponse('staging_invalid', common));
+  }
 
-  const verdict = verifyStagingToken(deps.secrets, token, deps.now?.());
+  const now = deps.now?.() ?? new Date();
+  const verdict = verifyStagingToken(deps.secrets, token, now);
   if (!verdict.ok) {
     if (verdict.reason !== 'expired') return page(pageResponse('staging_invalid', common));
   }
   const linkId = verdict.ok ? verdict.claims.lid : verdict.reason === 'expired' ? verdict.claims.lid : null;
   if (!linkId) return page(pageResponse('staging_invalid', common));
+  // A cookie answers only for its own link: the path key must be the token's link id.
+  if (fromCookie && cleanMatch?.[1] !== linkKey(token, linkId))
+    return page(pageResponse('staging_reopen', common));
+  if (verdict.ok && mode.exchange && !fromCookie) {
+    // Before any database work: the token leaves the path on the visitor's first request.
+    return page(
+      exchangeResponse({
+        kind: 'review',
+        key: linkKey(token, linkId),
+        token,
+        rest,
+        search: url.search,
+        expiresAt: verdict.claims.exp,
+        now: Math.floor(now.getTime() / 1000),
+        secure: !local,
+        correlationId: common.correlationId,
+      }),
+    );
+  }
   const site = await deps.stagingSite(linkId);
   if (site.status === 'unknown') return page(pageResponse('staging_invalid', common));
   if (!verdict.ok || site.status === 'expired')
@@ -85,12 +134,11 @@ async function openLink(
   if (site.status !== 'ok')
     return page(pageResponse('staging_unavailable', { ...common, sender: site.sender }));
 
-  const local = hostname.endsWith('localhost');
   const rawHost = request.headers.get('host')?.toLowerCase() ?? '';
   const authority = local && HOST_HEADER.test(rawHost) ? rawHost : hostname;
   return {
     kind: 'ok',
-    token,
+    base,
     linkId,
     rest,
     site,
@@ -101,7 +149,7 @@ async function openLink(
 
 function reviewTarget(opened: Extract<Opened, { kind: 'ok' }>): ReviewTarget {
   return {
-    token: opened.token,
+    base: opened.base,
     linkId: opened.linkId,
     siteVersionId: opened.site.siteVersionId,
     config: opened.site.config,
@@ -117,9 +165,9 @@ export async function serveStaging(
   deps: StagingDeps,
   common: Common,
 ): Promise<Response> {
-  const opened = await openLink(request, hostname, deps, common);
+  const opened = await openLink(request, hostname, deps, common, { exchange: true });
   if (opened.kind === 'response') return opened.response;
-  const { token, rest, site, origin, local } = opened;
+  const { base, rest, site, origin, local } = opened;
 
   if (rest === REVIEW_PANEL && deps.review) {
     const panel = await servePanel(request, reviewTarget(opened), deps.review, { ...common, secure: !local });
@@ -137,10 +185,10 @@ export async function serveStaging(
     path: rest,
     origin,
     mode: 'preview',
-    basePath: `/s/${token}`,
+    basePath: base,
     noindex: true,
     banner: t(locale, 'stagingBanner', { name }),
-    ...(deps.review ? { review: reviewLinks(token, locale) } : {}),
+    ...(deps.review ? { review: reviewLinks(base, locale) } : {}),
     ...(assets.assetUrl ? { assetUrl: assets.assetUrl } : {}),
     onBlockError: (info) => deps.logger.warn('sites.staging.block_error', { ...info }),
   });
@@ -165,16 +213,16 @@ export async function serveStagingPost(
   common: Common,
 ): Promise<Response> {
   const path = new URL(request.url).pathname;
-  const rest = STAGING_PATH.exec(path)?.[2] ?? '/';
+  const rest = (TOKEN_PATH.review.exec(path) ?? CLEAN_PATH.review.exec(path))?.[2] ?? '/';
   const action = reviewAction(rest);
   if (!action || !deps.review) {
     return new Response(null, { status: 405, headers: { allow: 'GET, HEAD', 'cache-control': 'no-store' } });
   }
-  const opened = await openLink(request, hostname, deps, common);
+  const opened = await openLink(request, hostname, deps, common, { exchange: false });
   if (opened.kind === 'response') return opened.response;
   const outcome = await handlePost(request, action, reviewTarget(opened), deps.review, common);
   if (outcome.kind === 'response') return outcome.response;
   // The link was turned off (or the project paused) between the check and the write: show why.
-  const again = await openLink(request, hostname, deps, common);
+  const again = await openLink(request, hostname, deps, common, { exchange: false });
   return again.kind === 'response' ? again.response : pageResponse('staging_unavailable', common);
 }

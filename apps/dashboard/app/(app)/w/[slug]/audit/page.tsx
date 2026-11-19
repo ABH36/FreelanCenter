@@ -176,7 +176,7 @@ export default async function AuditPage({
         <table className="w-full min-w-[40rem] text-left text-sm">
           <thead className="bg-slate-50 text-xs text-slate-500">
             <tr>
-              <th className="px-3 py-2 font-medium">When (IST)</th>
+              <th className="px-3 py-2 font-medium">When</th>
               <th className="px-3 py-2 font-medium">Action</th>
               <th className="px-3 py-2 font-medium">Result</th>
               <th className="px-3 py-2 font-medium">Who</th>
