@@ -8,12 +8,18 @@
  * expired token never reaches the database. The template content comes from the read-only catalogue function and is
  * re-validated by the renderer on every request like any stored config. No tenant secret is embedded: the content is
  * platform demo data.
+ *
+ * P3 S9b (DG-37 (h)): `/p/<token>[/<page>]` is only the entry. A verified token is moved into a path-scoped cookie
+ * and the visitor is sent to `/preview/<key>[/<page>]` (link-session.ts): the key is the link id, or a digest of the
+ * token for a link without one (the "View demo" link, operator links). Later requests verify the cookie's token
+ * exactly as before.
  */
 import { renderDocument, t } from '@platform/blocks';
 import { parseSiteConfig } from '@platform/schema';
 import type { CatalogTemplate } from '@platform/db/public';
 import { type PreviewClaims, verifyPreviewToken } from '@platform/hosting';
 import type { Logger } from '@platform/logger';
+import { CLEAN_PATH, TOKEN_PATH, cleanBase, cookieToken, exchangeResponse, linkKey } from './link-session';
 import { pageResponse } from './pages';
 import { documentResponse, textResponse } from './site-response';
 
@@ -169,7 +175,6 @@ async function senderOf(deps: PreviewDeps, linkId: string | undefined): Promise<
   }
 }
 
-const TOKEN_PATH = /^\/p\/([A-Za-z0-9._-]{1,700})(\/.*)?$/;
 const HOST_HEADER = /^[a-z0-9.-]+(:\d{1,5})?$/;
 
 export async function servePreview(
@@ -186,17 +191,47 @@ export async function servePreview(
       indexable: false,
     });
   }
-  const match = TOKEN_PATH.exec(path);
-  if (!match) return pageResponse('preview_invalid', common);
-  const token = match[1] as string;
-  const rest = match[2] ?? '/';
+  const local = hostname.endsWith('localhost');
+  const tokenMatch = TOKEN_PATH.preview.exec(path);
+  const cleanMatch = tokenMatch ? null : CLEAN_PATH.preview.exec(path);
+  let token: string;
+  let rest: string;
+  if (tokenMatch) {
+    token = tokenMatch[1] as string;
+    rest = tokenMatch[2] ?? '/';
+  } else if (cleanMatch) {
+    const fromJar = cookieToken(request, !local);
+    if (!fromJar) return pageResponse('preview_reopen', common);
+    token = fromJar;
+    rest = cleanMatch[2] ?? '/';
+  } else {
+    return pageResponse('preview_invalid', common);
+  }
 
-  const verdict = verifyPreviewToken(deps.secrets, token, deps.now?.());
+  const now = deps.now?.() ?? new Date();
+  const verdict = verifyPreviewToken(deps.secrets, token, now);
   if (!verdict.ok) {
     if (verdict.reason === 'expired') {
       return pageResponse('preview_expired', { ...common, sender: await senderOf(deps, verdict.claims.lid) });
     }
     return pageResponse('preview_invalid', common);
+  }
+  const key = linkKey(token, verdict.claims.lid);
+  // A cookie answers only for its own link.
+  if (cleanMatch && cleanMatch[1] !== key) return pageResponse('preview_reopen', common);
+  if (tokenMatch) {
+    // Before any database work: the token leaves the path on the visitor's first request.
+    return exchangeResponse({
+      kind: 'preview',
+      key,
+      token,
+      rest,
+      search: new URL(request.url).search,
+      expiresAt: verdict.claims.exp,
+      now: Math.floor(now.getTime() / 1000),
+      secure: !local,
+      correlationId: common.correlationId,
+    });
   }
 
   // Only after the signature and the expiry: a forged or expired link never causes a revocation or catalogue lookup
@@ -215,7 +250,6 @@ export async function servePreview(
   });
   const locale = config.business?.language === 'hi' ? 'hi' : 'en';
 
-  const local = hostname.endsWith('localhost');
   const rawHost = request.headers.get('host')?.toLowerCase() ?? '';
   const authority = local && HOST_HEADER.test(rawHost) ? rawHost : hostname;
   const doc = renderDocument({
@@ -223,7 +257,7 @@ export async function servePreview(
     path: rest,
     origin: `${local ? 'http' : 'https'}://${authority}`,
     mode: 'preview',
-    basePath: `/p/${token}`,
+    basePath: cleanBase('preview', key),
     banner: verdict.claims.name
       ? t(locale, 'previewBannerFor', { prospect: verdict.claims.name, name: template.name })
       : t(locale, 'previewBanner', { name: template.name }),

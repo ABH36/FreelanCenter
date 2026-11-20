@@ -19,6 +19,7 @@ import { createRateLimiter } from './rate-limit';
 import { REVIEW_CSP, clientIp, ipHash, pinOptions, sameOrigin, sectionName } from './review';
 import { serveHost, servePost } from './serve';
 import { parseSiteConfig, type SiteConfig } from '@platform/schema';
+import { followLink } from './link-session.testing';
 
 const SECRET = 's'.repeat(40);
 const HOST = 'preview.sites.example.test';
@@ -110,7 +111,9 @@ function setup(o: Options = {}) {
           }),
     }),
   };
-  const get = (path: string) => serveHost(new Request(`${ORIGIN}${path}`, { headers: { host: HOST } }), deps);
+  // P3 S9b: a browser follows the token exchange (303 + link cookie) to the clean path.
+  const get = (path: string) =>
+    followLink((request) => serveHost(request, deps), `${ORIGIN}${path}`, { headers: { host: HOST } });
   const post = (path: string, body: Record<string, string> | string, headers: Record<string, string> = {}) =>
     servePost(
       new Request(`${ORIGIN}${path}`, {
@@ -143,8 +146,11 @@ describe('review links on the staging site', () => {
     const html = await res.text();
     const shown = home.sections.filter((s) => s.visible);
     expect(html.match(/class="pb-review-pin"/g)).toHaveLength(shown.length);
-    expect(html).toContain(`href="/s/${t}/_review?page=${home.id}&amp;section=${firstSection.id}#comment"`);
-    expect(html).toContain(`<a href="/s/${t}/_review">Comments and approval</a>`);
+    expect(html).toContain(
+      `href="/review/${LID}/_review?page=${home.id}&amp;section=${firstSection.id}#comment"`,
+    );
+    expect(html).toContain(`<a href="/review/${LID}/_review">Comments and approval</a>`);
+    expect(html).not.toContain(t);
     // The CSP still has no script source and allows no form on the site itself.
     const csp = res.headers.get('content-security-policy')!;
     expect(csp).not.toContain('script-src');
@@ -199,8 +205,9 @@ describe('review panel', () => {
     expect(html).toContain('Ramesh &lt;b&gt;');
     expect(html).toContain('Reply from Pixelstack');
     expect(html).toContain('<span class="badge">Done</span>');
-    expect(html).toContain(`action="/s/${t}/_review/comment"`);
-    expect(html).toContain(`action="/s/${t}/_review/approve"`);
+    expect(html).toContain(`action="/review/${LID}/_review/comment"`);
+    expect(html).toContain(`action="/review/${LID}/_review/approve"`);
+    expect(html).not.toContain(t);
     expect(html).toContain(`<input type="hidden" name="v" value="${V}">`);
     // The section the client came from is preselected.
     expect(html).toContain(`<option value="s:${home.id}:${firstSection.id}" selected>`);
@@ -275,6 +282,60 @@ describe('review POST', () => {
       },
     ]);
     expect(s.comments[0]?.ipHash).toMatch(/^[0-9a-f]{32}$/);
+  });
+
+  // P3 S9b (DG-37 (h)): the panel posts to the clean path; the token comes from the link cookie.
+  it('S9b: a post to the clean path with the link cookie is recorded and redirects back to the clean panel', async () => {
+    const t = token();
+    const s = setup();
+    const res = await s.post(`/review/${LID}/_review/comment`, form(), { cookie: `__Secure-link=${t}` });
+    expect(res.status).toBe(303);
+    expect(res.headers.get('location')).toBe(`/review/${LID}/_review?done=comment#comments`);
+    expect(s.comments).toHaveLength(1);
+    expect(s.comments[0]?.linkId).toBe(LID);
+    const approved = await s.post(
+      `/review/${LID}/_review/approve`,
+      { v: V, name: 'Ramesh', confirm: 'yes' },
+      { cookie: `__Secure-link=${t}` },
+    );
+    expect(approved.status).toBe(303);
+    expect(s.approvals).toHaveLength(1);
+  });
+
+  it('S9b: without the cookie, or with the cookie of another link, a clean-path post writes nothing', async () => {
+    const s = setup();
+    const bare = await s.post(`/review/${LID}/_review/comment`, form());
+    expect(bare.status).toBe(401);
+    expect(await bare.text()).toContain('Open the review link you were sent');
+    const other = mintStagingToken(SECRET, {
+      linkId: '01920000-0000-7000-8000-0000000000c2',
+      expiresAt: new Date(NOW.getTime() + 86_400_000),
+      now: NOW,
+    });
+    const wrong = await s.post(
+      `/review/${LID}/_review/approve`,
+      { v: V, name: 'x', confirm: 'yes' },
+      {
+        cookie: `__Secure-link=${other}`,
+      },
+    );
+    expect(wrong.status).toBe(401);
+    expect(s.comments).toEqual([]);
+    expect(s.approvals).toEqual([]);
+  });
+
+  it('S9b: a cross-site post is still refused even if the browser were to send the cookie', async () => {
+    const s = setup();
+    const evil = await s.post(
+      `/review/${LID}/_review/approve`,
+      { v: V, name: 'x', confirm: 'yes' },
+      {
+        origin: 'https://evil.example',
+        cookie: `__Secure-link=${token()}`,
+      },
+    );
+    expect(evil.status).toBe(403);
+    expect(s.approvals).toEqual([]);
   });
 
   it('parses whole-site and whole-page pins, and refuses a malformed one without a write', async () => {

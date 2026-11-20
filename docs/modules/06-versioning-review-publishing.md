@@ -72,6 +72,12 @@ Preflight blocks invalid schema, unsafe/missing form destination and other block
 - A review link that moves Draft → In review notifies owners and admins (not the link's maker) with `project.review_requested`.
 - Audit viewer shows the from → to of status rows, on/off of the policy row and "System" for system actors; dashboard times are IST (`apps/dashboard/lib/time.ts`).
 
+**Link tokens out of the request path (P3 S9b, plan approved 2026-11-19, no migration; DG-37 (h)).**
+
+- Review links `/s/<token>[/<page>]` and preview links `/p/<token>[/<page>]` are entries only: a verified token answers 303 to `/review/<link id>[/<page>]` or `/preview/<key>[/<page>]` (key = link id, or a SHA-256 digest of the token for a link without one) and sets a cookie with that same token: HttpOnly, Secure (not on local http), SameSite=Lax, `Path` limited to that link, `Max-Age` until the token expires (`apps/sites/lib/link-session.ts`). Every later request verifies the cookie's token exactly as before (HMAC, expiry, revocation, the link's database state); a cookie opens only its own link.
+- A clean path without the cookie answers 401 "Open the link you were sent". Links already sent keep working; pages opened before S9b may still post to `/s/<token>/_review/...`, which stays accepted. The review POST keeps its same-origin check.
+- Residual: the entry request of each visit still has the token in its path (Vercel runtime log); every other request does not.
+
 **Deploy safety and wording (P3 S9a, plan approved 2026-11-18, no migration; DG-39).**
 
 - `publishing.status` also returns `approval.liveApproved`: a client approved exactly the content on Live (same checksum rule as the gate; `null` with nothing live). Once any approval exists, the Publish panel shows "Live content: Approved by the client (version N)" or "Version N went live without the client's approval". The staging approval reads "Approved by … · <time> · version N" and, when the draft changed, "The draft has changed since, so this approval does not cover it." (replaces "(for earlier content …)").

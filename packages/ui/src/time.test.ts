@@ -9,6 +9,12 @@ describe('formatIst', () => {
     expect(formatIst(at)).toMatch(/^18 Nov 2026,? 5:25 pm IST$/i);
   });
 
+  it('P3 S9b (DG-39 (d)): the day is not zero-padded, like the date-only form', () => {
+    const early = new Date('2026-12-02T03:35:00Z');
+    expect(formatIst(early)).toMatch(/^2 Dec 2026,? 9:05 am IST$/i);
+    expect(formatIstDate(early)).toBe('2 Dec 2026');
+  });
+
   it('adds seconds when asked', () => {
     expect(formatIst(at, { seconds: true })).toMatch(/^18 Nov 2026,? 5:25:45 pm IST$/i);
   });

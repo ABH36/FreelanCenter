@@ -18,9 +18,12 @@ const config: NextConfig = {
         source: '/fonts/:file*',
         headers: [{ key: 'Cache-Control', value: 'public, max-age=2592000, stale-while-revalidate=86400' }],
       },
-      // Preview links (FR-TPL-09) carry their token in the path: nothing they link to may see it in a Referer. A
-      // later rule wins over the baseline's Referrer-Policy.
+      // Preview and review links (FR-TPL-09, FR-PUB-01): the entry paths carry the token, the clean paths (P3 S9b)
+      // name the link; nothing they link to may see either in a Referer. A later rule wins over the baseline's.
       { source: '/p/:path*', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }] },
+      { source: '/s/:path*', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }] },
+      { source: '/preview/:path*', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }] },
+      { source: '/review/:path*', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }] },
     ];
   },
 };

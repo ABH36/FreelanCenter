@@ -226,12 +226,17 @@ test('A shares a template preview; a prospect opens it without signing in and st
     expect(res?.headers()['x-robots-tag']).toBe('noindex, nofollow');
     await expect(page.locator('.pb-banner')).toContainText('Website preview for "Sharma Fitness"');
     await expect(page.locator('.pb-brand').first()).toHaveText('Sharma Fitness');
-    // Every in-site link stays inside the preview: the first menu item keeps the token in the address.
+    // P3 S9b (DG-37 (h)): the token left the address at once; in-site links stay inside the preview's clean path.
+    await expect(page).toHaveURL(/\/preview\/[0-9a-f-]{36}$/);
     await page.getByRole('link', { name: 'Pricing' }).first().click();
-    await expect(page).toHaveURL(/\/p\/v1\.[\w-]+\.[\w-]+#pricing$/);
+    await expect(page).toHaveURL(/\/preview\/[0-9a-f-]{36}#pricing$/);
     // No Content-Security-Policy violation was reported while the page and the click ran.
     expect(await page.evaluate(() => (globalThis as unknown as { __v?: string[] }).__v ?? [])).toEqual([]);
-    expect(await prospect.cookies()).toEqual([]);
+    // Only the link cookie: HttpOnly, SameSite=Lax, limited to this one preview's path.
+    const cookies = await prospect.cookies();
+    expect(cookies).toHaveLength(1);
+    expect(cookies[0]).toMatchObject({ name: 'link', httpOnly: true, sameSite: 'Lax' });
+    expect(cookies[0]?.path).toMatch(/^\/preview\/[0-9a-f-]{36}$/);
 
     // A one-character edit of the link is refused.
     const bad = await page.goto(link.replace(/(\/p\/.{12})./, '$1X'));
@@ -374,6 +379,24 @@ test('after a deployment, an open editor asks for a reload instead of failing to
   await expect(name).toBeEnabled({ timeout: 30_000 });
   await expect(page.getByTestId('stale-build')).toHaveCount(0);
   await expect(name).toHaveValue(before);
+});
+
+// P3 S9b (DG-39 (d)): the S9a production check saw a first click on "Publish" right after the editor loaded do
+// nothing. Reproduced here in the full journey (CPU slowed 6x, clicked as soon as the button exists): a click before
+// React hydrated the page was lost. The menu now stays disabled until the page is hydrated, so the click waits.
+test('the editor menu answers the first click right after the page loads', async () => {
+  test.setTimeout(60_000);
+  const page = a.page;
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: 6 });
+  try {
+    await page.goto(`/w/${a.slug}/projects/${projectId}/editor`, { waitUntil: 'commit' });
+    await page.getByRole('button', { name: 'Publish', exact: true }).click();
+    await expect(page.getByText('Publish to', { exact: true })).toBeVisible({ timeout: 15_000 });
+  } finally {
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+    await cdp.detach();
+  }
 });
 
 // P3 S4 (FR-BLD-03): sections and pages. Every change is one validated, undoable change set.
@@ -555,12 +578,19 @@ test('A uploads and crops a photo, uses it as the logo with alt text, and a fake
 test('A publishes to Staging, shares a review link, fixes the demo details, publishes Live and turns the link off', async () => {
   test.setTimeout(240_000);
   const page = a.page;
-  const visit = (url: string) => {
+  const visit = async (url: string) => {
     const u = new URL(url);
-    return page.request.get(`http://127.0.0.1:${SITES_PORT}${u.pathname}`, {
-      headers: { host: `${u.hostname}:${SITES_PORT}` },
-      maxRedirects: 0,
-    });
+    const send = (path: string, cookie?: string) =>
+      page.request.get(`http://127.0.0.1:${SITES_PORT}${path}`, {
+        headers: { host: `${u.hostname}:${SITES_PORT}`, ...(cookie ? { cookie } : {}) },
+        maxRedirects: 0,
+      });
+    const first = await send(u.pathname);
+    if (first.status() !== 303) return first;
+    // P3 S9b (DG-37 (h)): the token path hands over to the clean path; the token travels in the link cookie.
+    const location = first.headers()['location'] as string;
+    expect(location).toMatch(/^\/review\/[0-9a-f-]{36}$/);
+    return send(location, (first.headers()['set-cookie'] as string).split(';')[0]);
   };
   await page.goto(`/w/${a.slug}/projects/${projectId}/editor`);
   const nav = page.getByRole('navigation', { name: 'Site parts' });
@@ -808,7 +838,11 @@ test('A gets a comment and an approval through the review link, replies, and the
 
     // No script, no CSP violation, no cookie; the panel passes axe.
     expect(await c.evaluate(() => (globalThis as unknown as { __v?: string[] }).__v ?? [])).toEqual([]);
-    expect(await client.cookies()).toEqual([]);
+    // P3 S9b (DG-37 (h)): exactly one cookie, the link's: HttpOnly, SameSite=Lax, limited to this review link.
+    const cookies = await client.cookies();
+    expect(cookies).toHaveLength(1);
+    expect(cookies[0]).toMatchObject({ name: 'link', httpOnly: true, sameSite: 'Lax' });
+    expect(cookies[0]?.path).toMatch(/^\/review\/[0-9a-f-]{36}$/);
     expect(await c.content()).not.toMatch(/<script/i);
     const axe = await new AxeBuilder({ page: c })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])

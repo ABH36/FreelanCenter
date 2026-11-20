@@ -1,7 +1,9 @@
 /**
  * Every tenant-site path (P1 S7). `/api/health` and `/_next/*` are more specific and win. A host with a live version
- * renders it (P3 S7a); the preview host also serves staging links (`/s/<token>`). POST exists only for the client
- * review forms of a staging link (P3 S8a, `/s/<token>/_review/comment|approve`); every other POST is 405.
+ * renders it (P3 S7a); the preview host also serves preview links (`/p/<token>` → `/preview/<key>`) and staging links
+ * (`/s/<token>` → `/review/<key>`, P3 S9b: the token moves into a path-scoped cookie). POST exists only for the
+ * client review forms of a staging link (P3 S8a, `/review/<key>/_review/comment|approve`, and the pre-S9b
+ * `/s/<token>/...` form); every other POST is 405.
  */
 import { serveHost, servePost } from '../../lib/serve';
 import { previewSettings } from '../../lib/preview-settings';

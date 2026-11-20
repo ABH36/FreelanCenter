@@ -12,6 +12,8 @@ import { createMemoryStore } from '@platform/providers';
 import { clearPreviewCache, type PreviewDeps } from './preview';
 import { previewSettings } from './preview-settings';
 import { serveHost } from './serve';
+import { linkKey } from './link-session';
+import { followLink } from './link-session.testing';
 
 const SECRET = 's'.repeat(40);
 const PREVIOUS = 'p'.repeat(40);
@@ -97,15 +99,22 @@ function setup(options: { preview?: Partial<PreviewDeps> | null } = {}) {
           },
           ...options.preview,
         };
+  // P3 S9b: a browser follows the token exchange (303 + link cookie) to the clean path.
   const get = (path: string, init: { host?: string; method?: string } = {}) =>
-    serveHost(
-      new Request(`http://internal${path}`, {
-        method: init.method ?? 'GET',
-        headers: { host: init.host ?? HOST },
-      }),
-      { resolver: async () => resolver, logger, preview: async () => previewDeps },
+    followLink(
+      (request) =>
+        serveHost(request, { resolver: async () => resolver, logger, preview: async () => previewDeps }),
+      `http://internal${path}`,
+      { method: init.method ?? 'GET', headers: { host: init.host ?? HOST } },
     );
-  return { get };
+  /** One request, no redirect followed, with extra headers (cookies). */
+  const raw = (path: string, headers: Record<string, string> = {}, host = HOST) =>
+    serveHost(new Request(`http://internal${path}`, { headers: { host, ...headers } }), {
+      resolver: async () => resolver,
+      logger,
+      preview: async () => previewDeps,
+    });
+  return { get, raw };
 }
 
 const mint = (
@@ -148,20 +157,20 @@ describe('a valid link', () => {
     expect(html).toContain('Iron Pulse Fitness');
   });
 
-  it('keeps the visitor inside the link: every in-site link, including other pages, carries the token', async () => {
+  it('keeps the visitor inside the link: every in-site link, including other pages, uses the clean path (S9b)', async () => {
     const { get } = setup();
     const token = mint('taxi-quick');
+    const base = `/preview/${linkKey(token)}`;
     const home = await (await get(`/p/${token}`)).text();
+    expect(home).not.toContain(token);
     const hrefs = [...home.matchAll(/href="(\/[^"]*)"/g)]
       .map((m) => m[1] as string)
       .filter((h) => !h.startsWith('/fonts/'));
     expect(hrefs.length).toBeGreaterThan(5);
     for (const h of hrefs) {
-      expect(h === `/p/${token}` || h.startsWith(`/p/${token}/`) || h.startsWith(`/p/${token}#`), h).toBe(
-        true,
-      );
+      expect(h === base || h.startsWith(`${base}/`) || h.startsWith(`${base}#`), h).toBe(true);
     }
-    expect(hrefs).toContain(`/p/${token}/rates`);
+    expect(hrefs).toContain(`${base}/rates`);
     const rates = await get(`/p/${token}/rates`);
     expect(rates.status).toBe(200);
     expect(await rates.text()).toContain('Our rates');
@@ -186,7 +195,7 @@ describe('a valid link', () => {
     expect(res.status).toBe(404);
     const html = await res.text();
     expect(html).toContain('Page not found');
-    expect(html).toContain(`href="/p/${token}"`);
+    expect(html).toContain(`href="/preview/${linkKey(token)}"`);
     expect(html).toContain('class="pb-banner"');
   });
 
@@ -491,5 +500,71 @@ describe('who sent the link (P2 S10, acceptance C-25)', () => {
     const res = await get(`/p/${mint('gym-bold', { linkId: LID })}`);
     expect(res.status).toBe(410);
     expect(await res.text()).toContain('The sender has turned this link off');
+  });
+});
+
+// P3 S9b (DG-37 (h)): the token leaves the path on the first request and travels in a path-scoped cookie.
+describe('token exchange (S9b)', () => {
+  const ID = '01920000-0000-7000-8000-0000000000d1';
+  const cookieOf = (res: Response) => (res.headers.get('set-cookie') ?? '').split(';')[0] as string;
+
+  it('a link with an id goes to /preview/<id>; one without an id to /preview/<digest>; the token is only in the cookie', async () => {
+    const { raw } = setup();
+    const withId = mint('gym-bold', { linkId: ID });
+    const a = await raw(`/p/${withId}/rates?x=1`);
+    expect(a.status).toBe(303);
+    expect(a.headers.get('location')).toBe(`/preview/${ID}/rates?x=1`);
+    expect(a.headers.get('set-cookie')).toContain(`Path=/preview/${ID}`);
+    expect(a.headers.get('set-cookie')).toContain(`__Secure-link=${withId}`);
+    expect(a.headers.get('set-cookie')).toMatch(/HttpOnly; Secure; SameSite=Lax$/);
+    // 7 days by default.
+    expect(a.headers.get('set-cookie')).toContain('Max-Age=604800');
+
+    const noId = mint('gym-bold');
+    const b = await raw(`/p/${noId}`);
+    expect(b.headers.get('location')).toBe(`/preview/${linkKey(noId)}`);
+    expect(linkKey(noId)).toMatch(/^t[A-Za-z0-9_-]{43}$/);
+    expect(b.headers.get('location')).not.toContain(noId);
+    // Nothing was read before the exchange: no catalogue, no revocation check.
+    expect(calls).toEqual([]);
+    expect(revocationChecks).toEqual([]);
+  });
+
+  it('the clean path needs the cookie of that link; a cookie opens only its own link', async () => {
+    const { raw } = setup();
+    const token = mint('gym-bold', { linkId: ID });
+    const cookie = cookieOf(await raw(`/p/${token}`));
+    expect((await raw(`/preview/${ID}`, { cookie })).status).toBe(200);
+    const bare = await raw(`/preview/${ID}`);
+    expect(bare.status).toBe(401);
+    expect(await bare.text()).toContain('Open the preview link you were sent');
+    const elsewhere = await raw(`/preview/${linkKey(mint('taxi-quick'))}`, { cookie });
+    expect(elsewhere.status).toBe(401);
+  });
+
+  it('a link revoked after the exchange is refused on the clean path', async () => {
+    const { raw } = setup();
+    const token = mint('gym-bold', { linkId: ID });
+    const cookie = cookieOf(await raw(`/p/${token}`));
+    revoked.add(ID);
+    clearPreviewCache();
+    const res = await raw(`/preview/${ID}`, { cookie });
+    expect(res.status).toBe(410);
+  });
+
+  it('local development uses a plain cookie without Secure (http)', async () => {
+    const { raw } = setup({ preview: { host: 'preview.sites.localhost' } });
+    const token = mint('gym-bold');
+    const res = await raw(`/p/${token}`, {}, 'preview.sites.localhost:3001');
+    expect(res.status).toBe(303);
+    const cookie = res.headers.get('set-cookie')!;
+    expect(cookie.startsWith(`link=${token}; `)).toBe(true);
+    expect(cookie).not.toContain('Secure');
+    const page = await raw(
+      res.headers.get('location')!,
+      { cookie: cookieOf(res) },
+      'preview.sites.localhost:3001',
+    );
+    expect(page.status).toBe(200);
   });
 });

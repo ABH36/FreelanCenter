@@ -15,7 +15,7 @@
  *   - P3 S9a (DG-39 (b)): a save that cannot reach the server never leaves "Saving…" behind: it shows "Not saved"
  *     and keeps the change waiting. When a deployment changed the build, editing stops and the reload notice shows.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { DraftView } from '@platform/workspaces';
 import {
   editLockAction,
@@ -36,6 +36,9 @@ import { AddPage, AddSection, type Commit, PageTools, SectionTools } from './str
 import { type FontOption, ThemeForm, themePatchValue } from './theme-form';
 
 type Config = DraftView['config'];
+
+/** `useSyncExternalStore` with nothing to subscribe to: only the server/client snapshot difference matters. */
+const noSubscription = () => () => {};
 type Section = Config['pages'][number]['sections'][number];
 type Selection =
   | { kind: 'business' }
@@ -173,6 +176,16 @@ export function Editor({
   /** P3 S9a: the server runs a newer build than this page; nothing more is sent until a reload. */
   const [stale, setStale] = useState(false);
   const markStale = useCallback(() => setStale(true), []);
+  /**
+   * P3 S9b (DG-39 (d)): false in the server HTML and until React has hydrated the page. A click before that is lost
+   * (React replays early clicks only inside Suspense boundaries), so the menu and the fields stay disabled until the
+   * page can act on them (reproduced in E2E with the CPU slowed 6x: "Publish" clicked at once did nothing).
+   */
+  const hydrated = useSyncExternalStore(
+    noSubscription,
+    () => true,
+    () => false,
+  );
 
   const revisionRef = useRef(revision);
   revisionRef.current = revision;
@@ -183,7 +196,7 @@ export function Editor({
   const saving = useRef<Promise<void> | null>(null);
 
   const holdsLock = lock?.mine === true;
-  const editable = canEdit && holdsLock && !stale;
+  const editable = canEdit && holdsLock && !stale && hydrated;
 
   const applyView = useCallback((view: ClientDraft) => {
     setConfig(view.config);
@@ -474,7 +487,7 @@ export function Editor({
   const holderName = lock && !lock.mine ? (memberNames[lock.holderUserId] ?? 'Another member') : null;
 
   const itemClass = (active: boolean) =>
-    `block w-full rounded-md px-3 py-2 text-left text-sm ${active ? 'bg-slate-900 text-white' : 'hover:bg-slate-100'}`;
+    `block w-full rounded-md px-3 py-2 text-left text-sm disabled:cursor-wait disabled:opacity-60 ${active ? 'bg-slate-900 text-white' : 'hover:bg-slate-100'}`;
 
   return (
     <AssetLibraryProvider target={target} enabled={uploadsEnabled} canManage={canEdit}>
@@ -555,6 +568,7 @@ export function Editor({
             <button
               type="button"
               aria-current={selection.kind === 'business' ? 'true' : undefined}
+              disabled={!hydrated}
               className={itemClass(selection.kind === 'business')}
               onClick={() => void choose({ kind: 'business' })}
             >
@@ -563,6 +577,7 @@ export function Editor({
             <button
               type="button"
               aria-current={selection.kind === 'theme' ? 'true' : undefined}
+              disabled={!hydrated}
               className={itemClass(selection.kind === 'theme')}
               onClick={() => void choose({ kind: 'theme' })}
             >
@@ -571,6 +586,7 @@ export function Editor({
             <button
               type="button"
               aria-current={selection.kind === 'images' ? 'true' : undefined}
+              disabled={!hydrated}
               className={itemClass(selection.kind === 'images')}
               onClick={() => void choose({ kind: 'images' })}
             >
@@ -579,6 +595,7 @@ export function Editor({
             <button
               type="button"
               aria-current={selection.kind === 'publish' ? 'true' : undefined}
+              disabled={!hydrated}
               className={itemClass(selection.kind === 'publish')}
               onClick={() => void choose({ kind: 'publish' })}
             >
@@ -587,6 +604,7 @@ export function Editor({
             <button
               type="button"
               aria-current={selection.kind === 'feedback' ? 'true' : undefined}
+              disabled={!hydrated}
               className={itemClass(selection.kind === 'feedback')}
               onClick={() => void choose({ kind: 'feedback' })}
             >
@@ -609,6 +627,7 @@ export function Editor({
                     aria-current={
                       selection.kind === 'page' && selection.pageId === page.id ? 'true' : undefined
                     }
+                    disabled={!hydrated}
                     className={`${itemClass(selection.kind === 'page' && selection.pageId === page.id)} text-xs font-semibold tracking-wide uppercase`}
                     onClick={() => void choose({ kind: 'page', pageId: page.id })}
                   >
@@ -624,6 +643,7 @@ export function Editor({
                         <button
                           type="button"
                           aria-current={active ? 'true' : undefined}
+                          disabled={!hydrated}
                           className={itemClass(active)}
                           onClick={() => void choose({ kind: 'section', sectionId: section.id })}
                         >
