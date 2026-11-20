@@ -1,6 +1,6 @@
 # Phase 3, slice S9d: page search titles and descriptions
 
-**Status:** built on `feat/p3-s9d-page-seo`; tests in section 5; **awaiting the Owner's approval**. **Date:** 2026-11-20 · **Requirements:** FR-BLD-01/02 (edit the site's content), FR-PUB-04 (preflight before publishing), FR-SEO (page titles and descriptions; module 14) · **Modules:** 05, 06, 14 · **Gap:** DG-40 · **Plan approved by the Owner 2026-11-20:** Live is blocked and Staging warned while a page still names the template's sample business; a one-click replace is included. **Migration:** none, so no live database step.
+**Status:** built on `feat/p3-s9d-page-seo`; tests in section 5; **approved by the Owner 2026-11-20** ("yes i approve"). **Date:** 2026-11-20 · **Requirements:** FR-BLD-01/02 (edit the site's content), FR-PUB-04 (preflight before publishing), FR-SEO (page titles and descriptions; module 14) · **Modules:** 05, 06, 14 · **Gap:** DG-40 · **Plan approved by the Owner 2026-11-20:** Live is blocked and Staging warned while a page still names the template's sample business; a one-click replace is included. **Migration:** none, so no live database step.
 
 ## 1. Why
 
