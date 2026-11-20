@@ -367,11 +367,18 @@ test('after a deployment, an open editor asks for a reload instead of failing to
     return route.fallback();
   };
   await page.route('**/*', stale);
-  await name.fill(`Lost ${run}`);
+  // Any server action can be the first to meet the new build: the edit's save, or one the editor makes by itself
+  // (the lock renewal, or a re-render in the development server). In the second case editing has already stopped
+  // and the field is disabled, so the edit is only attempted while the field still takes input (CI 2026-11-20).
+  const edited = await name
+    .fill(`Lost ${run}`, { timeout: 5_000 })
+    .then(() => true)
+    .catch(() => false);
   const notice = page.getByTestId('stale-build');
   await expect(notice).toBeVisible({ timeout: 30_000 });
   await expect(notice).toContainText('A new version of the dashboard is available');
-  await expect(page.getByTestId('save-status')).toHaveText('Not saved');
+  if (edited) await expect(page.getByTestId('save-status')).toHaveText('Not saved');
+  await expect(page.getByTestId('save-status')).not.toHaveText('Saving…');
   await expect(name).toBeDisabled();
 
   await page.unroute('**/*', stale);

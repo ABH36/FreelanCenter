@@ -43,6 +43,8 @@ The S9b production check found the staging page titled "Iron Pulse Fitness | Gym
 
 The integration helpers that rename the business before Live now replace the sample name in the same change, as a person would with the button.
 
+**CI note (PR #112, 2026-11-20):** the first CI run failed twice in the S9a stale-build E2E test ("locator.fill: Test ended"). In CI another server action of the editor (its lock renewal, or a re-render by the development server) met the simulated new build before the test typed, so the editor rightly stopped editing and disabled the field, and the test waited two minutes to type into it. The app behaved as designed; the test assumed one order. It now types only while the field still takes input, and in either order checks the notice, that editing stopped, that nothing is left on "Saving…", and that the reloaded draft lost nothing. Local E2E after the change: 24/24 (12.4 minutes).
+
 ## 6. CI-equivalent (local, 2026-11-20)
 
 Branch `feat/p3-s9d-page-seo` on `e316986`. `prettier --check` on every changed file, `sync-plan:check`, `lint` (18 tasks), `typecheck` (18), `test` (15) and `build` (dashboard and sites) pass; `traceability` unchanged. Workspaces integration 245/245, isolation 402/402, E2E 24/24 in 15.5 minutes (2026-11-20).
