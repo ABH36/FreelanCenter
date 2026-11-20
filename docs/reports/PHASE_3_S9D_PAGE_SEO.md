@@ -1,6 +1,6 @@
 # Phase 3, slice S9d: page search titles and descriptions
 
-**Status:** built on `feat/p3-s9d-page-seo`; tests in section 5; **approved by the Owner 2026-11-20** ("yes i approve"). **Date:** 2026-11-20 · **Requirements:** FR-BLD-01/02 (edit the site's content), FR-PUB-04 (preflight before publishing), FR-SEO (page titles and descriptions; module 14) · **Modules:** 05, 06, 14 · **Gap:** DG-40 · **Plan approved by the Owner 2026-11-20:** Live is blocked and Staging warned while a page still names the template's sample business; a one-click replace is included. **Migration:** none, so no live database step.
+**Status:** approved by the Owner 2026-11-20 ("yes i approve"); merged as PR #112 (`baf8ede`); **production check passed 2026-11-21** (section 9). **Date:** 2026-11-20 · **Requirements:** FR-BLD-01/02 (edit the site's content), FR-PUB-04 (preflight before publishing), FR-SEO (page titles and descriptions; module 14) · **Modules:** 05, 06, 14 · **Gap:** DG-40 · **Plan approved by the Owner 2026-11-20:** Live is blocked and Staging warned while a page still names the template's sample business; a one-click replace is included. **Migration:** none, so no live database step.
 
 ## 1. Why
 
@@ -57,3 +57,25 @@ None.
 
 - The Open Graph image (`seo.ogImage`) and `noindex` are not editable yet (module 14, local SEO).
 - Existing projects get the check at once; their owners fix them with the button before the next Live publish.
+
+## 9. Production check (2026-11-21, Chrome extension, Owner-run)
+
+**Merge and deployment.** PR #112 was merged as `baf8ede` with the Owner's OK. The production deploy check (run 44758636185) passed for both projects, and health answered 200 on both. The first CI run failed in the S9a stale-build E2E test; the cause and the test fix are in section 5.
+
+**All applicable steps passed.** Step 4 was not applicable because "S8b Check" has one page. Nothing was published to Live. Staging version 4 was published for step 6. The replacement made in step 3 stays; the test edit in step 7 was undone.
+
+| Step | Checked                 | Result                                                                                                                                                                                               |
+| ---- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | Live preflight          | pass: "Must fix: … The search title or description of the page "Home" still names the template's sample business "Iron Pulse Fitness". …"; "Publish to Live" disabled; Staging shows it as a "Check" |
+| 2    | Page settings           | pass: "Search and browser tab", the notice for 1 page, and the button "Replace the sample name with "S8b Check Gym""; title "Iron Pulse Fitness                                                      | Gym and personal training" (46/70)                                                              |
+| 3    | Replace                 | pass: "All changes saved"; title "S8b Check Gym                                                                                                                                                      | Gym and personal training" (41/70); the description, which did not name the business, unchanged |
+| 4    | Another page            | n/a: one page                                                                                                                                                                                        |
+| 5    | Live preflight again    | pass: the check is gone; "Publish to Live" enabled (not published)                                                                                                                                   |
+| 6    | Staging page title      | pass: "Published version 4 to Staging …"; the review tab title and `og:title` are "S8b Check Gym                                                                                                     | Gym and personal training"; "Iron Pulse Fitness" nowhere on the page                            |
+| 7    | Manual edit, save, undo | pass: counter 41 → 46; "All changes saved"; Undo restored the step 3 title                                                                                                                           |
+| 8    | Console, speed, layout  | pass: only the known extension entries                                                                                                                                                               |
+
+**Observations (DG-40 (a), the Owner chose a small polish slice S9e before S9c, 2026-11-21):**
+
+1. Unsaved search texts are not flagged: while " test" was typed but not saved, the status still said "All changes saved". The page settings save with a button, not automatically, so leaving without "Save search texts" loses the text while the status says everything is saved. The page name field ("Rename") works the same way.
+2. The grey example is the title the site makes when the field is empty ("S8b Check Gym - Strength training and coaching"), shown beside a different saved title; the hint should say so more plainly.
