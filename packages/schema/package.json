@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Zod schemas: SiteConfig, Template, patch operations, API contracts (pure layer)",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./seo-demo": "./src/seo-demo.ts"
   },
   "scripts": {
     "lint": "eslint .",

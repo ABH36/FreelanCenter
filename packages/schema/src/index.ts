@@ -14,4 +14,5 @@ export * from './parse';
 export * from './patch';
 export * from './template';
 export * from './samples';
+export * from './seo-demo';
 export { buildJsonSchemas, editorFormSchemas } from './json-schema';

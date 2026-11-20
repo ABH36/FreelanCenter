@@ -65,6 +65,7 @@ describe('runPreflight', () => {
     site.business.phone = '919811111111'; // same digits, other spelling
     site.business.email = 'HI@Sharma.test';
     site.business.name = 'Another name';
+    site.pages[0]!.seo = { title: 'Another name', description: 'Weights' } as never;
     const live = run(site, 'live', template);
     expect(live.ok).toBe(false);
     expect(live.checks[0]).toMatchObject({ rule: 'demo-contact', level: 'blocking' });
@@ -72,6 +73,28 @@ describe('runPreflight', () => {
     const staging = run(site, 'staging', template);
     expect(staging.ok).toBe(true);
     expect(rules(staging)).toEqual(['demo-contact:warning']);
+  });
+
+  it('P3 S9d (DG-40): a page search title or description naming the demo business blocks Live and warns for Staging', () => {
+    const template = base(); // its business is "Sharma Gym"
+    const site = base();
+    site.business.name = 'Verma Fitness';
+    site.business.phone = '+919822222222';
+    site.business.email = 'hi@verma.test';
+    site.pages[0]!.seo = { title: 'SHARMA gym | Weights', description: 'Gym in Indore' } as never;
+    const live = run(site, 'live', template);
+    expect(live.ok).toBe(false);
+    const check = live.checks.find((c) => c.rule === 'demo-seo');
+    expect(check).toMatchObject({ level: 'blocking', where: 'Page settings' });
+    expect(check!.message).toContain('"Home"');
+    expect(check!.message).toContain('"Sharma Gym"');
+    expect(run(site, 'staging', template).checks.find((c) => c.rule === 'demo-seo')?.level).toBe('warning');
+    // Fixed texts, no template to compare with, or a business that kept the demo name: no check.
+    site.pages[0]!.seo = { title: 'Verma Fitness | Weights', description: 'Gym in Indore' } as never;
+    expect(run(site, 'live', template).checks.some((c) => c.rule === 'demo-seo')).toBe(false);
+    site.pages[0]!.seo = { title: 'Sharma Gym', description: 'Gym in Indore' } as never;
+    expect(run(site, 'live').checks.some((c) => c.rule === 'demo-seo')).toBe(false);
+    expect(run(template, 'live', template).checks.some((c) => c.rule === 'demo-seo')).toBe(false);
   });
 
   it('a call button without a phone, a link to a missing page and a scroll to a hidden section are broken links', () => {

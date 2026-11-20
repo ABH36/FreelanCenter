@@ -199,6 +199,11 @@ export interface DraftView {
   revision: number;
   config: SiteConfig;
   templateId: string | null;
+  /**
+   * P3 S9d (DG-40): the business name of the catalogue template the draft started from, so the editor can offer to
+   * replace it in page search texts. Null without a template or when it left the catalogue.
+   */
+  demoBusinessName: string | null;
   lock: LockState | null;
   canUndo: boolean;
   canRedo: boolean;
@@ -220,6 +225,15 @@ export interface BuilderServiceDeps {
 export function createBuilderService(deps: BuilderServiceDeps) {
   const runner = createScopedRunner(deps.db, deps.logger);
   const { command, query } = runner;
+
+  /** The demo business name of a catalogue template (platform demo content, readable by any member). */
+  async function demoBusinessName(tx: Tx, templateId: string | null): Promise<string | null> {
+    if (!templateId) return null;
+    const rows = await tx.$queryRaw<{ name: string | null }[]>`
+      SELECT config #>> '{business,name}' AS name FROM app.catalog_template_for_draft(${templateId}::uuid)`;
+    const name = rows[0]?.name;
+    return typeof name === 'string' && name.trim() ? name.trim() : null;
+  }
 
   async function findProject(tx: Tx, projectId: unknown) {
     const id = requireId(projectId);
@@ -422,6 +436,7 @@ export function createBuilderService(deps: BuilderServiceDeps) {
           revision: draft.revision,
           config: draft.config,
           templateId: project.templateId,
+          demoBusinessName: await demoBusinessName(tx, project.templateId),
           lock: await lockState(tx, scope, project.id),
           canUndo: undoTarget !== null && undoIndex < BUILDER_LIMITS.undoDepth,
           canRedo: redoTarget !== null,

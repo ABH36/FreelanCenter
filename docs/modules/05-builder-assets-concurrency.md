@@ -61,6 +61,7 @@ Owners, admins and editors write; viewers read. Writes need a writable workspace
   - The section toolbar can move, hide or show, duplicate, delete (with an in-page confirmation) and change the layout.
   - Each page has an "Add section" button.
   - The page settings can rename, move and delete a page.
+  - P3 S9d (DG-40): the page settings also hold the page's search title (70) and description (200), shown in the browser tab and in search results; left empty, the site uses the business name (home) or "page | business". When any page still names the template's sample business, a button replaces it with the business name on every page in one undoable change (`replaceDemoSeo`, `@platform/schema/seo-demo`). `getDraft` returns `demoBusinessName` (the catalogue template's business name).
   - "Add page" adds a page whose address is made from its name and kept unique.
   - These controls are buttons, not drag and drop, so they work from the keyboard.
   - Changing a section's block type is not offered; you add a new section instead.
