@@ -1,6 +1,6 @@
 # Phase 3, slice S9b: link tokens out of the request path, and the S9a polish
 
-**Status:** built on `feat/p3-s9b-link-tokens`; tests in section 5; **approved by the Owner 2026-11-19** ("okay i approve"). **Date:** 2026-11-19 · **Requirements:** FR-PUB-01 and FR-PUB-05 (review links and client review), FR-TPL-09 (preview links), SEC-11 (no secret tokens leaked through URLs), FR-OBS-01 (logs carry no secrets) · **Modules:** 06, 04, 15 · **Gaps:** DG-37 (h), DG-39 (d) · **Plan approved by the Owner 2026-11-19** ("yes i approve the plan and tumhare reocmmendation bhi sahi hai"): Option A, the paths `/review/<key>` and `/preview/<key>`, and the cookie holding the same signed token. **Migration:** none, so no live database step.
+**Status:** approved by the Owner 2026-11-19 ("okay i approve"); merged as PR #108 (`68090ad`); **production check passed 2026-11-20** (section 9). **Date:** 2026-11-19 · **Requirements:** FR-PUB-01 and FR-PUB-05 (review links and client review), FR-TPL-09 (preview links), SEC-11 (no secret tokens leaked through URLs), FR-OBS-01 (logs carry no secrets) · **Modules:** 06, 04, 15 · **Gaps:** DG-37 (h), DG-39 (d) · **Plan approved by the Owner 2026-11-19** ("yes i approve the plan and tumhare reocmmendation bhi sahi hai"): Option A, the paths `/review/<key>` and `/preview/<key>`, and the cookie holding the same signed token. **Migration:** none, so no live database step.
 
 ## 1. Why
 
@@ -60,5 +60,33 @@ None.
 ## 8. Open items
 
 - The entry request of each visit still records the token in the Vercel runtime log (accepted with the plan). Only Vercel team members can read it, the Hobby plan keeps it about an hour, and links are revocable and expire.
-- DG-39 (b): the reload notice in a tab left open across a deployment is still to be seen in production. To be checked around this slice's merge: part A shortly before the merge, part B right after, Chrome Memory Saver off for the dashboard, and builds compared through `?dpl=` on asset URLs (Next removes `data-dpl-id` from the page once it has read it).
-- S9c (DG-37 (e), abuse baseline) follows.
+- DG-39 (b): checked around this slice's merge (section 9); closed with the Owner's decision.
+- New DG-40 (page titles keep the template's demo name): a small slice before S9c (Owner, 2026-11-20). S9c (DG-37 (e), abuse baseline) follows.
+
+## 9. Production check (2026-11-20, Chrome extension, Owner-run)
+
+**Merge and deployment.** PR #108 was merged as `68090ad` with the Owner's OK. The production deploy check (run 44677167815) passed for both projects. The server HTML moved from `dpl_2vVE67N47Yg8WKdzpyw3eLXtXPyF` to `dpl_CiuLHdAsKLA41VA4bkYQ1bddds7j`, and health answered 200 on both apps.
+
+**DG-37 (h), evidence from Vercel's request records** (`vercel logs requests`, the three hours around the check): the token paths appeared only as entries, each answered 303 (`/s/` once, `/p/` twice). Every other request used a clean path: `/preview/<key>` 200 three times; `/review/<id>` 200 twice and 401 six times without the cookie; `/review/<id>/_review` 200 once and 401 twice without the cookie. No 503 was recorded.
+
+**DG-39 (b), a tab left open across the deployment.** Before the merge, an editor tab was opened on the old build. The Owner set Chrome to keep the dashboard active (Memory Saver), and the tab was not reloaded in between. Next 16.3+ on Vercel serves content-addressed "immutable" chunks without `?dpl=`, so the builds were compared by chunk file names: 3 of the tab's 12 files were not in the new build, so the tab was still on the old build.
+
+| Step | Checked                                               | Result                                                                                                                                                                                                                                       |
+| ---- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A1–3 | New deployment id; old tab still on the old build     | pass                                                                                                                                                                                                                                         |
+| A4   | 40 s idle in the old tab (lock renewals)              | no notice; "All changes saved"                                                                                                                                                                                                               |
+| A5   | An edit in the old tab                                | pass: "All changes saved" (request 200, audit "Draft changed"), then Undo ("Draft undone"); nothing lost                                                                                                                                     |
+| A6   | A header link in the old tab                          | pass: full reload (`performance.timeOrigin` changed), new build's files loaded                                                                                                                                                               |
+| 7    | "Publish" right after the editor loads                | pass: disabled at 0 and 423 ms, enabled at 754 ms, one click at 756 ms opened the panel                                                                                                                                                      |
+| 8    | Review link: expiry text, clean address, review panel | pass: "Until 2 Dec 2026, 5:24 pm IST"; `/s/s1.…` redirected to `/review/01a1ee82…` and `/review/01a1ee82…/_review`                                                                                                                           |
+| 9    | Clean address without the cookie                      | pass by the request records (401, above). The browser check could not run: the review page's CSP blocks script fetches, and the cross-site attempt was blocked in the browser, which the checker reported as 503; the server recorded no 503 |
+| 10   | "View demo" preview                                   | pass: `/preview/tTlTAs…`, Pricing `#pricing`; Taxi Quick `/preview/tIqAt0…` → `/rates`                                                                                                                                                       |
+| 11   | Audit log header                                      | pass: "When"; rows end in "IST"                                                                                                                                                                                                              |
+| 12   | Console, speed, layout                                | pass: only the known extension entries                                                                                                                                                                                                       |
+
+**Reading of A4–A6:** the old build's server actions still matched the new server, because their ids come from a build key that Vercel's build cache keeps, so no stale-build error occurred and the save went through. That is the safe outcome; the reload notice appears only when the ids change, as the E2E test shows. The first navigation moved the tab to the new build (`deploymentId`). **The Owner decided on 2026-11-20 to close DG-39 (b)** on this evidence.
+
+**Observations:**
+
+1. The Publish panel's "Open" and "Copy link" still use the `/s/<token>` address. This is by design: that link is the entry, which the client needs, and it redirects at once.
+2. **New gap DG-40:** the staging (and live) page's browser title is the template's demo text ("Iron Pulse Fitness | Gym and personal training") although the business is "S8b Check Gym". Page `seo.title` comes from the template, does not follow the business name, and the editor has no field for it. The Owner chose a small slice before S9c (2026-11-20).
