@@ -7,6 +7,7 @@
  * keyboard (FR-BLD-08).
  */
 import { useId, useState } from 'react';
+import { SEO_TEXT_LIMITS, findDemoSeo, replaceDemoSeo } from '@platform/schema/seo-demo';
 import type { DraftView } from '@platform/workspaces';
 import { humanize } from './schema-form';
 
@@ -289,14 +290,133 @@ export function AddSection({
   );
 }
 
-export function PageTools({
+/** What the site shows when a page has no search title of its own (same rule as the renderer). */
+function fallbackTitle(config: Config, page: Page): string {
+  const b = config.business;
+  const text =
+    page.path === '/' ? (b.tagline ? `${b.name} - ${b.tagline}` : b.name) : `${page.title} | ${b.name}`;
+  return text.slice(0, SEO_TEXT_LIMITS.title);
+}
+
+/**
+ * P3 S9d (DG-40): the page's search title and description (the browser tab and search results), and one change that
+ * replaces the template's sample business name in every page's search texts.
+ */
+function PageSeo({
   config,
   page,
+  demoName,
   disabled,
   commit,
 }: {
   config: Config;
   page: Page;
+  demoName: string | null;
+  disabled: boolean;
+  commit: Commit;
+}) {
+  const id = useId();
+  const [title, setTitle] = useState(page.seo?.title ?? '');
+  const [description, setDescription] = useState(page.seo?.description ?? '');
+  const leftovers = findDemoSeo(config, demoName);
+  const changed = title !== (page.seo?.title ?? '') || description !== (page.seo?.description ?? '');
+  const fallbackDescription = config.business.tagline ?? '';
+  return (
+    <section className="space-y-3 rounded-md border border-slate-200 p-3" aria-labelledby={`${id}-seo`}>
+      <h3 id={`${id}-seo`} className="text-sm font-semibold">
+        Search and browser tab
+      </h3>
+      {leftovers.length ? (
+        <div
+          role="status"
+          className="space-y-2 rounded-md bg-amber-50 p-2 text-sm text-amber-950"
+          data-testid="demo-seo"
+        >
+          <p>
+            The search texts of {leftovers.length === 1 ? '1 page' : `${leftovers.length} pages`} still name
+            the template&apos;s sample business &quot;{demoName}&quot;.
+          </p>
+          <button
+            type="button"
+            className={button}
+            disabled={disabled}
+            onClick={() => void commit(replaceDemoSeo(config, demoName))}
+          >
+            Replace the sample name with &quot;{config.business.name}&quot;
+          </button>
+        </div>
+      ) : null}
+      <form
+        className="space-y-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!changed) return;
+          void commit([
+            {
+              op: 'updatePage',
+              pageId: page.id,
+              seo: { ...page.seo, title: title.trim(), description: description.trim() },
+            },
+          ]);
+        }}
+      >
+        <div className="space-y-1">
+          <label htmlFor={`${id}-seo-title`} className="block text-sm font-medium">
+            Search title
+          </label>
+          <input
+            id={`${id}-seo-title`}
+            className={inputClass}
+            value={title}
+            maxLength={SEO_TEXT_LIMITS.title}
+            placeholder={fallbackTitle(config, page)}
+            aria-describedby={`${id}-seo-title-help`}
+            disabled={disabled}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+          <p id={`${id}-seo-title-help`} className="text-xs text-slate-600">
+            {title.length}/{SEO_TEXT_LIMITS.title}. Shown in the browser tab and as the headline on Google.
+            Left empty, the site uses the grey text.
+          </p>
+        </div>
+        <div className="space-y-1">
+          <label htmlFor={`${id}-seo-description`} className="block text-sm font-medium">
+            Search description
+          </label>
+          <textarea
+            id={`${id}-seo-description`}
+            className={inputClass}
+            rows={3}
+            value={description}
+            maxLength={SEO_TEXT_LIMITS.description}
+            placeholder={fallbackDescription}
+            aria-describedby={`${id}-seo-description-help`}
+            disabled={disabled}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+          <p id={`${id}-seo-description-help`} className="text-xs text-slate-600">
+            {description.length}/{SEO_TEXT_LIMITS.description}. The text under the headline on Google.
+          </p>
+        </div>
+        <button type="submit" className={button} disabled={disabled || !changed}>
+          Save search texts
+        </button>
+      </form>
+    </section>
+  );
+}
+
+export function PageTools({
+  config,
+  page,
+  demoName,
+  disabled,
+  commit,
+}: {
+  config: Config;
+  page: Page;
+  /** P3 S9d: the template's sample business name, if the draft started from one. */
+  demoName: string | null;
   disabled: boolean;
   commit: Commit;
 }) {
@@ -365,6 +485,14 @@ export function PageTools({
           />
         )}
       </div>
+      <PageSeo
+        key={`seo-${page.id}-${page.seo?.title ?? ''}-${page.seo?.description ?? ''}`}
+        config={config}
+        page={page}
+        demoName={demoName}
+        disabled={disabled}
+        commit={commit}
+      />
     </div>
   );
 }

@@ -19,7 +19,7 @@
  *   empty-page          the home page shows no section                                           warning
  * Hidden sections are skipped: visitors never see them.
  */
-import { SAMPLE_TEXTS, parseSiteConfig } from '@platform/schema';
+import { SAMPLE_TEXTS, findDemoSeo, parseSiteConfig } from '@platform/schema';
 import { contrastChecks } from '@platform/ui/color';
 
 export type PublishKind = 'staging' | 'live';
@@ -28,6 +28,7 @@ export type PreflightLevel = 'blocking' | 'warning';
 export type PreflightRule =
   | 'schema'
   | 'demo-contact'
+  | 'demo-seo'
   | 'broken-link'
   | 'form-destination'
   | 'placeholder-text'
@@ -131,6 +132,18 @@ export function runPreflight(input: {
         level: strict,
         message: `The template's sample ${left.length > 1 ? `${left.slice(0, -1).join(', ')} and ${left[left.length - 1]}` : left[0]} ${left.length > 1 ? 'are' : 'is'} still on the site. Replace ${left.length > 1 ? 'them' : 'it'} with the business's own in Business details.`,
         where: 'Business details',
+      });
+    }
+    // P3 S9d (DG-40): page search titles and descriptions that still name the demo business (the browser tab and
+    // search results would show it). Same weight as the demo contact details: blocks Live, warns on Staging.
+    const pages = findDemoSeo(config, b.name);
+    if (pages.length) {
+      const names = pages.map((p) => `"${p.pageTitle}"`);
+      add({
+        rule: 'demo-seo',
+        level: strict,
+        message: `The search title or description of ${pages.length > 1 ? 'the pages' : 'the page'} ${names.slice(0, 3).join(', ')}${names.length > 3 ? ` and ${names.length - 3} more` : ''} still names the template's sample business "${b.name}". Use "Replace the sample name" in a page's settings, or edit the texts there.`,
+        where: 'Page settings',
       });
     }
   }

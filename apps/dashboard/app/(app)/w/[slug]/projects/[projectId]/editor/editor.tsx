@@ -701,6 +701,7 @@ export function Editor({
                 key={`page-${selectedPage.id}-${selectedPage.title}`}
                 config={config}
                 page={selectedPage}
+                demoName={initial.demoBusinessName}
                 disabled={!editable || busy}
                 commit={commit}
               />

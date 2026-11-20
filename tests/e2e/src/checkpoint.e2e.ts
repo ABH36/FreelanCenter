@@ -367,11 +367,18 @@ test('after a deployment, an open editor asks for a reload instead of failing to
     return route.fallback();
   };
   await page.route('**/*', stale);
-  await name.fill(`Lost ${run}`);
+  // Any server action can be the first to meet the new build: the edit's save, or one the editor makes by itself
+  // (the lock renewal, or a re-render in the development server). In the second case editing has already stopped
+  // and the field is disabled, so the edit is only attempted while the field still takes input (CI 2026-11-20).
+  const edited = await name
+    .fill(`Lost ${run}`, { timeout: 5_000 })
+    .then(() => true)
+    .catch(() => false);
   const notice = page.getByTestId('stale-build');
   await expect(notice).toBeVisible({ timeout: 30_000 });
   await expect(notice).toContainText('A new version of the dashboard is available');
-  await expect(page.getByTestId('save-status')).toHaveText('Not saved');
+  if (edited) await expect(page.getByTestId('save-status')).toHaveText('Not saved');
+  await expect(page.getByTestId('save-status')).not.toHaveText('Saving…');
   await expect(name).toBeDisabled();
 
   await page.unroute('**/*', stale);
@@ -640,6 +647,23 @@ test('A publishes to Staging, shares a review link, fixes the demo details, publ
   await page.getByRole('textbox', { name: 'Whatsapp(optional)', exact: true }).fill('+919812345679');
   await page.getByRole('textbox', { name: 'Email(optional)', exact: true }).fill(`owner-${run}@example.test`);
   await expect(status).toHaveText('All changes saved', { timeout: 30_000 });
+
+  // P3 S9d (DG-40): the page search texts still name the template's sample business, which blocks Live.
+  await nav.getByRole('button', { name: 'Publish', exact: true }).click();
+  await page.getByText('Live (public website)').click();
+  await expect(checks.getByText(/still names the template's sample business/)).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByRole('button', { name: 'Publish to Live' })).toBeDisabled();
+  // One click in the page settings replaces it on every page (one undoable change).
+  await nav.getByRole('button', { name: 'Home page settings' }).click();
+  const sample = page.getByTestId('demo-seo');
+  await expect(sample).toBeVisible();
+  await sample.getByRole('button', { name: `Replace the sample name with "${liveName}"` }).click();
+  await expect(status).toHaveText('All changes saved', { timeout: 30_000 });
+  await expect(page.getByTestId('demo-seo')).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: 'Search title' })).toHaveValue(new RegExp(liveName));
+
   await nav.getByRole('button', { name: 'Publish', exact: true }).click();
   await page.getByText('Live (public website)').click();
   const publishLive = page.getByRole('button', { name: 'Publish to Live' });
@@ -658,6 +682,8 @@ test('A publishes to Staging, shares a review link, fixes the demo details, publ
   const live = await visit(`http://${hostname}/`);
   expect(live.status()).toBe(200);
   expect(live.headers()['cache-control']).toBe('public, max-age=0, s-maxage=60');
+  // P3 S9d: the browser tab names the business, not the template's sample business.
+  expect((await live.text()).match(/<title>([^<]*)<\/title>/)?.[1]).toContain(liveName);
   expect(live.headers()['x-robots-tag']).toBeUndefined();
 
   // Turning the review link off withdraws it at once.

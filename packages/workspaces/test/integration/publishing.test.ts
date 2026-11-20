@@ -10,6 +10,7 @@ import { uuidv7 } from '@platform/db';
 import { createPublicDatabase } from '@platform/db/public';
 import { LOCAL_DATABASE_URLS } from '@platform/db/testing';
 import { createHostResolver, hostCacheKey, verifyStagingToken } from '@platform/hosting';
+import { replaceDemoSeo } from '@platform/schema';
 import { createBuilderService } from '../../src/builder';
 import { WorkspaceError } from '../../src/errors';
 import { createPublishingService, versionChecksum } from '../../src/publishing';
@@ -48,7 +49,7 @@ const config = {
       id: 'home',
       path: '/',
       title: 'Home',
-      seo: { title: 'Iron Pulse', description: 'Gym in Indore' },
+      seo: { title: 'Iron Pulse Fitness | Gym in Indore', description: 'Gym in Indore' },
       sections: [
         {
           id: 's1',
@@ -108,12 +109,17 @@ async function project() {
   await builder.acquireLock(editor, { workspaceId: ws.id, projectId });
   const at = <T extends object>(input: T) => ({ workspaceId: ws.id, projectId, ...input });
   const setPhone = async (phone: string) => {
-    const { revision } = await builder.getDraft(editor, ws.id, projectId);
+    const { revision, config, demoBusinessName } = await builder.getDraft(editor, ws.id, projectId);
+    const name = `Sharma Gym ${phone.slice(-4)}`;
     return builder.applyChange(editor, {
       ...at({}),
       expectedRevision: revision,
       changeId: uuidv7(),
-      operations: [{ op: 'updateBusiness', value: { phone, name: `Sharma Gym ${phone.slice(-4)}` } }],
+      // P3 S9d: renaming also replaces the template's sample name in the page search texts (one change).
+      operations: [
+        { op: 'updateBusiness', value: { phone, name } },
+        ...replaceDemoSeo({ ...config, business: { ...config.business, name } }, demoBusinessName),
+      ],
     });
   };
   const host = (
@@ -134,6 +140,53 @@ describe('preflight (FR-PUB-04)', () => {
     const stage = await publishing.preflight(viewer, at({ kind: 'staging' }));
     expect(stage.ok).toBe(true);
     expect(stage.checks.find((c) => c.rule === 'demo-contact')?.level).toBe('warning');
+  });
+
+  it('P3 S9d (DG-40): the sample name left in page search texts blocks Live until it is replaced', async () => {
+    const { ws, editor, projectId, at } = await project();
+    const viewer = ws.members.viewer!.id;
+    const draft = await builder.getDraft(viewer, ws.id, projectId);
+    expect(draft.demoBusinessName).toBeTruthy();
+    expect(draft.config.business.name).toBe(draft.demoBusinessName);
+    // A new name and phone, but the page search texts still name the template's business.
+    const name = unique('Verma Fitness');
+    await builder.applyChange(editor, {
+      ...at({}),
+      expectedRevision: draft.revision,
+      changeId: uuidv7(),
+      operations: [
+        {
+          op: 'updateBusiness',
+          value: { name, phone: '+919877776666', whatsapp: '+919877776666', email: 'hi@verma.test' },
+        },
+      ],
+    });
+    const blocked = await publishing.preflight(viewer, at({ kind: 'live' }));
+    expect(blocked.ok).toBe(false);
+    expect(blocked.checks.find((c) => c.rule === 'demo-seo')).toMatchObject({ level: 'blocking' });
+    expect(blocked.checks.filter((c) => c.rule === 'demo-contact').map((c) => c.message)).toEqual([]);
+    const before = await builder.getDraft(editor, ws.id, projectId);
+    await expect(
+      publishing.publish(editor, {
+        ...at({ kind: 'staging' }),
+        expectedRevision: before.revision,
+        publishKey: uuidv7(),
+      }),
+    ).resolves.toMatchObject({ kind: 'staging' });
+
+    // The editor's button: one change, undoable, and Live is no longer blocked by it.
+    const ops = replaceDemoSeo(before.config, before.demoBusinessName);
+    expect(ops.length).toBeGreaterThan(0);
+    await builder.applyChange(editor, {
+      ...at({}),
+      expectedRevision: before.revision,
+      changeId: uuidv7(),
+      operations: ops,
+    });
+    const after = await builder.getDraft(editor, ws.id, projectId);
+    expect(after.config.pages.some((p) => (p.seo?.title ?? '').includes(name))).toBe(true);
+    const fixed = await publishing.preflight(viewer, at({ kind: 'live' }));
+    expect(fixed.checks.some((c) => c.rule === 'demo-seo')).toBe(false);
   });
 });
 

@@ -20,6 +20,7 @@ import pg from 'pg';
 import { uuidv7 } from '@platform/db';
 import { createPublicDatabase } from '@platform/db/public';
 import { LOCAL_DATABASE_URLS, sqlStates } from '@platform/db/testing';
+import { replaceDemoSeo } from '@platform/schema';
 import { createBuilderService } from '../../src/builder';
 import { WorkspaceError } from '../../src/errors';
 import { createPublishingService } from '../../src/publishing';
@@ -153,13 +154,18 @@ async function project() {
   await builder.acquireLock(editor, { workspaceId: ws.id, projectId });
   const at = <T extends object>(input: T = {} as T) => ({ workspaceId: ws.id, projectId, ...input });
   const setPhone = async (phone: string) => {
-    const { revision } = await builder.getDraft(editor, ws.id, projectId);
+    const { revision, config, demoBusinessName } = await builder.getDraft(editor, ws.id, projectId);
+    const name = `Gupta Sweets ${phone.slice(-4)}`;
     await builder.applyChange(editor, {
       ...at(),
       expectedRevision: revision,
       changeId: uuidv7(),
-      // The template's own name and phone are demo content that blocks Live (preflight decision 3).
-      operations: [{ op: 'updateBusiness', value: { phone, name: `Gupta Sweets ${phone.slice(-4)}` } }],
+      // The template's own name and phone are demo content that blocks Live (preflight decision 3); P3 S9d: so is
+      // its name in the page search texts, replaced in the same change.
+      operations: [
+        { op: 'updateBusiness', value: { phone, name } },
+        ...replaceDemoSeo({ ...config, business: { ...config.business, name } }, demoBusinessName),
+      ],
     });
   };
   const publish = async (actor: string, kind: 'staging' | 'live') => {
